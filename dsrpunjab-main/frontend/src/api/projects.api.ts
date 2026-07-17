@@ -12,7 +12,7 @@ export interface ProjectListItem {
   rivers?: string;
   description?: string;
   progress: number;
-  status: "ACTIVE" | "IN_PROGRESS" | "COMPLETED" | "ARCHIVED";
+  status: "ACTIVE" | "IN_PROGRESS" | "COMPLETED" | "ARCHIVED" | "Draft" | "In Progress" | "Under Review" | "Approved" | "Completed";
   phaseNo: number;
   phaseLocked: boolean;
   createdAt: string;
@@ -115,8 +115,11 @@ export const projectsApi = {
   },
 
   /** Move project to next phase */
-  nextPhase: async (id: string | number): Promise<ProjectDetail> => {
-    const { data } = await apiClient.post<ProjectDetail>(`/projects/${id}/phases`);
+  nextPhase: async (
+    id: string | number,
+    payload?: { title?: string; uploadColor?: string; phaseNo?: number }
+  ): Promise<ProjectDetail> => {
+    const { data } = await apiClient.post<ProjectDetail>(`/projects/${id}/phases`, payload || {});
     return data;
   },
 

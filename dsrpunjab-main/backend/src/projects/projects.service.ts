@@ -168,6 +168,8 @@ export class ProjectsService {
 
   async delete(id: bigint, user: AuthUser) {
     this.requireAdmin(user.role, "Access denied");
+    const project = await this.repository.find(id);
+    assertProjectDistrictAccess(project, user);
     const files = await this.repository.files(id);
     await Promise.all(files.map(file => this.storage.deleteFile(file.objectKey).catch(() => undefined)));
     await this.repository.delete(id);
