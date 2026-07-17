@@ -88,7 +88,15 @@ export const authApi = {
   },
 
   /** Register via invitation link */
-  registerInvited: async (payload: { token: string; password: string; fullName?: string }) => {
+  registerInvited: async (payload: {
+    token: string;
+    password: string;
+    fullName: string;
+    mobileNumber: string;
+    employeeId?: string;
+    gender?: string;
+    acceptedTerms: boolean;
+  }) => {
     const { data } = await apiClient.post("/auth/register-invited", payload);
     return data;
   },

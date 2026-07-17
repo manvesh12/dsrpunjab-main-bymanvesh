@@ -104,8 +104,8 @@ function PasswordStrength({ password }: { password: string }) {
 export default function RegisterPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-const inviteToken =
-  searchParams.get("invite") || searchParams.get("token");
+  const inviteToken =
+    searchParams.get("invite") || searchParams.get("token");
   const invitedEmail = searchParams.get("email");
 
   const [step, setStep] = useState<RegistrationStep>("details");
@@ -119,9 +119,41 @@ const inviteToken =
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [otpTimer, setOtpTimer] = useState(600);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingInvite, setIsLoadingInvite] = useState(false);
   const { login } = useAuth();
 
   const isInvited = !!inviteToken;
+
+  useEffect(() => {
+    if (!inviteToken) return;
+    let isActive = true;
+    setIsLoadingInvite(true);
+
+    authApi.getInvitationDetails(inviteToken)
+      .then((details) => {
+        if (!isActive) return;
+        setForm((current) => ({
+          ...current,
+          fullName: details.fullName || current.fullName,
+          email: details.email || current.email,
+          mobile: details.mobileNumber || current.mobile,
+          department: details.department || current.department,
+          designation: details.designation || current.designation,
+          district: details.district || current.district,
+          role: details.role || current.role,
+        }));
+      })
+      .catch((err) => {
+        toast.error(err?.response?.data?.message || err?.response?.data?.error || "Invalid or expired invitation link.");
+      })
+      .finally(() => {
+        if (isActive) setIsLoadingInvite(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [inviteToken]);
 
   // OTP timer
   useEffect(() => {
@@ -145,6 +177,10 @@ const inviteToken =
     if (!form.fullName.trim()) errs.fullName = "Full name is required";
     if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = "Valid email is required";
     if (!form.mobile.trim() || !/^\d{10}$/.test(form.mobile)) errs.mobile = "Valid 10-digit mobile number required";
+    if (isInvited) {
+      setErrors(errs);
+      return Object.keys(errs).length === 0;
+    }
     if (!form.employeeId.trim()) errs.employeeId = "Employee ID is required";
     if (!form.department.trim()) errs.department = "Department is required";
     if (!form.district) errs.district = "Please select a district";
@@ -180,6 +216,10 @@ const inviteToken =
         token: inviteToken!,
         password: form.password,
         fullName: form.fullName,
+        mobileNumber: form.mobile,
+        employeeId: form.employeeId || undefined,
+        gender: form.gender || undefined,
+        acceptedTerms: form.terms,
       });
       setStep("otp");
       setOtpTimer(600);
@@ -346,7 +386,11 @@ const inviteToken =
                 {isInvited ? "Complete Your Registration" : "Create Account"}
               </h2>
               <p className="text-sm font-semibold text-slate-400 mb-7">
-                {isInvited ? `You were invited to join as ${invitedEmail}` : "Register as a new Coordinator / Staff"}
+                {isInvited
+                  ? isLoadingInvite
+                    ? "Loading invitation details..."
+                    : `You were invited to join${form.email ? ` as ${form.email}` : ""}`
+                  : "Register as a new Coordinator / Staff"}
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
