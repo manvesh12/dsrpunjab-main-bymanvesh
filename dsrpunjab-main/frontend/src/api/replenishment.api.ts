@@ -26,6 +26,8 @@ export interface CreateReplenishmentPayload {
   leaseId?: number;
   river?: string;
   miningBlock?: string;
+  surveyData?: Record<string, unknown>;
+  reportState?: Record<string, unknown>;
 }
 
 export interface ReplenishmentFile {
