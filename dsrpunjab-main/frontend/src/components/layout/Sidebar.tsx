@@ -8,16 +8,16 @@ import { useAuth } from "../../security/auth.context";
 import { AccessControl } from "../auth/AccessControl";
 const RoutePermissionMap: Record<string, string[]> = {
   "/dashboard": [],
-  "/projects": ["PROJECT_VIEW", "PROJECT_CREATE", "PROJECT_EDIT"],
-  "/workflow": ["REPORT_APPROVE", "REPORT_REVIEW"],
-  "/districts": ["DISTRICT_VIEW"],
+  "/projects": ["PROJECT_VIEW"],
+  "/workflow": ["REPORT_APPROVE"],
+  "/districts": [],
   "/reports": ["REPORT_VIEW"],
   "/analytics": [],
   "/notifications": [],
   "/users": ["USER_VIEW"],
-  "/audit": ["AUDIT_VIEW"],
-  "/settings": ["SETTING_EDIT"],
-  "/import-previous-dsr": ["PROJECT_CREATE"],
+  "/audit": ["USER_VIEW"],
+  "/settings": ["USER_EDIT"],
+  "/import-previous-dsr": ["PROJECT_DELETE"],
 };
 
 type SidebarProps = {
@@ -115,7 +115,7 @@ export default function Sidebar({ open, onClose, collapsed, onCollapsedChange }:
 
         <div className={`border-t border-slate-200 ${collapsed ? "p-2" : "p-4"}`}>
           <div className={`mb-3 rounded-xl bg-slate-50 p-3 ${collapsed ? "hidden" : ""}`}>
-            <p className="font-semibold text-slate-900">{user?.name || "System Admin"}</p>
+            <p className="font-semibold text-slate-900">{user?.fullName || "System Admin"}</p>
             <p className="text-xs text-slate-500">{user?.role || "Administrator"}</p>
           </div>
 

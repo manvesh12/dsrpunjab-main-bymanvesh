@@ -38,7 +38,8 @@ export default function ProjectsPage() {
   const [busyProjectId, setBusyProjectId] = useState<string | number | null>(null);
 
   const canDeleteProjects = hasPermission("PROJECT_DELETE");
-  const canStartNextPhase = hasPermission("PROJECT_EDIT") && (user?.role === "SUPER_ADMIN" || user?.role === "STATE_ADMIN");
+  const normalizedRole = user?.role?.replace(/^ROLE_/, "");
+  const canStartNextPhase = hasPermission("PROJECT_EDIT") && (normalizedRole === "SUPER_ADMIN" || normalizedRole === "STATE_ADMIN");
 
   const loadProjects = async () => {
     setLoading(true);

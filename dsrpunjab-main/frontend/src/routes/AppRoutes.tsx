@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes, Outlet } from "react-router-dom";
-import { ProtectedRoute, RoleGuard } from "../security/Guards";
+import { PermissionGuard, ProtectedRoute, RoleGuard } from "../security/Guards";
 import NotAccessible from "../components/layout/NotAccessible";
 
 import PortalLayout from "../components/layout/PortalLayout";
@@ -72,16 +72,16 @@ export default function AppRoutes() {
         <Route
           path="/projects/create"
           element={
-            <RoleGuard roles={["SUPER_ADMIN", "STATE_ADMIN", "DISTRICT_ADMIN"]} fallback={<NotAccessible />}>
+            <PermissionGuard permissions={["PROJECT_CREATE"]} fallback={<NotAccessible />}>
               <CreateProjectPage />
-            </RoleGuard>
+            </PermissionGuard>
           }
         />
 
         <Route path="/projects/:projectId" element={<ProjectDetailsPage />} />
         
         {/* Data Entry & Project Editing Routes */}
-        <Route element={<RoleGuard roles={["SUPER_ADMIN", "STATE_ADMIN", "DISTRICT_ADMIN", "DATA_ENTRY_OPERATOR", "DISTRICT_OFFICER"]} fallback={<NotAccessible />}><Outlet /></RoleGuard>}>
+        <Route element={<PermissionGuard permissions={["PROJECT_EDIT"]} fallback={<NotAccessible />}><Outlet /></PermissionGuard>}>
           <Route path="/projects/:projectId/front-matter" element={<FrontMatterPage />} />
           <Route path="/projects/:projectId/chapters" element={<ChaptersPage />} />
           <Route path="/projects/:projectId/plates" element={<PlatesPage />} />
@@ -94,14 +94,14 @@ export default function AppRoutes() {
         </Route>
 
         <Route path="/projects/:projectId/preview" element={<ReportPreviewPage />} />
-        <Route path="/projects/:projectId/generate" element={<RoleGuard roles={["SUPER_ADMIN", "STATE_ADMIN", "DISTRICT_ADMIN", "REPORT_GENERATOR"]} fallback={<NotAccessible />}><ReportPreviewPage /></RoleGuard>} />
+        <Route path="/projects/:projectId/generate" element={<PermissionGuard permissions={["PROJECT_VIEW", "REPORT_GENERATE"]} requireAll fallback={<NotAccessible />}><ReportPreviewPage /></PermissionGuard>} />
         
-        <Route path="/projects/:projectId/reviewer" element={<RoleGuard roles={["SUPER_ADMIN", "STATE_ADMIN", "REVIEWER"]} fallback={<NotAccessible />}><ReviewerPage /></RoleGuard>} />
-        <Route path="/reviewer" element={<RoleGuard roles={["SUPER_ADMIN", "STATE_ADMIN", "REVIEWER"]} fallback={<NotAccessible />}><ReviewerPage /></RoleGuard>} />
+        <Route path="/projects/:projectId/reviewer" element={<PermissionGuard permissions={["REPORT_APPROVE"]} fallback={<NotAccessible />}><ReviewerPage /></PermissionGuard>} />
+        <Route path="/reviewer" element={<PermissionGuard permissions={["REPORT_APPROVE"]} fallback={<NotAccessible />}><ReviewerPage /></PermissionGuard>} />
 
         <Route
           path="/workflow"
-          element={<RoleGuard roles={["SUPER_ADMIN", "STATE_ADMIN", "REVIEWER"]} fallback={<NotAccessible />}><ReviewerPage /></RoleGuard>}
+          element={<PermissionGuard permissions={["REPORT_APPROVE"]} fallback={<NotAccessible />}><ReviewerPage /></PermissionGuard>}
         />
 
         <Route

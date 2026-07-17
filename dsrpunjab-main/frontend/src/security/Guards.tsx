@@ -42,7 +42,8 @@ interface RoleGuardProps {
 export function RoleGuard({ roles, children, fallback = null }: RoleGuardProps) {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (user && (roles.includes(user.role) || roles.includes(user.uiRole))) {
+  const normalizedRole = user?.role?.replace(/^ROLE_/, "");
+  if (user && (roles.includes(user.role) || roles.includes(normalizedRole || "") || roles.includes(user.uiRole))) {
     return <>{children}</>;
   }
   return <>{fallback}</>;
