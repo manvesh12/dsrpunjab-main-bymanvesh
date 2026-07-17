@@ -104,7 +104,8 @@ function PasswordStrength({ password }: { password: string }) {
 export default function RegisterPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const inviteToken = searchParams.get("token");
+const inviteToken =
+  searchParams.get("invite") || searchParams.get("token");
   const invitedEmail = searchParams.get("email");
 
   const [step, setStep] = useState<RegistrationStep>("details");
