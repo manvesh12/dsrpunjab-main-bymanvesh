@@ -21,7 +21,7 @@ export const environment = Object.freeze({
   s3Endpoint: process.env.AWS_S3_ENDPOINT || process.env.S3_ENDPOINT || "",
   s3ForcePathStyle: process.env.AWS_S3_FORCE_PATH_STYLE === "true" || Boolean(process.env.S3_ENDPOINT),
   queueRedisUrl: process.env.QUEUE_REDIS_URL || process.env.REDIS_URL || "redis://localhost:6379",
-  publicAppUrl: process.env.PUBLIC_APP_URL || "https://punjab-dsr.vercel.app",
+  publicAppUrl: process.env.PUBLIC_APP_URL || "https://dsrpunjabportal.vercel.app",
   brevoApiKey: process.env.BREVO_API_KEY || "",
   smtpHost: process.env.SMTP_HOST || "smtp.gmail.com",
   smtpPort: numberFromEnvironment(process.env.SMTP_PORT, 587),
