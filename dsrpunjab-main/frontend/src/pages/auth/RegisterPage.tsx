@@ -18,12 +18,12 @@ const PUNJAB_DISTRICTS = [
 ];
 
 const ROLES = [
-  { value: "SDO", label: "SDO (Sub-Divisional Officer)" },
-  { value: "AXEN", label: "AXEN (Assistant Executive Engineer)" },
+  { value: "OFFICER_1", label: "Officer 1 (Front Matter + Chapters 1-5)" },
+  { value: "OFFICER_2", label: "Officer 2 (Certificate + Chapters 1-5)" },
+  { value: "DATA_ENTRY_OPERATOR", label: "DEO (Chapters 6-10)" },
+  { value: "GEOLOGIST", label: "Geologist (Plates + Cross Sections)" },
   { value: "REVIEWER", label: "Reviewer" },
-  { value: "REVIEWER_1", label: "Reviewer 1" },
-  { value: "REVIEWER_2", label: "Reviewer 2" },
-  { value: "DISTRICT_OFFICER", label: "District Officer (Data Entry)" },
+  { value: "REPORT_GENERATOR", label: "Report Generator" },
   { value: "DISTRICT_ADMIN", label: "District Admin" },
   { value: "STATE_ADMIN", label: "State Admin" },
 ];

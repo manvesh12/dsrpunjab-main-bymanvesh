@@ -25,25 +25,38 @@ const PUNJAB_DISTRICTS = [
 ];
 
 const ALL_ROLES: UserRole[] = [
-  'Super Admin', 'State Admin', 'District Admin', 'Survey Lead',
-  'Field Surveyor', 'Data Entry', 'GIS Expert', 'Geologist',
-  'Environment', 'Reviewer', 'Approver', 'Auditor',
+  'Super Admin', 'State Admin', 'District Admin', 'Officer 1',
+  'Officer 2', 'Geologist', 'Reviewer', 'Data Entry Operator',
+  'Report Generator',
 ];
 
 const ROLE_COLORS: Record<UserRole, { bg: string; text: string; border: string }> = {
   'Super Admin':    { bg: 'bg-purple-900/40', text: 'text-purple-300', border: 'border-purple-700/50' },
   'State Admin':    { bg: 'bg-blue-900/40',   text: 'text-blue-300',   border: 'border-blue-700/50' },
   'District Admin': { bg: 'bg-indigo-900/40', text: 'text-indigo-300', border: 'border-indigo-700/50' },
-  'Survey Lead':    { bg: 'bg-cyan-900/40',   text: 'text-cyan-300',   border: 'border-cyan-700/50' },
-  'Field Surveyor': { bg: 'bg-teal-900/40',   text: 'text-teal-300',   border: 'border-teal-700/50' },
-  'Data Entry':     { bg: 'bg-green-900/40',  text: 'text-green-300',  border: 'border-green-700/50' },
-  'GIS Expert':     { bg: 'bg-lime-900/40',   text: 'text-lime-300',   border: 'border-lime-700/50' },
+  'Officer 1':      { bg: 'bg-cyan-900/40',   text: 'text-cyan-300',   border: 'border-cyan-700/50' },
+  'Officer 2':      { bg: 'bg-teal-900/40',   text: 'text-teal-300',   border: 'border-teal-700/50' },
   'Geologist':      { bg: 'bg-yellow-900/40', text: 'text-yellow-300', border: 'border-yellow-700/50' },
-  'Environment':    { bg: 'bg-orange-900/40', text: 'text-orange-300', border: 'border-orange-700/50' },
   'Reviewer':       { bg: 'bg-rose-900/40',   text: 'text-rose-300',   border: 'border-rose-700/50' },
-  'Approver':       { bg: 'bg-red-900/40',    text: 'text-red-300',    border: 'border-red-700/50' },
-  'Auditor':        { bg: 'bg-slate-800/60',  text: 'text-slate-300',  border: 'border-slate-600/50' },
+  'Data Entry Operator': { bg: 'bg-green-900/40', text: 'text-green-300', border: 'border-green-700/50' },
+  'Report Generator': { bg: 'bg-slate-800/60', text: 'text-slate-300', border: 'border-slate-600/50' },
 };
+
+const ROLE_TO_BACKEND: Record<UserRole, string> = {
+  'Super Admin': 'SUPER_ADMIN',
+  'State Admin': 'STATE_ADMIN',
+  'District Admin': 'DISTRICT_ADMIN',
+  'Officer 1': 'OFFICER_1',
+  'Officer 2': 'OFFICER_2',
+  'Geologist': 'GEOLOGIST',
+  'Reviewer': 'REVIEWER',
+  'Data Entry Operator': 'DATA_ENTRY_OPERATOR',
+  'Report Generator': 'REPORT_GENERATOR',
+};
+
+function roleCode(role: UserRole | string) {
+  return ROLE_TO_BACKEND[role as UserRole] || String(role).toUpperCase().replace(/\s+/g, "_");
+}
 
 const STATUS_CONFIG: Record<string, { label: string; icon: any; color: string; bg: string }> = {
   active:    { label: 'Active',    icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-900/30 border-emerald-700/40' },
@@ -123,7 +136,7 @@ export function AddUserModal({ onClose, onSuccess }: AddUserModalProps) {
       await usersApi.invite({
         email: form.email,
         fullName: form.name,
-        role: form.role,
+        role: roleCode(form.role),
         district: form.district,
         department: form.department,
         designation: form.designation,
@@ -504,7 +517,7 @@ export const UserManagementPanel: React.FC = () => {
 
   const filtered = portalUsers.filter(u => {
     const matchSearch = !search || u.fullName.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase());
-    const matchRole = filterRole === 'All' || u.role === filterRole;
+    const matchRole = filterRole === 'All' || u.role === roleCode(filterRole);
     const matchStatus = filterStatus === 'All' || (filterStatus === 'active' ? u.active : !u.active);
     const matchDistrict = filterDistrict === 'All' || u.district === filterDistrict;
     return matchSearch && matchRole && matchStatus && matchDistrict;
@@ -517,7 +530,7 @@ export const UserManagementPanel: React.FC = () => {
   };
 
   const updateRoleMutation = useMutation({
-    mutationFn: ({ id, role }: { id: string; role: string }) => usersApi.update(id, { role }),
+    mutationFn: ({ id, role }: { id: string; role: string }) => usersApi.update(id, { role: roleCode(role) }),
     onSuccess: () => {
       toast.success('Role updated');
       queryClient.invalidateQueries({ queryKey: ['users'] });

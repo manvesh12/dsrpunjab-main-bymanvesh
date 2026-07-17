@@ -5,15 +5,12 @@ export const SEED_USERS: User[] = [
   { id: '1', name: 'Super Admin User', email: 'superadmin@dsr.gov.in', role: 'Super Admin', district: 'All' },
   { id: '2', name: 'State Admin User', email: 'stateadmin@dsr.gov.in', role: 'State Admin', district: 'Punjab' },
   { id: '3', name: 'District Admin Patiala', email: 'dmo.patiala@dsr.gov.in', role: 'District Admin', district: 'Patiala' },
-  { id: '4', name: 'Survey Lead Patiala', email: 'surveylead.patiala@dsr.gov.in', role: 'Survey Lead', district: 'Patiala' },
-  { id: '5', name: 'Field Surveyor Patiala', email: 'surveyor.patiala@dsr.gov.in', role: 'Field Surveyor', district: 'Patiala' },
-  { id: '6', name: 'Data Entry Patiala', email: 'dataentry.patiala@dsr.gov.in', role: 'Data Entry', district: 'Patiala' },
-  { id: '7', name: 'GIS Expert Patiala', email: 'gis.patiala@dsr.gov.in', role: 'GIS Expert', district: 'Patiala' },
-  { id: '8', name: 'Geologist Patiala', email: 'geologist.patiala@dsr.gov.in', role: 'Geologist', district: 'Patiala' },
-  { id: '9', name: 'Environment Patiala', email: 'environment.patiala@dsr.gov.in', role: 'Environment', district: 'Patiala' },
-  { id: '10', name: 'Reviewer Patiala', email: 'reviewer.patiala@dsr.gov.in', role: 'Reviewer', district: 'Patiala' },
-  { id: '11', name: 'Approver Patiala', email: 'approver.patiala@dsr.gov.in', role: 'Approver', district: 'Patiala' },
-  { id: '12', name: 'Auditor Patiala', email: 'auditor.patiala@dsr.gov.in', role: 'Auditor', district: 'Patiala' },
+  { id: '4', name: 'Officer 1 Patiala', email: 'officer1.patiala@dsr.gov.in', role: 'Officer 1', district: 'Patiala' },
+  { id: '5', name: 'Officer 2 Patiala', email: 'officer2.patiala@dsr.gov.in', role: 'Officer 2', district: 'Patiala' },
+  { id: '6', name: 'Geologist Patiala', email: 'geologist.patiala@dsr.gov.in', role: 'Geologist', district: 'Patiala' },
+  { id: '7', name: 'Reviewer Patiala', email: 'reviewer.patiala@dsr.gov.in', role: 'Reviewer', district: 'Patiala' },
+  { id: '8', name: 'DEO Patiala', email: 'deo.patiala@dsr.gov.in', role: 'Data Entry Operator', district: 'Patiala' },
+  { id: '9', name: 'Report Generator Patiala', email: 'reportgen.patiala@dsr.gov.in', role: 'Report Generator', district: 'Patiala' },
 ];
 
 interface AuthState {

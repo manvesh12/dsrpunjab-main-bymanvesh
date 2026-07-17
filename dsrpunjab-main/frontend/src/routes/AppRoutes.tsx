@@ -28,6 +28,7 @@ import UsersPage from "../pages/users/UsersPage";
 import ReportsPage from "../pages/reports/ReportsPage";
 import AnalyticsPage from "../pages/analytics/AnalyticsPage";
 import ImportDsrPage from "../pages/import-dsr/ImportDsrPage";
+import { Permission } from "../security/access";
 const portalModules = {
   workflow: { title:"Workflow", description:"Track review, observations and approval stages", columns:[{key:"report",label:"Report"},{key:"stage",label:"Current Stage"},{key:"assignee",label:"Assigned To"},{key:"due",label:"Due Date",type:"date" as const},{key:"status",label:"Status"}] },
   districts: { title:"Districts", description:"Punjab district information and DSR coverage", columns:[{key:"district",label:"District"},{key:"rivers",label:"Rivers"},{key:"projects",label:"DSR Projects",type:"number" as const},{key:"officer",label:"District Officer"},{key:"status",label:"Status"}] },
@@ -72,7 +73,7 @@ export default function AppRoutes() {
         <Route
           path="/projects/create"
           element={
-            <PermissionGuard permissions={["PROJECT_CREATE"]} fallback={<NotAccessible />}>
+            <PermissionGuard permissions={[Permission.ProjectCreate]} fallback={<NotAccessible />}>
               <CreateProjectPage />
             </PermissionGuard>
           }
@@ -81,11 +82,11 @@ export default function AppRoutes() {
         <Route path="/projects/:projectId" element={<ProjectDetailsPage />} />
         
         {/* Data Entry & Project Editing Routes */}
-        <Route element={<PermissionGuard permissions={["PROJECT_EDIT"]} fallback={<NotAccessible />}><Outlet /></PermissionGuard>}>
-          <Route path="/projects/:projectId/front-matter" element={<FrontMatterPage />} />
-          <Route path="/projects/:projectId/chapters" element={<ChaptersPage />} />
-          <Route path="/projects/:projectId/plates" element={<PlatesPage />} />
-          <Route path="/projects/:projectId/cross-sections" element={<CrossSectionGraphsPage />} />
+        <Route element={<PermissionGuard permissions={[Permission.ProjectEdit]} fallback={<NotAccessible />}><Outlet /></PermissionGuard>}>
+          <Route path="/projects/:projectId/front-matter" element={<PermissionGuard permissions={[Permission.SectionFrontMatter, Permission.SectionCertificate]} fallback={<NotAccessible />}><FrontMatterPage /></PermissionGuard>} />
+          <Route path="/projects/:projectId/chapters" element={<PermissionGuard permissions={[Permission.SectionChaptersFirstHalf, Permission.SectionChaptersSecondHalf]} fallback={<NotAccessible />}><ChaptersPage /></PermissionGuard>} />
+          <Route path="/projects/:projectId/plates" element={<PermissionGuard permissions={[Permission.SectionPlates]} fallback={<NotAccessible />}><PlatesPage /></PermissionGuard>} />
+          <Route path="/projects/:projectId/cross-sections" element={<PermissionGuard permissions={[Permission.SectionCrossSections]} fallback={<NotAccessible />}><CrossSectionGraphsPage /></PermissionGuard>} />
           <Route path="/projects/:projectId/annexures" element={<AnnexuresPage />} />
           {["1","2","3","4","5","6","7"].map((annexure) => <Route key={annexure} path={`/projects/:projectId/annexures/${annexure}`} element={<AnnexureEditorPage annexure={annexure} />} />)}
           {["B","C","D","E","F","G","H","I","J","K"].map((letter) => <Route key={letter} path={`/projects/:projectId/annexures/additional/${letter.toLowerCase()}`} element={<AdditionalAnnexureEditorPage letter={letter} />} />)}
@@ -94,14 +95,14 @@ export default function AppRoutes() {
         </Route>
 
         <Route path="/projects/:projectId/preview" element={<ReportPreviewPage />} />
-        <Route path="/projects/:projectId/generate" element={<PermissionGuard permissions={["PROJECT_VIEW", "REPORT_GENERATE"]} requireAll fallback={<NotAccessible />}><ReportPreviewPage /></PermissionGuard>} />
+        <Route path="/projects/:projectId/generate" element={<PermissionGuard permissions={[Permission.ReportGenerate, Permission.ReportDownload]} fallback={<NotAccessible />}><ReportPreviewPage /></PermissionGuard>} />
         
-        <Route path="/projects/:projectId/reviewer" element={<PermissionGuard permissions={["REPORT_APPROVE"]} fallback={<NotAccessible />}><ReviewerPage /></PermissionGuard>} />
-        <Route path="/reviewer" element={<PermissionGuard permissions={["REPORT_APPROVE"]} fallback={<NotAccessible />}><ReviewerPage /></PermissionGuard>} />
+        <Route path="/projects/:projectId/reviewer" element={<PermissionGuard permissions={[Permission.ReportApprove, Permission.SectionReviewOnly]} fallback={<NotAccessible />}><ReviewerPage /></PermissionGuard>} />
+        <Route path="/reviewer" element={<PermissionGuard permissions={[Permission.ReportApprove, Permission.SectionReviewOnly]} fallback={<NotAccessible />}><ReviewerPage /></PermissionGuard>} />
 
         <Route
           path="/workflow"
-          element={<PermissionGuard permissions={["REPORT_APPROVE"]} fallback={<NotAccessible />}><ReviewerPage /></PermissionGuard>}
+          element={<PermissionGuard permissions={[Permission.ReportApprove, Permission.SectionReviewOnly]} fallback={<NotAccessible />}><ReviewerPage /></PermissionGuard>}
         />
 
         <Route

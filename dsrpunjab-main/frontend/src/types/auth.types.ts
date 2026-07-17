@@ -2,15 +2,12 @@ export type UserRole =
   | 'Super Admin'
   | 'State Admin'
   | 'District Admin'
-  | 'Survey Lead'
-  | 'Field Surveyor'
-  | 'Data Entry'
-  | 'GIS Expert'
+  | 'Officer 1'
+  | 'Officer 2'
   | 'Geologist'
-  | 'Environment'
   | 'Reviewer'
-  | 'Approver'
-  | 'Auditor';
+  | 'Data Entry Operator'
+  | 'Report Generator';
 
 export interface User {
   id: string;

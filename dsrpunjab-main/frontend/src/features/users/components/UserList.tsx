@@ -7,9 +7,9 @@ export const UserList: React.FC = () => {
   const [editingUser, setEditingUser] = useState<string | null>(null);
   
   const allRoles: UserRole[] = [
-    'Super Admin', 'State Admin', 'District Admin', 'Survey Lead',
-    'Field Surveyor', 'Data Entry', 'GIS Expert', 'Geologist',
-    'Environment', 'Reviewer', 'Approver', 'Auditor'
+    'Super Admin', 'State Admin', 'District Admin', 'Officer 1',
+    'Officer 2', 'Geologist', 'Reviewer', 'Data Entry Operator',
+    'Report Generator'
   ];
 
   return (

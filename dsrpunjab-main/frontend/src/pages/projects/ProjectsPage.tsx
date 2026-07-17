@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import PageHeader from "../../components/layout/PageHeader";
 import { projectsApi, type ProjectListItem } from "../../api/projects.api";
 import { useAuth } from "../../security/auth.context";
+import { isGlobalAdmin, Permission } from "../../security/access";
 
 const statusStyles: Record<string, string> = {
   Draft: "bg-slate-100 text-slate-700",
@@ -37,9 +38,8 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [busyProjectId, setBusyProjectId] = useState<string | number | null>(null);
 
-  const canDeleteProjects = hasPermission("PROJECT_DELETE");
-  const normalizedRole = user?.role?.replace(/^ROLE_/, "");
-  const canStartNextPhase = hasPermission("PROJECT_EDIT") && (normalizedRole === "SUPER_ADMIN" || normalizedRole === "STATE_ADMIN");
+  const canDeleteProjects = hasPermission(Permission.ProjectDelete);
+  const canStartNextPhase = hasPermission(Permission.ProjectEdit) && isGlobalAdmin(user);
 
   const loadProjects = async () => {
     setLoading(true);

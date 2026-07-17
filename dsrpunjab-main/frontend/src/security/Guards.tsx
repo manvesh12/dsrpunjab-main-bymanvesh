@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "./auth.context";
+import { hasAllPermissions, hasAnyPermission, normalizedRole } from "./access";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -42,8 +43,8 @@ interface RoleGuardProps {
 export function RoleGuard({ roles, children, fallback = null }: RoleGuardProps) {
   const { user, loading } = useAuth();
   if (loading) return null;
-  const normalizedRole = user?.role?.replace(/^ROLE_/, "");
-  if (user && (roles.includes(user.role) || roles.includes(normalizedRole || "") || roles.includes(user.uiRole))) {
+  const role = normalizedRole(user);
+  if (user && (roles.includes(user.role) || roles.includes(role) || roles.includes(user.uiRole))) {
     return <>{children}</>;
   }
   return <>{fallback}</>;
@@ -68,12 +69,12 @@ export function PermissionGuard({
   children,
   fallback = null,
 }: PermissionGuardProps) {
-  const { hasPermission, hasAnyPermission, loading } = useAuth();
+  const { user, loading } = useAuth();
   if (loading) return null;
 
   const hasAccess = requireAll
-    ? permissions.every((p) => hasPermission(p))
-    : hasAnyPermission(permissions);
+    ? hasAllPermissions(user, permissions)
+    : hasAnyPermission(user, permissions);
 
   return hasAccess ? <>{children}</> : <>{fallback}</>;
 }

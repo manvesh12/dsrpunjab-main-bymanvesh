@@ -2,10 +2,11 @@ import { ApiError } from "../common/exceptions/api-error.js";
 import { canAdmin } from "../authorization/role.policy.js";
 
 export function normalizeRole(value: unknown) {
-  const VALID_ROLES = ["SUPER_ADMIN", "STATE_ADMIN", "DISTRICT_ADMIN", "DISTRICT_OFFICER", "GEOLOGIST", "SURVEY_OFFICER", "REVIEWER", "DATA_ENTRY_OPERATOR", "REPORT_GENERATOR", "PUBLIC_USER"];
-  const role = String(value || "DISTRICT_OFFICER").toUpperCase();
+  const VALID_ROLES = ["SUPER_ADMIN", "STATE_ADMIN", "DISTRICT_ADMIN", "OFFICER_1", "OFFICER_2", "GEOLOGIST", "REVIEWER", "DATA_ENTRY_OPERATOR", "REPORT_GENERATOR"];
+  const role = String(value || "OFFICER_1").toUpperCase();
   if (role === "DATA_ENTRY") return "DATA_ENTRY_OPERATOR";
-  return VALID_ROLES.includes(role) ? role : "DISTRICT_OFFICER";
+  if (role === "DISTRICT_OFFICER") return "OFFICER_1";
+  return VALID_ROLES.includes(role) ? role : "OFFICER_1";
 }
 
 export function requiresDistrict(role: string) { return !canAdmin(role); }
@@ -26,7 +27,7 @@ export function userId(value: string | string[] | undefined) {
 
 export function normalizedBulkRole(rawRole: string) {
   const clean = rawRole.toUpperCase().trim().replace(/[\s_-]+/g, "");
-  const VALID_ROLES = ["SUPER_ADMIN", "STATE_ADMIN", "DISTRICT_ADMIN", "DISTRICT_OFFICER", "GEOLOGIST", "SURVEY_OFFICER", "REVIEWER", "DATA_ENTRY_OPERATOR", "REPORT_GENERATOR", "PUBLIC_USER"];
+  const VALID_ROLES = ["SUPER_ADMIN", "STATE_ADMIN", "DISTRICT_ADMIN", "OFFICER_1", "OFFICER_2", "GEOLOGIST", "REVIEWER", "DATA_ENTRY_OPERATOR", "REPORT_GENERATOR"];
   return VALID_ROLES.find(role => clean === role.replace(/_/g, "")) || rawRole;
 }
 

@@ -6,18 +6,19 @@ import {
 } from "../../utils/constants";
 import { useAuth } from "../../security/auth.context";
 import { AccessControl } from "../auth/AccessControl";
+import { Permission } from "../../security/access";
 const RoutePermissionMap: Record<string, string[]> = {
   "/dashboard": [],
-  "/projects": ["PROJECT_VIEW"],
-  "/workflow": ["REPORT_APPROVE"],
+  "/projects": [Permission.ProjectView],
+  "/workflow": [Permission.ReportApprove, Permission.SectionReviewOnly],
   "/districts": [],
-  "/reports": ["REPORT_VIEW"],
+  "/reports": [Permission.ReportView, Permission.ReportGenerate, Permission.ReportDownload],
   "/analytics": [],
   "/notifications": [],
-  "/users": ["USER_VIEW"],
-  "/audit": ["USER_VIEW"],
-  "/settings": ["USER_EDIT"],
-  "/import-previous-dsr": ["PROJECT_DELETE"],
+  "/users": [Permission.UserView],
+  "/audit": [Permission.UserView],
+  "/settings": [Permission.UserEdit],
+  "/import-previous-dsr": [Permission.ProjectDelete],
 };
 
 type SidebarProps = {

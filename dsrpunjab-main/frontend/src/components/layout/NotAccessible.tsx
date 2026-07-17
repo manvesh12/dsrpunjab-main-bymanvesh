@@ -8,9 +8,9 @@ export default function NotAccessible() {
       <div className="mb-6 flex size-20 items-center justify-center rounded-full bg-red-100 text-red-600">
         <ShieldAlert size={40} />
       </div>
-      <h2 className="mb-2 text-3xl font-black text-slate-900">Not accessible by you</h2>
+      <h2 className="mb-2 text-3xl font-black text-slate-900">Locked - not accessible for you</h2>
       <p className="mb-8 max-w-md text-lg text-slate-500">
-        You do not have the necessary permissions to view this page. If you believe this is a mistake, please contact your administrator.
+        This feature is locked for your role. If you believe this is a mistake, please contact your administrator.
       </p>
       <div className="flex gap-4">
         <button
