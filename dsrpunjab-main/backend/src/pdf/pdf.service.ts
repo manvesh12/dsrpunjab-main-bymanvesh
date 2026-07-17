@@ -20,7 +20,7 @@ export class PdfService {
     this.authorize(annexureId, user, true);
     const project = await this.repository.findProject(projectId);
     assertProjectDistrictAccess(project, user);
-    const key = this.objectKey(projectId, annexureId);
+    const key = this.objectKey(project, annexureId);
     if (!fileName || body?.pdf == null) {
       await this.storage.deleteFile(key).catch(() => undefined);
       await this.repository.deleteMetadata(projectId, annexureId);
@@ -70,7 +70,15 @@ export class PdfService {
     if (upload && !canUpload(user.role) && !canAdmin(user.role)) throw new ApiError(403, "ACCESS_DENIED", "Access denied");
   }
 
-  private objectKey(projectId: bigint, annexureId: string) { return `${annexureId}-${projectId}.pdf`; }
+  private objectKey(project: { id: bigint; projectCode?: string | null; projectName?: string | null; title?: string | null }, annexureId: string) {
+    const label = project.projectCode || project.projectName || project.title || `project-${project.id.toString()}`;
+    const slug = label
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80);
+    return `projects/${project.id.toString()}-${slug || "project"}/pdf/${annexureId}.pdf`;
+  }
 }
 
 export const pdfService = new PdfService(pdfRepository, storageService);

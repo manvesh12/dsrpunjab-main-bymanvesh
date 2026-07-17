@@ -17,6 +17,13 @@ export type UploadFileInput = {
   uploadedBy?: string;
 };
 
+type ProjectFolderInfo = {
+  id: bigint;
+  projectCode?: string | null;
+  projectName?: string | null;
+  title?: string | null;
+};
+
 export class UploadsService {
   constructor(
     private readonly repository: UploadsRepositoryContract,
@@ -34,7 +41,8 @@ export class UploadsService {
     const moduleName = safeFileName(input.moduleName || "replenishment").replace(/\./g, "");
     const requirement = safeFileName(input.requirementId || "upload").replace(/\./g, "");
     const annexureId = `file-${moduleName}-${Date.now()}-${randomUUID()}`;
-    const objectKey = `files/${projectId.toString()}/${moduleName}/${requirement}/${annexureId}-${originalName}`;
+    const projectFolder = this.projectFolder(project);
+    const objectKey = `projects/${projectFolder}/${moduleName}/${requirement}/${annexureId}-${originalName}`;
 
     await this.storage.putFile(objectKey, input.bytes, contentType);
     try {
@@ -77,6 +85,16 @@ export class UploadsService {
     await this.storage.deleteFile(file.objectKey).catch(() => undefined);
     await this.repository.delete(file.id);
     return { success: true, message: "File deleted" };
+  }
+
+  private projectFolder(project: ProjectFolderInfo) {
+    const label = project.projectCode || project.projectName || project.title || `project-${project.id.toString()}`;
+    const slug = label
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80);
+    return `${project.id.toString()}-${slug || "project"}`;
   }
 }
 

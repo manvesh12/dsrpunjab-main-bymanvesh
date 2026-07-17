@@ -6,8 +6,9 @@ export class LocalStorageProvider implements StorageProvider {
   constructor(private readonly uploadsDirectory = path.resolve("uploads")) {}
 
   async put(objectKey: string, bytes: Buffer) {
-    await fs.mkdir(this.uploadsDirectory, { recursive: true });
-    await fs.writeFile(this.pathFor(objectKey), bytes);
+    const filePath = this.pathFor(objectKey);
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.writeFile(filePath, bytes);
   }
 
   get(objectKey: string) { return fs.readFile(this.pathFor(objectKey)); }
@@ -19,6 +20,10 @@ export class LocalStorageProvider implements StorageProvider {
   }
 
   private pathFor(objectKey: string) {
-    return path.join(this.uploadsDirectory, objectKey.replace(/[\\/]/g, "_"));
+    const segments = objectKey
+      .split(/[\\/]+/)
+      .map(segment => segment.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/^\.+$/, "-"))
+      .filter(Boolean);
+    return path.join(this.uploadsDirectory, ...segments);
   }
 }
