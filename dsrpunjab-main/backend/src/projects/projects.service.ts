@@ -36,7 +36,7 @@ export class ProjectsService {
       return { bulk: true as const, projects };
     }
 
-    const requestedDistrictId = body?.districtId ? BigInt(body.districtId) : null;
+    const requestedDistrictId = await this.requestedDistrictId(body);
     if (userDistrict && requestedDistrictId && !canAccessProjectDistrict(user, requestedDistrictId)) {
       throw new ApiError(403, "PROJECT_CREATE_DISTRICT_FORBIDDEN", "You can create reports only for your assigned district.");
     }
@@ -178,6 +178,15 @@ export class ProjectsService {
 
   private serializedState(state: unknown) {
     return typeof state === "string" ? state : state ? JSON.stringify(state) : null;
+  }
+
+  private async requestedDistrictId(body: any) {
+    if (body?.districtId) return BigInt(body.districtId);
+    const districtName = String(body?.district || "").trim();
+    if (!districtName || districtName.toUpperCase() === "ALL") return null;
+    const district = await this.repository.findDistrictByName(districtName);
+    if (!district) throw new ApiError(400, "INVALID_DISTRICT", `District '${districtName}' not found`);
+    return district.id;
   }
 
   private requireAdmin(role: string, message: string) {

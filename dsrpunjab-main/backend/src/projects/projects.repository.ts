@@ -38,6 +38,10 @@ export class ProjectsRepository {
 
   delete(id: bigint) { return this.database.project.delete({ where: { id } }); }
 
+  findDistrictByName(name: string) {
+    return this.database.district.findFirst({ where: { name } });
+  }
+
   createNextPhase(input: PhasePersistenceInput) {
     return this.database.$transaction(async tx => {
       await tx.project.update({
@@ -66,7 +70,7 @@ export class ProjectsRepository {
 
 export type ProjectsRepositoryContract = Pick<
   ProjectsRepository,
-  "list" | "deleteAll" | "create" | "createWorkflow" | "find" | "findWithFiles" | "update" | "files" | "delete" | "createNextPhase"
+  "list" | "deleteAll" | "create" | "createWorkflow" | "find" | "findWithFiles" | "update" | "files" | "delete" | "createNextPhase" | "findDistrictByName"
 >;
 
 export const projectsRepository = new ProjectsRepository(prisma);

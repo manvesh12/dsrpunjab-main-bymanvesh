@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
+import { projectsApi } from "../../api/projects.api";
 import PageHeader from "../../components/layout/PageHeader";
 import {
   projectSchema,
@@ -42,7 +43,7 @@ export default function CreateProjectPage() {
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<ProjectFormData>({
     resolver: zodResolver(projectSchema),
 
@@ -56,26 +57,26 @@ export default function CreateProjectPage() {
     },
   });
 
-  function onSubmit(data: ProjectFormData) {
+  async function onSubmit(data: ProjectFormData) {
     const title =
       data.projectName?.trim() ||
       `District Survey Report - ${data.district}`;
 
-    const saved = JSON.parse(localStorage.getItem("dsr:projects") || "[]");
-    const project = {
-      id: `local-${saved.length + 1}`,
-      projectName: title,
-      district: data.district,
-      financialYear: data.year,
-      mineral: data.mineral,
-      rivers: data.rivers?.trim() || "Not specified",
-      status: "Draft",
-      progress: 0,
-      updatedAt: new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }),
-    };
-    localStorage.setItem("dsr:projects", JSON.stringify([project, ...saved]));
-    toast.success("DSR Project created and saved locally");
-    navigate(`/projects/${project.id}`);
+    try {
+      const project = await projectsApi.create({
+        projectName: title,
+        title,
+        district: data.district,
+        year: data.year,
+        mineral: data.mineral,
+        rivers: data.rivers?.trim() || "Not specified",
+        description: `Prepared by ${data.preparedBy}`,
+      });
+      toast.success("DSR Project created successfully");
+      navigate(`/projects/${project.id}`);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || error?.response?.data?.error || "Failed to create project");
+    }
   }
 
   return (
@@ -282,12 +283,12 @@ export default function CreateProjectPage() {
 
             <button
               type="submit"
-              disabled={false}
+              disabled={isSubmitting}
               className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-semibold text-slate-900 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Save size={18} />
 
-              Create Project →
+              {isSubmitting ? "Creating..." : "Create Project ->"}
             </button>
           </div>
         </section>
