@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 
 import { ApiError } from "../common/exceptions/api-error.js";
 import { logger } from "../common/logging/logger.js";
+import { config } from "../config/index.js";
 import type { AuthUser } from "../authentication/auth-user.js";
 import { sendInvitationEmail } from "../email/email.service.js";
 import { INVITATION_TTL_MS, PHONE_INVITATION_DOMAIN } from "./users.constants.js";
@@ -63,7 +64,7 @@ export class InvitationService {
         errMsg.includes("smtpUser") || errMsg.includes("Missing credentials") || errMsg.includes("EAUTH") ||
         errMsg.includes("BREVO_API_KEY");
       if (isEmailNotConfigured) {
-        const registrationUrl = `${process.env.PUBLIC_APP_URL}/register?invite=${token}`;
+        const registrationUrl = `${config.publicAppUrl}/register?invite=${token}`;
         logger.warn("invitation_email_skipped_no_smtp", {
           email,
           role,
@@ -138,7 +139,7 @@ export class InvitationService {
         if (isPhoneInvite) {
           logger.info("mock_invitation_sms", {
             mobileNumber: cleanPhone,
-            registrationUrl: `${process.env.PUBLIC_APP_URL}/register?invite=${token}`
+            registrationUrl: `${config.publicAppUrl}/register?invite=${token}`
           });
         } else {
           this.sendInvitation(targetEmail, token, role)
