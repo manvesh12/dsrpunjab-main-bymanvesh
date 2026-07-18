@@ -11,41 +11,104 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import PageHeader from "../../components/layout/PageHeader";
 import { useAuth } from "../../security/auth.context";
 import { hasAnyPermission, Permission } from "../../security/access";
+import { projectsApi, type ProjectDetail } from "../../api/projects.api";
 
-const modules = [
-  ["Front Matter", "Certificates, contents and acknowledgements", "front-matter", FileText, 70, [Permission.SectionFrontMatter, Permission.SectionCertificate]],
-  ["Chapters", "Core DSR chapters and review status", "chapters", BookOpen, 45, [Permission.SectionChaptersFirstHalf, Permission.SectionChaptersSecondHalf]],
-  ["Plates & Maps", "District, geology and mining maps", "plates", Map, 20, [Permission.SectionPlates]],
-  ["Cross Sections", "River profiles and cross-section graphs", "cross-sections", ChartNoAxesCombined, 10, [Permission.SectionCrossSections]],
-  ["Annexures", "Annexures I-VII and B-K", "annexures", Layers3, 35, [Permission.ProjectEdit]],
-  ["Replenishment", "Survey inputs and replenishment calculations", "replenishment", RefreshCw, 15, [Permission.ProjectEdit]],
-  ["Model DSR", "Project-specific compiled model report", "model-dsr", FileCheck2, 0, [Permission.ProjectEdit]],
-  ["Reviewer & Workflow", "Sequential approval, e-signatures and review notes", "reviewer", ShieldCheck, 0, [Permission.ReportApprove, Permission.SectionReviewOnly]],
-  ["Report Preview", "Review the compiled document", "preview", Images, 0, [Permission.ProjectView]],
-  ["Generate PDF", "Validate and create the final report", "generate", FileCheck2, 0, [Permission.ReportGenerate, Permission.ReportDownload]],
+const modulesTemplate = [
+  ["Front Matter", "Certificates, contents and acknowledgements", "front-matter", FileText, [Permission.SectionFrontMatter, Permission.SectionCertificate]],
+  ["Chapters", "Core DSR chapters and review status", "chapters", BookOpen, [Permission.SectionChaptersFirstHalf, Permission.SectionChaptersSecondHalf]],
+  ["Plates & Maps", "District, geology and mining maps", "plates", Map, [Permission.SectionPlates]],
+  ["Cross Sections", "River profiles and cross-section graphs", "cross-sections", ChartNoAxesCombined, [Permission.SectionCrossSections]],
+  ["Annexures", "Annexures I-VII and B-K", "annexures", Layers3, [Permission.ProjectEdit]],
+  ["Replenishment", "Survey inputs and replenishment calculations", "replenishment", RefreshCw, [Permission.ProjectEdit]],
+  ["Model DSR", "Project-specific compiled model report", "model-dsr", FileCheck2, [Permission.ProjectEdit]],
+  ["Reviewer & Workflow", "Sequential approval, e-signatures and review notes", "reviewer", ShieldCheck, [Permission.ReportApprove, Permission.SectionReviewOnly]],
+  ["Report Preview", "Review the compiled document", "preview", Images, [Permission.ProjectView]],
+  ["Generate PDF", "Validate and create the final report", "generate", FileCheck2, [Permission.ReportGenerate, Permission.ReportDownload]],
 ] as const;
+
+function computeModuleProgress(path: string, project?: ProjectDetail): number {
+  if (!project) return 0;
+  const state = project.projectState || {};
+  
+  // Try checking local storage as fallback if backend state isn't populated
+  const hasLocalDraft = (key: string) => {
+    try { return !!localStorage.getItem(`dsr:project-${project.id}:${key}`); } catch { return false; }
+  };
+
+  switch (path) {
+    case "front-matter":
+      return state["front-matter"] ? 100 : (hasLocalDraft("front-matter") || hasLocalDraft("cover") ? 50 : 0);
+    case "chapters":
+      return state["chapters"] ? 100 : (hasLocalDraft("chapters") ? 30 : 0);
+    case "plates":
+    case "cross-sections":
+    case "annexures":
+      const files = project.files || [];
+      const hasFiles = files.some(f => f.annexureId.startsWith(path) || f.annexureId === path);
+      return hasFiles ? 100 : 0;
+    case "replenishment":
+      return state["replenishment"] ? 100 : 0;
+    case "model-dsr":
+      return project.generatedDsrs?.length ? 100 : 0;
+    case "reviewer":
+      return project.status === "Under Review" || project.status === "Approved" ? 100 : 0;
+    case "preview":
+    case "generate":
+      return project.status === "Approved" ? 100 : 0;
+    default:
+      return 0;
+  }
+}
 
 export default function ProjectDetailsPage() {
   const { projectId = "1" } = useParams();
   const { user } = useAuth();
 
+  const { data: project, isLoading } = useQuery({
+    queryKey: ["project", projectId],
+    queryFn: () => projectsApi.get(projectId),
+  });
+
+  const modules = modulesTemplate.map(([title, description, path, Icon, permissions]) => {
+    return {
+      title,
+      description,
+      path,
+      Icon,
+      permissions,
+      progress: computeModuleProgress(path, project),
+    };
+  });
+
+  const completedSections = modules.filter(m => m.progress === 100).length;
+  // If backend progress is 0 but we have completed sections, compute it dynamically
+  const overallProgress = project?.progress 
+    ? project.progress 
+    : Math.round((modules.reduce((acc, m) => acc + m.progress, 0) / (modules.length * 100)) * 100);
+
   return (
     <>
       <PageHeader
-        title="District Survey Report - Jalandhar"
-        description={`Project #${projectId} - Financial Year 2025-26 - Sand and Minor Minerals`}
+        title={project?.title || project?.projectName || `District Survey Report`}
+        description={project ? `Project #${project.id} - ${project.year || "Financial Year 2025-26"} - ${project.mineral || "Sand and Minor Minerals"}` : `Loading...`}
         action={<Link to="/projects" className="module-btn">Back to Projects</Link>}
       />
+      
       <section className="mb-6 grid gap-4 sm:grid-cols-3">
-        <Stat label="Overall progress" value="38%" />
-        <Stat label="Sections completed" value="6 / 22" />
-        <Stat label="Last autosave" value="Just now" />
+        <Stat label="Overall progress" value={`${isLoading ? "--" : overallProgress}%`} />
+        <Stat label="Sections completed" value={`${isLoading ? "--" : completedSections} / ${modules.length}`} />
+        <Stat 
+          label="Last updated" 
+          value={project?.updatedAt ? new Date(project.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "Just now"} 
+        />
       </section>
+      
       <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-        {modules.map(([title, description, path, Icon, progress, permissions]) => {
+        {modules.map(({ title, description, path, Icon, permissions, progress }) => {
           const accessible = hasAnyPermission(user, permissions);
           const content = (
             <>
@@ -60,7 +123,7 @@ export default function ProjectDetailsPage() {
                 {accessible ? description : "Locked - not accessible for you"}
               </p>
               <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
-                <div className="h-full rounded-full bg-blue-600" style={{ width: `${accessible ? progress : 0}%` }} />
+                <div className="h-full rounded-full bg-blue-600 transition-all duration-500" style={{ width: `${accessible ? progress : 0}%` }} />
               </div>
             </>
           );
