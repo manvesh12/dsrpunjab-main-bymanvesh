@@ -41,6 +41,8 @@ export default function SettingsPage() {
   const [localNoticeText, setLocalNoticeText] = useState("");
   const [localAnnouncements, setLocalAnnouncements] = useState<any[]>([]);
 
+  const [showAddUser, setShowAddUser] = useState(false);
+const [showBulkInvite, setShowBulkInvite] = useState(false);
   // Update local state when data loads
   useEffect(() => {
     if (noticeSetting?.value) setLocalNoticeText(noticeSetting.value);
