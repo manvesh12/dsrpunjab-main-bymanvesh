@@ -3,9 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../security/auth.context";
 import ThemeToggle from "../ui/ThemeToggle";
 
-import { useState } from "react";
-import ProfileModal from "../ui/ProfileModal";
-
 type HeaderProps = {
   onMenuClick: () => void;
 };
@@ -13,7 +10,6 @@ type HeaderProps = {
 export default function Header({ onMenuClick }: HeaderProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -56,7 +52,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
         <button
           type="button"
-          onClick={() => setIsProfileModalOpen(true)}
+          onClick={() => navigate('/profile')}
           className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 transition-colors"
         >
           <span className="flex size-8 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 transition-colors">
@@ -86,10 +82,6 @@ export default function Header({ onMenuClick }: HeaderProps) {
         </button>
       </div>
 
-      <ProfileModal
-        isOpen={isProfileModalOpen}
-        onClose={() => setIsProfileModalOpen(false)}
-      />
     </header>
   );
 }

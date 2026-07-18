@@ -23,6 +23,7 @@ import LoginPage from "../pages/auth/LoginPage";
 import RegisterPage from "../pages/auth/RegisterPage";
 import HomePage from "../pages/public/HomePage";
 import SettingsPage from "../pages/settings/SettingsPage";
+import ProfilePage from "../pages/profile/ProfilePage";
 import AuditPage from "../pages/audit/AuditPage";
 import UsersPage from "../pages/users/UsersPage";
 import ReportsPage from "../pages/reports/ReportsPage";
@@ -137,6 +138,11 @@ export default function AppRoutes() {
         <Route
           path="/settings"
           element={<SettingsPage />}
+        />
+
+        <Route
+          path="/profile"
+          element={<ProfilePage />}
         />
 
         <Route
