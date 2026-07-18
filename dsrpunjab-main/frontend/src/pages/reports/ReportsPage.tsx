@@ -1,7 +1,7 @@
 import { Download, Eye, FileText, Search, Filter, GripVertical } from "lucide-react";
 import { useState, useRef } from "react";
+import { Link } from "react-router-dom";
 import PageHeader from "../../components/layout/PageHeader";
-import { downloadHtmlAsPdf } from "../../utils/reportExport";
 
 const initialReports = [
   {
@@ -221,18 +221,15 @@ export default function ReportsPage() {
 
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button
+                        <Link
+                          to={`/projects/${report.id}/preview`}
                           className="flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50 transition-all"
                           title="View Preview"
                         >
                           <Eye size={16} />
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (report.status === "Approved") {
-                              downloadHtmlAsPdf(`<div><h1>${report.title}</h1><p>Status: ${report.status}</p></div>`, `${report.title}.pdf`);
-                            }
-                          }}
+                        </Link>
+                        <Link
+                          to={`/projects/${report.id}/generate`}
                           className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-all ${
                             report.status === "Approved"
                               ? "bg-blue-600 border-blue-600 text-white hover:bg-blue-700 hover:border-blue-700 shadow-sm"
@@ -241,7 +238,7 @@ export default function ReportsPage() {
                           title="Download Final PDF"
                         >
                           <Download size={16} />
-                        </button>
+                        </Link>
                       </div>
                     </td>
                   </tr>
