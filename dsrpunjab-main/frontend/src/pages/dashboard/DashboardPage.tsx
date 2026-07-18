@@ -7,11 +7,18 @@ import {
   ArrowRight,
   Check,
   Bell,
+  Users,
+  ShieldAlert,
+  Activity,
+  HardDrive,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { usePublicSettingsStore } from "../../stores/publicSettingsStore";
+import { useQuery } from "@tanstack/react-query";
+import { settingsApi } from "../../api/settings.api";
+import { useAuth } from "../../security/auth.context";
+import { isGlobalAdmin } from "../../security/access";
 
-const stats = [
+const nonAdminStats = [
   {
     label: "Total Projects",
     value: "3",
@@ -50,6 +57,45 @@ const stats = [
   },
 ];
 
+const adminStats = [
+  {
+    label: "Total Users",
+    value: "142",
+    info: "Active across 23 districts",
+    icon: Users,
+    color: "from-blue-600 to-indigo-600",
+    bgLight: "bg-blue-50/80",
+    textLight: "text-blue-600",
+  },
+  {
+    label: "Global DSR Progress",
+    value: "18",
+    info: "Projects currently active",
+    icon: Activity,
+    color: "from-emerald-500 to-teal-500",
+    bgLight: "bg-emerald-50/80",
+    textLight: "text-emerald-600",
+  },
+  {
+    label: "Pending Approvals",
+    value: "9",
+    info: "Requires admin attention",
+    icon: ShieldAlert,
+    color: "from-red-500 to-rose-600",
+    bgLight: "bg-red-50/80",
+    textLight: "text-red-600",
+  },
+  {
+    label: "Storage Used",
+    value: "45.2 GB",
+    info: "Out of 500 GB quota",
+    icon: HardDrive,
+    color: "from-violet-500 to-purple-500",
+    bgLight: "bg-violet-50/80",
+    textLight: "text-violet-600",
+  },
+];
+
 const recentProjects = [
   { name: "Jalandhar DSR 2025-26", district: "Jalandhar", status: "In Progress", date: "Today" },
   { name: "Ludhiana DSR 2025-26", district: "Ludhiana", status: "Under Review", date: "Yesterday" },
@@ -64,17 +110,17 @@ const workflowSteps = [
   { title: "Sequential E-Signing", sub: "5-level authority hierarchy · Final signed PDF", active: false, done: false },
 ];
 
-import { useQuery } from "@tanstack/react-query";
-import { settingsApi } from "../../api/settings.api";
-
-// ... stats, recentProjects, workflowSteps ... (leaving unchanged since they are outside this block)
-
 export default function DashboardPage() {
+  const { user } = useAuth();
+  const isAdmin = isGlobalAdmin(user);
+
   const { data: noticeSetting } = useQuery({
     queryKey: ["settings", "notice_text"],
     queryFn: () => settingsApi.get("notice_text"),
   });
   const noticeText = noticeSetting?.value || "Welcome to the DSR Automation Portal.";
+
+  const stats = isAdmin ? adminStats : nonAdminStats;
 
   return (
     <div className="space-y-6 lg:space-y-8 animate-[fadeInUp_0.5s_ease-out_forwards]">
@@ -104,20 +150,29 @@ export default function DashboardPage() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-900/40 via-slate-900 to-slate-900"></div>
         <div className="relative z-10 px-8 py-10 sm:px-12 sm:py-14 flex flex-col items-start gap-4">
           <div className="inline-flex items-center gap-2 rounded-full bg-slate-800/80 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-slate-300 border border-slate-700/50 backdrop-blur-md">
-            <span>🏛</span> Government of Punjab · EMGSM 2020 · IIT Ropar Research Cell
+            <span>🏛</span> {isAdmin ? 'Global Administration Console' : 'Government of Punjab · EMGSM 2020 · IIT Ropar Research Cell'}
           </div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight mt-2 leading-tight">
             District Survey Report <br className="hidden sm:block" />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">Automation Portal</span>
           </h1>
           <p className="max-w-2xl text-slate-300 font-medium leading-relaxed mt-2 text-sm sm:text-base">
-            Prepare, review, and digitally sign DSRs for sand mining across all Punjab districts. Fully automated graph generation, annexure templates, and sequential e-signature workflow.
+            {isAdmin 
+              ? "Manage statewide DSR projects, monitor user activity, audit system usage, and configure platform settings." 
+              : "Prepare, review, and digitally sign DSRs for sand mining across all Punjab districts. Fully automated graph generation, annexure templates, and sequential e-signature workflow."}
           </p>
           <div className="flex flex-wrap items-center gap-4 mt-6">
-            <Link to="/projects/create" className="flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/20 hover:shadow-blue-600/40 hover:bg-blue-500 transition-all">
-              <FilePlus size={18} />
-              Create New DSR Project
-            </Link>
+            {!isAdmin ? (
+              <Link to="/projects/create" className="flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/20 hover:shadow-blue-600/40 hover:bg-blue-500 transition-all">
+                <FilePlus size={18} />
+                Create New DSR Project
+              </Link>
+            ) : (
+              <Link to="/users" className="flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/20 hover:shadow-blue-600/40 hover:bg-blue-500 transition-all">
+                <Users size={18} />
+                Manage Users
+              </Link>
+            )}
             <Link to="/projects" className="flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-6 py-3 text-sm font-bold text-white hover:bg-white/10 transition-all">
               View All Projects <ArrowRight size={18} />
             </Link>
@@ -151,12 +206,12 @@ export default function DashboardPage() {
 
       {/* Main Content Area */}
       <section className="grid gap-6 xl:grid-cols-2">
-        {/* Recent Projects */}
+        {/* Recent Projects (Visible to everyone, but admins might see 'Statewide Recent Projects') */}
         <article className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex flex-col overflow-hidden transition-colors">
           <div className="border-b border-slate-100 dark:border-slate-800 p-6 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
             <div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Recent Projects</h3>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 font-medium">Click to open and edit</p>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">{isAdmin ? "Statewide Recent Projects" : "Recent Projects"}</h3>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 font-medium">Click to open and view</p>
             </div>
             <Link to="/projects" className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
               See All
@@ -185,43 +240,77 @@ export default function DashboardPage() {
           </div>
         </article>
 
-        {/* DSR Workflow Overview */}
-        <article className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden transition-colors">
-          <div className="border-b border-slate-100 dark:border-slate-800 p-6 bg-slate-50/50 dark:bg-slate-900/50">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">DSR Workflow Overview</h3>
-          </div>
-          <div className="p-8">
-            <div className="relative space-y-0">
-              {workflowSteps.map((step, i) => (
-                <div key={i} className="flex items-start gap-4 relative pb-8 last:pb-0 group">
-                  {/* Vertical Line */}
-                  {i !== workflowSteps.length - 1 && (
-                    <div className={`absolute left-[15px] top-8 bottom-0 w-0.5 ${step.done ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-700'} transition-colors duration-500`} />
-                  )}
-                  
-                  {/* Step Dot */}
-                  <div className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-all duration-300 ring-4 ring-white dark:ring-slate-900 ${
-                    step.done ? 'bg-emerald-500 text-white shadow-md' : 
-                    step.active ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-blue-50 dark:ring-blue-900/30' : 
-                    'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700'
-                  }`}>
-                    {step.done ? <Check size={14} strokeWidth={3} /> : (i + 1)}
+        {isAdmin ? (
+          /* Admin Specific Component: System Activity or Audit Log Overview */
+          <article className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden transition-colors">
+            <div className="border-b border-slate-100 dark:border-slate-800 p-6 bg-slate-50/50 dark:bg-slate-900/50">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Recent System Activity</h3>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 font-medium">Global platform audit log</p>
+            </div>
+            <div className="p-4 flex-1 flex flex-col gap-3">
+              {[
+                { user: "SDM Jalandhar", action: "Approved DSR phase 2", time: "10 mins ago", color: "text-emerald-500" },
+                { user: "Consultant Ludhiana", action: "Generated Model DSR", time: "1 hour ago", color: "text-blue-500" },
+                { user: "State Admin", action: "Updated Global Settings", time: "3 hours ago", color: "text-purple-500" },
+                { user: "DMO Bathinda", action: "Requested workflow rollback", time: "5 hours ago", color: "text-amber-500" }
+              ].map((log, i) => (
+                <div key={i} className="flex items-center gap-4 rounded-xl border border-slate-100 dark:border-slate-800 p-4">
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 dark:bg-slate-800 ${log.color}`}>
+                    <Activity size={18} />
                   </div>
-                  
-                  {/* Step Content */}
-                  <div className="pt-1.5 flex-1">
-                    <h4 className={`text-sm font-bold ${step.done ? 'text-slate-900 dark:text-slate-200' : step.active ? 'text-blue-700 dark:text-blue-400' : 'text-slate-500 dark:text-slate-500'}`}>
-                      {step.title}
-                    </h4>
-                    <p className={`text-xs mt-1 leading-relaxed ${step.active ? 'text-slate-600 dark:text-slate-400' : 'text-slate-400 dark:text-slate-500'}`}>
-                      {step.sub}
-                    </p>
+                  <div>
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">{log.user}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{log.action}</p>
+                  </div>
+                  <div className="ml-auto text-[10px] font-bold text-slate-400 dark:text-slate-500">
+                    {log.time}
                   </div>
                 </div>
               ))}
+              <Link to="/settings" className="mt-2 text-center text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline">
+                View Full Audit Log
+              </Link>
             </div>
-          </div>
-        </article>
+          </article>
+        ) : (
+          /* Non-Admin Specific Component: DSR Workflow Overview */
+          <article className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden transition-colors">
+            <div className="border-b border-slate-100 dark:border-slate-800 p-6 bg-slate-50/50 dark:bg-slate-900/50">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">DSR Workflow Overview</h3>
+            </div>
+            <div className="p-8">
+              <div className="relative space-y-0">
+                {workflowSteps.map((step, i) => (
+                  <div key={i} className="flex items-start gap-4 relative pb-8 last:pb-0 group">
+                    {/* Vertical Line */}
+                    {i !== workflowSteps.length - 1 && (
+                      <div className={`absolute left-[15px] top-8 bottom-0 w-0.5 ${step.done ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-700'} transition-colors duration-500`} />
+                    )}
+                    
+                    {/* Step Dot */}
+                    <div className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-all duration-300 ring-4 ring-white dark:ring-slate-900 ${
+                      step.done ? 'bg-emerald-500 text-white shadow-md' : 
+                      step.active ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-blue-50 dark:ring-blue-900/30' : 
+                      'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700'
+                    }`}>
+                      {step.done ? <Check size={14} strokeWidth={3} /> : (i + 1)}
+                    </div>
+                    
+                    {/* Step Content */}
+                    <div className="pt-1.5 flex-1">
+                      <h4 className={`text-sm font-bold ${step.done ? 'text-slate-900 dark:text-slate-200' : step.active ? 'text-blue-700 dark:text-blue-400' : 'text-slate-500 dark:text-slate-500'}`}>
+                        {step.title}
+                      </h4>
+                      <p className={`text-xs mt-1 leading-relaxed ${step.active ? 'text-slate-600 dark:text-slate-400' : 'text-slate-400 dark:text-slate-500'}`}>
+                        {step.sub}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </article>
+        )}
       </section>
     </div>
   );
