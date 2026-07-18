@@ -13,7 +13,17 @@ export interface FileMetadata {
 
 export function resolveUploadUrl(url?: string): string {
   if (!url) return "";
-  if (/^(blob:|data:|https?:\/\/)/i.test(url)) return url;
+  if (/^(blob:|data:)/i.test(url)) return url;
+
+  if (/^https?:\/\//i.test(url)) {
+    try {
+      const parsed = new URL(url);
+      if (parsed.pathname === "/" || parsed.pathname === "/api" || parsed.pathname === "/api/") return "";
+    } catch {
+      return "";
+    }
+    return url;
+  }
 
   const apiBase = String(apiClient.defaults.baseURL || "").replace(/\/$/, "");
   const backendOrigin = apiBase.replace(/\/api$/, "");

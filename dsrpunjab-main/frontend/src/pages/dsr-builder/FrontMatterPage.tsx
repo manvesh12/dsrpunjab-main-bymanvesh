@@ -8,6 +8,7 @@ import { uploadErrorMessage, uploadsApi } from "../../api/uploads.api";
 import { projectsApi } from "../../api/projects.api";
 import UploadedFilePreview from "../../components/ui/UploadedFilePreview";
 import { toast } from "sonner";
+import html2pdf from "html2pdf.js";
 
 const defaults = { title:"District Survey Report for Sand Mining", district:"Jalandhar", state:"Punjab", year:"2025-26", version:"Final Draft", preparedBy:"Sub-Divisional Committee, Jalandhar District", assistedBy:"RSP Green Development and Laboratories Pvt. Ltd.", preface:"This District Survey Report has been prepared in compliance with EMGSM 2020 and records sand mining activity, river morphology, mineral deposits and replenishment studies.", acknowledgement:"The Sub-Divisional Committee acknowledges the support of the Government of Punjab, Department of Geology and Mining, and field surveyors." };
 type UploadRecord={name:string;url?:string};
@@ -25,9 +26,6 @@ async function downloadPdf(
   prefaceFile: UploadRecord | null,
   data: typeof defaults
 ) {
-  const html2pdfModule = await import("html2pdf.js");
-  const html2pdf = (html2pdfModule as any).default || html2pdfModule;
-
   const pageStyle = `
     body { margin: 0; font-family: Arial, sans-serif; background: #fff; }
     .page { width: 794px; min-height: 1123px; page-break-after: always; overflow: hidden; position: relative; background: #fff; box-sizing: border-box; }

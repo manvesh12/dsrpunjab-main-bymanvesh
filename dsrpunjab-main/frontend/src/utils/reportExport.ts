@@ -1,3 +1,5 @@
+import html2pdf from "html2pdf.js";
+
 export type DownloadFormat = "original-pdf" | "generated-pdf" | "draft-json" | "docx" | "print";
 
 export interface DownloadHistoryRecord {
@@ -75,10 +77,6 @@ export function openPrintableDocument(html: string, title: string) {
 // Adding a robust html2pdf generator function
 export async function downloadHtmlAsPdf(elementOrHtml: HTMLElement | string, filename: string, isLandscape: boolean = false) {
   try {
-    // Dynamic import to avoid SSR or Vite build issues with html2pdf
-    const html2pdfModule = await import("html2pdf.js");
-    const html2pdf = html2pdfModule.default || html2pdfModule;
-    
     let container = elementOrHtml;
     let cleanup = false;
     

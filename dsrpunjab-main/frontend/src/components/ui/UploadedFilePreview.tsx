@@ -42,7 +42,13 @@ export default function UploadedFilePreview({
     setFailed(false);
     setContentType("");
 
-    if (!resolved || isLocalPreview(resolved)) {
+    if (!resolved) {
+      setPreviewSrc("");
+      setFailed(Boolean(src));
+      return;
+    }
+
+    if (isLocalPreview(resolved)) {
       setPreviewSrc(resolved);
       return;
     }
@@ -52,8 +58,14 @@ export default function UploadedFilePreview({
       .then((response) => {
         if (cancelled) return;
         const blob = response.data as Blob;
+        const responseType = blob.type || response.headers["content-type"] || "";
+        if (responseType.includes("text/html")) {
+          setFailed(true);
+          setPreviewSrc("");
+          return;
+        }
         objectUrl = URL.createObjectURL(blob);
-        setContentType(blob.type || response.headers["content-type"] || "");
+        setContentType(responseType);
         setPreviewSrc(objectUrl);
       })
       .catch((error) => {

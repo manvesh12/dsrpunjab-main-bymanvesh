@@ -8,6 +8,7 @@ import { uploadErrorMessage, uploadsApi } from "../../api/uploads.api";
 import { projectsApi } from "../../api/projects.api";
 import UploadedFilePreview from "../../components/ui/UploadedFilePreview";
 import { toast } from "sonner";
+import html2pdf from "html2pdf.js";
 
 type Plate = { name: string; summary: string; fileName?: string; url?: string };
 
@@ -19,9 +20,6 @@ const initial: Plate[] = [
 ];
 
 async function downloadPlatesPdf(plates: Plate[]) {
-  const html2pdfModule = await import("html2pdf.js");
-  const html2pdf = (html2pdfModule as any).default || html2pdfModule;
-
   const pageStyle = `
     body { margin: 0; font-family: Arial, sans-serif; background: #fff; }
     .index-page { width: 794px; min-height: 1123px; padding: 60px; box-sizing: border-box; page-break-after: always; }

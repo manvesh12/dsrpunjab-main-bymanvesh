@@ -15,5 +15,5 @@ declare module 'html2pdf.js' {
     catch(fn: (err: any) => void): Html2PdfInstance;
   }
   function html2pdf(): Html2PdfInstance;
-  export = html2pdf;
+  export default html2pdf;
 }
