@@ -1,9 +1,11 @@
-import { ArrowDown, ArrowUp, Plus, Trash2, Upload } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, Trash2, Upload, Download } from "lucide-react";
+import html2pdf from "html2pdf.js";
 import PageHeader from "../../components/layout/PageHeader";
 import ResizableLayout from "../../components/layout/ResizableLayout";
 import { useLocalDraft } from "../../hooks/useLocalDraft";
 import { useAuth } from "../../security/auth.context";
 import { hasPermission, Permission } from "../../security/access";
+import { useParams } from "react-router-dom";
 
 type Chapter = { name: string; summary: string; file?: { name: string; preview?: string } };
 
@@ -21,6 +23,7 @@ const initial: Chapter[] = [
 ].map(([name, summary]) => ({ name, summary }));
 
 export default function ChaptersPage() {
+  const { projectId = "default" } = useParams();
   const { user } = useAuth();
   const [chapters, setChapters] = useLocalDraft<Chapter[]>("chapters-exact", initial);
   const canEditFirstHalf = hasPermission(user, Permission.SectionChaptersFirstHalf);
@@ -38,9 +41,23 @@ export default function ChaptersPage() {
   return (
     <>
       <PageHeader
+        backLink={`/projects/${projectId}`}
         title="Report Chapters"
         description="10 chapters as per EMGSM 2020. Officer handles chapters 1-5, DEO handles chapters 6-10."
         action={
+          <div className="flex gap-2">
+            <button
+              className="module-btn"
+              onClick={() => {
+                const element = document.getElementById("chapters-pdf-preview");
+                if (element) {
+                  html2pdf().set({ margin: 0.5, filename: "Chapters.pdf" }).from(element).save();
+                }
+              }}
+            >
+              <Download size={17} />
+              Download PDF
+            </button>
           <button
             className="module-btn-primary disabled:cursor-not-allowed disabled:opacity-50"
             disabled={!canEditAnyChapter}
@@ -54,6 +71,7 @@ export default function ChaptersPage() {
             <Plus size={17} />
             Add Chapter
           </button>
+          </div>
         }
       />
       <div className="h-[calc(100vh-12rem)] flex">
@@ -160,7 +178,7 @@ export default function ChaptersPage() {
           rightPanel={
             <aside className="block h-full rounded-2xl border bg-slate-200 p-4">
               <p className="mb-3 text-xs font-bold uppercase text-slate-600">Live Chapter Index Preview</p>
-              <div className="min-h-[760px] bg-white p-8 shadow">
+              <div id="chapters-pdf-preview" className="min-h-[760px] bg-white p-8 shadow">
                 <p className="text-center text-xs font-bold uppercase tracking-[.2em]">District Survey Report</p>
                 <h2 className="mt-4 border-b-2 pb-4 text-center text-xl font-bold uppercase">Table of Chapters</h2>
                 <div className="mt-6 space-y-4">

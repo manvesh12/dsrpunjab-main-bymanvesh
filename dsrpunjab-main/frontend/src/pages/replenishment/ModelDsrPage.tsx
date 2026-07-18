@@ -422,6 +422,7 @@ export default function ModelDsrPage() {
   return (
     <>
       <PageHeader
+        backLink={`/projects/${projectId || '1'}`}
         title="Model DSR"
         description="Create and compile Model DSR reports by selecting specific DSR sections"
         action={

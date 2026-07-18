@@ -2,6 +2,7 @@ import React, { useRef } from "react";
 import { Download, Plus, Trash2, Layers } from "lucide-react";
 import PageHeader from "../../components/layout/PageHeader";
 import { useLocalDraft } from "../../hooks/useLocalDraft";
+import { useParams } from "react-router-dom";
 import { toast } from "sonner";
 import html2pdf from "html2pdf.js";
 import {
@@ -516,6 +517,7 @@ function GraphBlock({ graph: g, updateG, onDelete }: { graph: Graph; updateG: (k
 }
 
 export default function CrossSectionGraphsPage() {
+  const { projectId = "default" } = useParams();
   const [graphs, setGraphs] = useLocalDraft<Graph[]>("cross-sections-full", [seed]);
 
   const addGraph = () => {
@@ -570,6 +572,7 @@ export default function CrossSectionGraphsPage() {
   return (
     <>
       <PageHeader 
+        backLink={`/projects/${projectId}`}
         title="Cross Section Graph Generator" 
         description="Input elevation & distance data to generate sandbar cross-section graphs with auto-calculated volumes" 
         action={

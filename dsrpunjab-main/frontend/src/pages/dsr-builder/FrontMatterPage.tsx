@@ -1,5 +1,6 @@
-import { FileUp, Replace, Save, Trash2 } from "lucide-react";
+import { FileUp, Replace, Save, Trash2, Download } from "lucide-react";
 import { useState } from "react";
+import html2pdf from "html2pdf.js";
 import { useParams } from "react-router-dom";
 import PageHeader from "../../components/layout/PageHeader";
 import ResizableLayout from "../../components/layout/ResizableLayout";
@@ -22,13 +23,13 @@ export default function FrontMatterPage(){
   const rightPanel = (
     <aside className="h-full rounded-2xl border bg-slate-200 p-4 block">
       <p className="mb-3 text-xs font-bold uppercase text-slate-600">Live Front Matter Preview</p>
-      <div className="min-h-[760px] bg-white p-10 text-center shadow">{coverPreview?<UploadedPreview src={coverPreview}/>:<><p className="text-xs font-bold uppercase tracking-[.2em]">Government of {data.state}</p><h1 className="mt-24 text-3xl font-bold uppercase leading-tight">{data.title}</h1><p className="mt-8 text-xl">District {data.district}</p><p className="mt-2 text-slate-500">{data.year} • {data.version}</p><div className="mx-auto mt-16 h-1 w-32 bg-blue-700"/><p className="mt-20 text-sm font-semibold">Prepared By</p><p className="mt-2 text-sm">{data.preparedBy}</p><p className="mt-12 text-xs text-slate-500">Assisted By<br/>{data.assistedBy}</p></>}</div>
+      <div id="front-matter-pdf-preview" className="min-h-[760px] bg-white p-10 text-center shadow">{coverPreview?<UploadedPreview src={coverPreview}/>:<><p className="text-xs font-bold uppercase tracking-[.2em]">Government of {data.state}</p><h1 className="mt-24 text-3xl font-bold uppercase leading-tight">{data.title}</h1><p className="mt-8 text-xl">District {data.district}</p><p className="mt-2 text-slate-500">{data.year} • {data.version}</p><div className="mx-auto mt-16 h-1 w-32 bg-blue-700"/><p className="mt-20 text-sm font-semibold">Prepared By</p><p className="mt-2 text-sm">{data.preparedBy}</p><p className="mt-12 text-xs text-slate-500">Assisted By<br/>{data.assistedBy}</p></>}</div>
     </aside>
   );
 
   return (
     <>
-      <PageHeader title="Front Matter" description="Cover page, preface, content page, certificate of compliance & acknowledgements" action={<button className="module-btn-primary" onClick={()=>{}}><Save size={17}/>Save Draft</button>}/>
+      <PageHeader title="Front Matter" description="Cover page, preface, content page, certificate of compliance & acknowledgements" action={<div className="flex gap-2"><button className="module-btn" onClick={() => { const element = document.getElementById("front-matter-pdf-preview"); if (element) { html2pdf().set({ margin: 0.5, filename: "Front_Matter.pdf" }).from(element).save(); } }}><Download size={17}/>Download PDF</button><button className="module-btn-primary" onClick={()=>{}}><Save size={17}/>Save Draft</button></div>}/>
       <div className="h-[calc(100vh-12rem)] flex">
         <ResizableLayout leftPanel={leftPanel} rightPanel={rightPanel} leftPanelDefaultSize={60} rightPanelDefaultSize={40} />
       </div>

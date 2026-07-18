@@ -481,6 +481,7 @@ export default function ReplenishmentBuilderPage() {
   return (
     <>
       <PageHeader
+        backLink={`/projects/${projectId}`}
         title="Enterprise Replenishment Report"
         description="Approved Final DSR se smart import, selective reuse, survey updates aur dynamic regeneration - sab database me persisted."
         action={
