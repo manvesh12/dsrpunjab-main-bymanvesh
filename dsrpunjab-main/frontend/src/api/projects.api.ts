@@ -17,6 +17,8 @@ export interface ProjectListItem {
   phaseLocked: boolean;
   createdAt: string;
   updatedAt: string;
+  projectState?: Record<string, unknown>;
+  files?: ProjectFile[];
 }
 
 export interface ProjectDetail extends ProjectListItem {

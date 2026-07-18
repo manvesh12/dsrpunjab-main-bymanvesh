@@ -33,6 +33,8 @@ import type {
   ReviewerNote,
   ChecklistItem,
 } from "../../types/workflow.types";
+import { projectsApi, type ProjectDetail } from "../../api/projects.api";
+import { workflowCompletion } from "../../utils/projectProgress";
 
 // ─────────────────────────────────────────────────────────
 // Constants
@@ -96,6 +98,7 @@ export default function ReviewerPage() {
   const { projectId = "default" } = useParams();
   const [tab, setTab] = useState<ActiveTab>("workflow");
   const [summary, setSummary] = useState<WorkflowSummary | null>(null);
+  const [project, setProject] = useState<ProjectDetail>();
   const [loading, setLoading] = useState(true);
   const [notifs, setNotifs] = useState<ReviewNotification[]>([]);
 
@@ -110,8 +113,12 @@ export default function ReviewerPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getWorkflowSummary(projectId);
+      const [data, projectData] = await Promise.all([
+        getWorkflowSummary(projectId),
+        /^\d+$/.test(projectId) ? projectsApi.get(projectId) : Promise.resolve(undefined),
+      ]);
       setSummary(data);
+      setProject(projectData);
     } finally {
       setLoading(false);
     }
@@ -210,9 +217,9 @@ export default function ReviewerPage() {
     );
   }
 
-  const checklist = buildChecklist();
+  const checklist: ChecklistItem[] = workflowCompletion(project);
   const completedSteps = checklist.filter((c) => c.done).length;
-  const progressPct = Math.round((completedSteps / checklist.length) * 100);
+  const progressPct = Math.round(checklist.reduce((total, item) => total + (item.progress || 0), 0) / checklist.length);
   const unreadCount = notifs.filter((n) => !n.read).length;
 
   const statusColors: Record<string, string> = {
@@ -320,7 +327,7 @@ export default function ReviewerPage() {
                   <div className="mt-0.5 text-xs text-slate-400">{item.note}</div>
                 </div>
                 <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${item.done ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
-                  {item.done ? "Done" : item.locked ? "Locked" : "Pending"}
+                  {item.done ? "Done" : item.locked ? "Locked" : `${item.progress || 0}%`}
                 </span>
                 {!item.done && !item.locked && (
                   <Link to={`/projects/${projectId}`} className="flex items-center gap-0.5 text-xs font-semibold text-blue-600 hover:underline">

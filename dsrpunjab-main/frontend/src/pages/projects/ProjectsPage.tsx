@@ -6,6 +6,7 @@ import PageHeader from "../../components/layout/PageHeader";
 import { projectsApi, type ProjectListItem } from "../../api/projects.api";
 import { useAuth } from "../../security/auth.context";
 import { isGlobalAdmin, Permission } from "../../security/access";
+import { overallProjectProgress } from "../../utils/projectProgress";
 
 const statusStyles: Record<string, string> = {
   Draft: "bg-slate-100 text-slate-700",
@@ -174,6 +175,7 @@ export default function ProjectsPage() {
           const name = project.title || project.projectName;
           const district = districtLabel(project);
           const isBusy = String(busyProjectId) === String(project.id);
+          const liveProgress = overallProjectProgress(project);
 
           return (
             <article
@@ -211,14 +213,14 @@ export default function ProjectsPage() {
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Last Updated: {formatDate(project.updatedAt)}
                   </span>
-                  <span className={`text-sm font-black ${project.progress === 100 ? "text-emerald-600" : "text-blue-700"}`}>
-                    {project.progress || 0}%
+                  <span className={`text-sm font-black ${liveProgress === 100 ? "text-emerald-600" : "text-blue-700"}`}>
+                    {liveProgress}%
                   </span>
                 </div>
                 <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100 shadow-inner">
                   <div
-                    className={`h-full rounded-full transition-all duration-1000 ease-out ${project.progress === 100 ? "bg-emerald-500" : "bg-gradient-to-r from-blue-500 to-indigo-500"}`}
-                    style={{ width: `${Math.max(0, Math.min(100, project.progress || 0))}%` }}
+                    className={`h-full rounded-full transition-all duration-1000 ease-out ${liveProgress === 100 ? "bg-emerald-500" : "bg-gradient-to-r from-blue-500 to-indigo-500"}`}
+                    style={{ width: `${liveProgress}%` }}
                   />
                 </div>
               </div>

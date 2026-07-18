@@ -43,6 +43,7 @@ export interface ChecklistItem {
   done: boolean;
   note: string;
   locked: boolean;
+  progress?: number;
 }
 
 export type WorkflowStatus =

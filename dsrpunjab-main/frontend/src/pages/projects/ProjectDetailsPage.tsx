@@ -17,9 +17,10 @@ import { useState } from "react";
 import PageHeader from "../../components/layout/PageHeader";
 import { useAuth } from "../../security/auth.context";
 import { hasAnyPermission, Permission } from "../../security/access";
-import { projectsApi, type ProjectDetail } from "../../api/projects.api";
+import { projectsApi } from "../../api/projects.api";
 import { saveProjectBuilderDrafts } from "../../utils/projectDraftState";
 import { toast } from "sonner";
+import { moduleProgress, overallProjectProgress } from "../../utils/projectProgress";
 
 const modulesTemplate = [
   ["Front Matter", "Certificates, contents and acknowledgements", "front-matter", FileText, [Permission.SectionFrontMatter, Permission.SectionCertificate]],
@@ -33,42 +34,6 @@ const modulesTemplate = [
   ["Report Preview", "Review the compiled document", "preview", Images, [Permission.ProjectView]],
   ["Generate PDF", "Validate and create the final report", "generate", FileCheck2, [Permission.ReportGenerate, Permission.ReportDownload]],
 ] as const;
-
-function computeModuleProgress(path: string, project?: ProjectDetail): number {
-  if (!project) return 0;
-  const state = project.projectState || {};
-  
-  // Try checking local storage as fallback if backend state isn't populated
-  const hasLocalDraft = (key: string) => {
-    try { return !!localStorage.getItem(`dsr:project-${project.id}:${key}`); } catch { return false; }
-  };
-
-  switch (path) {
-    case "front-matter":
-      return state["front-matter"] ? 100 : (hasLocalDraft("front-matter") || hasLocalDraft("cover") ? 50 : 0);
-    case "chapters":
-      return state["chapters"] ? 100 : (hasLocalDraft("chapters") ? 30 : 0);
-    case "plates":
-    case "cross-sections":
-    case "annexures":
-      if (path === "plates" && state.plates) return 100;
-      if (path === "cross-sections" && state["cross-sections"]) return 100;
-      const files = project.files || [];
-      const hasFiles = files.some(f => f.annexureId.startsWith(path) || f.annexureId === path);
-      return hasFiles ? 100 : 0;
-    case "replenishment":
-      return state["replenishment"] ? 100 : 0;
-    case "model-dsr":
-      return project.generatedDsrs?.length ? 100 : 0;
-    case "reviewer":
-      return project.status === "Under Review" || project.status === "Approved" ? 100 : 0;
-    case "preview":
-    case "generate":
-      return project.status === "Approved" ? 100 : 0;
-    default:
-      return 0;
-  }
-}
 
 export default function ProjectDetailsPage() {
   const { projectId = "1" } = useParams();
@@ -87,15 +52,12 @@ export default function ProjectDetailsPage() {
       path,
       Icon,
       permissions,
-      progress: computeModuleProgress(path, project),
+      progress: moduleProgress(path, project),
     };
   });
 
   const completedSections = modules.filter(m => m.progress === 100).length;
-  // If backend progress is 0 but we have completed sections, compute it dynamically
-  const overallProgress = project?.progress 
-    ? project.progress 
-    : Math.round((modules.reduce((acc, m) => acc + m.progress, 0) / (modules.length * 100)) * 100);
+  const overallProgress = overallProjectProgress(project);
 
   const handleSaveAllSections = async () => {
     setSavingAll(true);
