@@ -7,7 +7,7 @@ import { useLocalDraft } from "../../hooks/useLocalDraft";
 import { useAuth } from "../../security/auth.context";
 import { hasPermission, Permission } from "../../security/access";
 import { useParams } from "react-router-dom";
-import { resolveUploadUrl, uploadsApi } from "../../api/uploads.api";
+import { resolveUploadUrl, uploadErrorMessage, uploadsApi } from "../../api/uploads.api";
 import { toast } from "sonner";
 
 type Chapter = { name: string; summary: string; file?: { name: string; url: string } };
@@ -88,8 +88,8 @@ export default function ChaptersPage() {
                         const result = await uploadsApi.upload(file, projectId, "chapters");
                         update(index, { file: { name: file.name, url: result.url } });
                         toast.success(`${file.name} uploaded`);
-                      } catch {
-                        toast.error("Upload failed");
+                      } catch (error) {
+                        toast.error(uploadErrorMessage(error));
                       } finally {
                         setUploading(null);
                       }

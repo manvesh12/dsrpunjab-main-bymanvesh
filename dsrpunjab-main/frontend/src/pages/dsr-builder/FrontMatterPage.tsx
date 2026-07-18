@@ -4,7 +4,7 @@ import { useParams } from "react-router-dom";
 import PageHeader from "../../components/layout/PageHeader";
 import ResizableLayout from "../../components/layout/ResizableLayout";
 import { useLocalDraft } from "../../hooks/useLocalDraft";
-import { resolveUploadUrl, uploadsApi } from "../../api/uploads.api";
+import { resolveUploadUrl, uploadErrorMessage, uploadsApi } from "../../api/uploads.api";
 import { toast } from "sonner";
 
 const defaults = { title:"District Survey Report for Sand Mining", district:"Jalandhar", state:"Punjab", year:"2025-26", version:"Final Draft", preparedBy:"Sub-Divisional Committee, Jalandhar District", assistedBy:"RSP Green Development and Laboratories Pvt. Ltd.", preface:"This District Survey Report has been prepared in compliance with EMGSM 2020 and records sand mining activity, river morphology, mineral deposits and replenishment studies.", acknowledgement:"The Sub-Divisional Committee acknowledges the support of the Government of Punjab, Department of Geology and Mining, and field surveyors." };
@@ -285,8 +285,8 @@ function Upload({file,onChange,label,hint,accept,projectId,module}:{file:UploadR
       const result = await uploadsApi.upload(selected, projectId, module);
       onChange({name:selected.name,url:result.url});
       toast.success(`${selected.name} uploaded`);
-    } catch {
-      toast.error("Upload failed");
+    } catch (error) {
+      toast.error(uploadErrorMessage(error));
     } finally {
       setIsUploading(false);
     }

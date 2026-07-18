@@ -4,7 +4,7 @@ import PageHeader from "../../components/layout/PageHeader";
 import ResizableLayout from "../../components/layout/ResizableLayout";
 import { useLocalDraft } from "../../hooks/useLocalDraft";
 import { useParams } from "react-router-dom";
-import { resolveUploadUrl, uploadsApi } from "../../api/uploads.api";
+import { resolveUploadUrl, uploadErrorMessage, uploadsApi } from "../../api/uploads.api";
 import { toast } from "sonner";
 
 type Plate = { name: string; summary: string; fileName?: string; url?: string };
@@ -107,8 +107,8 @@ export default function PlatesPage() {
                       const result = await uploadsApi.upload(file, projectId, "plates");
                       update(i, { fileName: file.name, url: result.url });
                       toast.success(`${file.name} uploaded`);
-                    } catch {
-                      toast.error("Upload failed");
+                    } catch (error) {
+                      toast.error(uploadErrorMessage(error));
                     } finally {
                       setUploading(null);
                     }
