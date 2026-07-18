@@ -1,8 +1,8 @@
-import { Download, Eye, FileText, Search, Filter } from "lucide-react";
-import { useState } from "react";
+import { Download, Eye, FileText, Search, Filter, GripVertical } from "lucide-react";
+import { useState, useRef } from "react";
 import PageHeader from "../../components/layout/PageHeader";
 
-const demoReports = [
+const initialReports = [
   {
     id: "1",
     title: "DSR — Ludhiana Sand Mining",
@@ -53,11 +53,48 @@ const statusStyles: Record<string, string> = {
 
 export default function ReportsPage() {
   const [search, setSearch] = useState("");
+  const [reports, setReports] = useState(initialReports);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const dragIdRef = useRef<string | null>(null);
 
-  const filteredReports = demoReports.filter((r) => 
-    r.title.toLowerCase().includes(search.toLowerCase()) || 
-    r.district.toLowerCase().includes(search.toLowerCase())
+  const filteredReports = reports.filter(
+    (r) =>
+      r.title.toLowerCase().includes(search.toLowerCase()) ||
+      r.district.toLowerCase().includes(search.toLowerCase())
   );
+
+  /* ── Drag handlers ── */
+  const handleDragStart = (id: string) => {
+    dragIdRef.current = id;
+  };
+
+  const handleDragOver = (e: React.DragEvent, id: string) => {
+    e.preventDefault();
+    setDragOverId(id);
+  };
+
+  const handleDrop = (targetId: string) => {
+    const sourceId = dragIdRef.current;
+    if (!sourceId || sourceId === targetId) {
+      setDragOverId(null);
+      return;
+    }
+    setReports((prev) => {
+      const arr = [...prev];
+      const fromIdx = arr.findIndex((r) => r.id === sourceId);
+      const toIdx = arr.findIndex((r) => r.id === targetId);
+      const [item] = arr.splice(fromIdx, 1);
+      arr.splice(toIdx, 0, item);
+      return arr;
+    });
+    dragIdRef.current = null;
+    setDragOverId(null);
+  };
+
+  const handleDragEnd = () => {
+    dragIdRef.current = null;
+    setDragOverId(null);
+  };
 
   return (
     <>
@@ -78,19 +115,28 @@ export default function ReportsPage() {
             className="w-full rounded-xl border border-slate-200 bg-white/50 py-2 pl-11 pr-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
           />
         </div>
-        
-        <button className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors w-full sm:w-auto justify-center">
-          <Filter size={16} />
-          Filter Options
-        </button>
+
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          {/* drag hint */}
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 select-none">
+            <GripVertical size={14} />
+            Drag rows to reorder
+          </span>
+          <button className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors justify-center">
+            <Filter size={16} />
+            Filter Options
+          </button>
+        </div>
       </section>
 
-      {/* Reports List */}
+      {/* Reports Table */}
       <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] text-left">
             <thead className="bg-slate-50 border-b border-slate-100">
               <tr>
+                {/* grip column */}
+                <th className="w-10 px-3 py-4" />
                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Report Title</th>
                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">District / Year</th>
                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Version</th>
@@ -100,59 +146,105 @@ export default function ReportsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredReports.map((report) => (
-                <tr key={report.id} className="transition-colors hover:bg-slate-50/80 group">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${report.status === 'Approved' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
-                        <FileText size={20} />
+              {filteredReports.map((report) => {
+                const isDraggingOver = dragOverId === report.id && dragIdRef.current !== report.id;
+                return (
+                  <tr
+                    key={report.id}
+                    draggable
+                    onDragStart={() => handleDragStart(report.id)}
+                    onDragOver={(e) => handleDragOver(e, report.id)}
+                    onDrop={() => handleDrop(report.id)}
+                    onDragEnd={handleDragEnd}
+                    style={{ cursor: "grab" }}
+                    className={`transition-all group
+                      ${isDraggingOver
+                        ? "bg-blue-50/80 border-t-2 border-blue-400"
+                        : "hover:bg-slate-50/80"
+                      }`}
+                  >
+                    {/* drag handle cell */}
+                    <td className="w-10 px-3 py-4 text-center text-slate-300 group-hover:text-slate-500 transition-colors cursor-grab active:cursor-grabbing select-none">
+                      <GripVertical size={18} className="mx-auto" />
+                    </td>
+
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                            report.status === "Approved"
+                              ? "bg-emerald-50 text-emerald-600"
+                              : "bg-blue-50 text-blue-600"
+                          }`}
+                        >
+                          <FileText size={20} />
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900 leading-tight group-hover:text-blue-700 transition-colors">
+                            {report.title}
+                          </p>
+                          <p className="text-xs font-semibold text-slate-500 mt-1">
+                            Generated: {report.generatedOn}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-bold text-slate-900 leading-tight group-hover:text-blue-700 transition-colors">{report.title}</p>
-                        <p className="text-xs font-semibold text-slate-500 mt-1">Generated: {report.generatedOn}</p>
+                    </td>
+
+                    <td className="px-6 py-4">
+                      <span className="block text-sm font-bold text-slate-800">{report.district}</span>
+                      <span className="block text-xs font-semibold text-slate-500 mt-1">{report.year}</span>
+                    </td>
+
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center rounded-md bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700 font-mono">
+                        {report.version}
+                      </span>
+                    </td>
+
+                    <td className="px-6 py-4">
+                      <span
+                        className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-bold ${
+                          statusStyles[report.status] || statusStyles.Draft
+                        }`}
+                      >
+                        {report.status}
+                      </span>
+                    </td>
+
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-slate-700">{report.signatures}</span>
+                        {report.signatures === "5/5" && <span className="text-emerald-500">✅</span>}
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="block text-sm font-bold text-slate-800">{report.district}</span>
-                    <span className="block text-xs font-semibold text-slate-500 mt-1">{report.year}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center rounded-md bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700 font-mono">
-                      {report.version}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-bold ${statusStyles[report.status] || statusStyles.Draft}`}>
-                      {report.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-slate-700">{report.signatures}</span>
-                      {report.signatures === "5/5" && <span className="text-emerald-500">✅</span>}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button className="flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50 transition-all tooltip" title="View Preview">
-                        <Eye size={16} />
-                      </button>
-                      <button className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-all ${
-                        report.status === 'Approved' 
-                          ? 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700 hover:border-blue-700 shadow-sm' 
-                          : 'border-slate-200 text-slate-400 cursor-not-allowed bg-slate-50'
-                      }`} title="Download Final PDF">
-                        <Download size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              
+                    </td>
+
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          className="flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50 transition-all"
+                          title="View Preview"
+                        >
+                          <Eye size={16} />
+                        </button>
+                        <button
+                          className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-all ${
+                            report.status === "Approved"
+                              ? "bg-blue-600 border-blue-600 text-white hover:bg-blue-700 hover:border-blue-700 shadow-sm"
+                              : "border-slate-200 text-slate-400 cursor-not-allowed bg-slate-50"
+                          }`}
+                          title="Download Final PDF"
+                        >
+                          <Download size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+
               {filteredReports.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center">
+                  <td colSpan={7} className="px-6 py-12 text-center">
                     <FileText size={40} className="mx-auto text-slate-300 mb-3" />
                     <p className="text-lg font-bold text-slate-700">No reports found</p>
                     <p className="text-sm text-slate-500 mt-1">Try adjusting your search criteria.</p>
