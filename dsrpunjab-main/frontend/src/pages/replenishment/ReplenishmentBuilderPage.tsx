@@ -14,6 +14,10 @@ import {
   Lock,
   Map,
   Merge,
+  Download,
+  FileJson,
+  FileText,
+  Printer,
   RefreshCw,
   Replace,
   Save,
@@ -26,6 +30,16 @@ import {
   replenishmentApi,
   type ReplenishmentStudy,
 } from "../../api/replenishment.api";
+import {
+  downloadBlob,
+  exportDraftJson,
+  exportWordDocument,
+  loadDownloadHistory,
+  openPrintableDocument,
+  recordDownloadHistory,
+  replenishmentFileName,
+  type DownloadFormat,
+} from "../../utils/reportExport";
 
 type ImportMode = "smart" | "selective" | "fresh";
 type ContentAction = "Preview" | "Copy" | "Replace" | "Merge" | "Reference" | "Skip";
@@ -72,6 +86,10 @@ type WorkflowState = {
   dynamicRegeneration: string[];
   previewNotes: string[];
   lastSavedAt?: string;
+  district?: string;
+  river?: string;
+  year?: string;
+  version?: number;
 };
 
 const resourceOptions = [
@@ -142,13 +160,119 @@ const defaultWorkflow: WorkflowState = {
     "Imported Replenishment Report starts from reusable approved DSR content.",
     "Updated Replenishment Report highlights modified survey-dependent sections.",
   ],
+  district: "Punjab",
+  river: "River",
+  year: String(new Date().getFullYear()),
+  version: 1,
 };
+
+function currentUserName() {
+  try {
+    const raw = localStorage.getItem("dsr:auth_user");
+    const user = raw ? JSON.parse(raw) : null;
+    return user?.fullName || user?.username || user?.email || "Current Officer";
+  } catch {
+    return "Current Officer";
+  }
+}
+
+function fileNameFor(workflow: WorkflowState, extension: "pdf" | "json" | "docx") {
+  return replenishmentFileName({
+    district: workflow.district,
+    river: workflow.river,
+    year: workflow.year,
+    version: workflow.version,
+    extension,
+  });
+}
+
+function recordHistory(studyId: string, workflow: WorkflowState, fileName: string, fileSize: number, format: DownloadFormat) {
+  recordDownloadHistory({
+    reportId: studyId,
+    generatedBy: currentUserName(),
+    version: workflow.version || 1,
+    fileName,
+    fileSize,
+    format,
+  });
+}
+
+function buildReplenishmentPreviewHtml(study: ReplenishmentStudy | null, workflow: WorkflowState, survey: SurveyUpdate) {
+  const summary = workflow.importSummary;
+  return `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title></title>
+<style>
+  @page { size: A4; margin: 14mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Noto Sans", "Nirmala UI", "Mangal", Arial, Helvetica, sans-serif; background: #f1f5f9; color: #0f172a; padding: 20px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page { position: relative; max-width: 780px; min-height: 1060px; margin: 0 auto 18px; background: #fff; padding: 42px 52px; box-shadow: 0 4px 24px rgba(15,23,42,0.12); page-break-after: always; overflow: hidden; }
+  .watermark { position: absolute; inset: 42% 0 auto; text-align: center; transform: rotate(-28deg); font-size: 52px; font-weight: 800; color: rgba(23,50,77,0.06); pointer-events: none; }
+  .header { text-align: center; border-bottom: 3px solid #17324d; padding-bottom: 18px; margin-bottom: 28px; }
+  .header img { height: 58px; object-fit: contain; margin-bottom: 8px; }
+  h1 { font-size: 18px; color: #17324d; text-transform: uppercase; letter-spacing: 0.5px; }
+  h2 { margin-top: 8px; font-size: 15px; color: #334155; text-transform: uppercase; }
+  .meta { margin-top: 8px; font-size: 11px; color: #64748b; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 24px 0; }
+  .metric { border: 1px solid #e2e8f0; background: #f8fafc; padding: 10px; border-radius: 6px; }
+  .metric b { display: block; font-size: 18px; color: #17324d; }
+  .metric span { font-size: 10px; color: #64748b; text-transform: uppercase; }
+  h3 { margin: 22px 0 10px; font-size: 13px; color: #17324d; text-transform: uppercase; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 10px; break-inside: avoid; }
+  th, td { border: 1px solid #cbd5e1; padding: 7px; text-align: left; vertical-align: top; }
+  th { background: #e2e8f0; color: #334155; text-transform: uppercase; }
+  .survey { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; font-size: 11px; }
+  .survey div { border: 1px solid #e2e8f0; padding: 8px; background: #f8fafc; border-radius: 6px; }
+  .footer { margin-top: 24px; border-top: 1px solid #e2e8f0; padding-top: 10px; text-align: center; font-size: 9px; color: #94a3b8; }
+  @media print { body { background: #fff; padding: 0; } .page { max-width: none; min-height: auto; box-shadow: none; margin: 0; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="watermark">GOVERNMENT OF PUNJAB</div>
+  <div class="header">
+    <img src="/assets/state-emblem.png" alt="Punjab Logo">
+    <h1>Government of Punjab</h1>
+    <h2>${study?.title || "Enterprise Replenishment Report"}</h2>
+    <div class="meta">${workflow.district || "Punjab"} | ${workflow.river || "River"} | ${workflow.year || survey.surveyYear} | Version ${workflow.version || 1}</div>
+  </div>
+  <div class="grid">
+    <div class="metric"><b>${summary.imported}</b><span>Imported</span></div>
+    <div class="metric"><b>${summary.updated}</b><span>Updated</span></div>
+    <div class="metric"><b>${summary.pending}</b><span>Pending/Fresh Survey</span></div>
+  </div>
+  <h3>DSR Content Manager</h3>
+  <table>
+    <thead><tr><th>Group</th><th>Name</th><th>Status</th><th>Action</th></tr></thead>
+    <tbody>${workflow.contentItems.map((item) => `<tr><td>${item.group}</td><td>${item.name}</td><td>${item.status}</td><td>${item.action}</td></tr>`).join("")}</tbody>
+  </table>
+  <h3>Survey Update Section</h3>
+  <div class="survey">
+    <div><b>Survey Year:</b> ${survey.surveyYear || "-"}</div>
+    <div><b>Survey Date:</b> ${survey.surveyDate || "-"}</div>
+    <div><b>Rainfall:</b> ${survey.rainfall || "-"}</div>
+    <div><b>Water Level:</b> ${survey.waterLevel || "-"}</div>
+    <div><b>River Width/Depth:</b> ${survey.riverWidthDepth || "-"}</div>
+    <div><b>Sediment:</b> ${survey.sediment || "-"}</div>
+  </div>
+  <h3>Dynamic Regeneration Queue</h3>
+  <table>
+    <tbody>${workflow.dynamicRegeneration.map((item, index) => `<tr><td>${index + 1}</td><td>${item}</td></tr>`).join("")}</tbody>
+  </table>
+  <div class="footer">Generated by DSR Portal | Live Preview source | Unicode-safe replenishment export</div>
+</div>
+</body>
+</html>`;
+}
 
 export default function ReplenishmentBuilderPage() {
   const { projectId } = useParams();
   const [study, setStudy] = useState<ReplenishmentStudy | null>(null);
   const [workflow, setWorkflow] = useState<WorkflowState>(defaultWorkflow);
   const [survey, setSurvey] = useState<SurveyUpdate>(defaultSurvey);
+  const [originalPdf, setOriginalPdf] = useState<{ name: string; url: string; size: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -210,6 +334,69 @@ export default function ReplenishmentBuilderPage() {
     }));
   };
 
+  const updateWorkflowMeta = (key: "district" | "river" | "year" | "version", value: string) => {
+    setWorkflow((current) => ({ ...current, [key]: key === "version" ? Number(value) || 1 : value }));
+  };
+
+  const exportHtml = () => buildReplenishmentPreviewHtml(study, { ...workflow, importSummary: summary }, survey);
+
+  const handleDownloadGeneratedPdf = () => {
+    if (!study) return;
+    const fileName = fileNameFor(workflow, "pdf");
+    openPrintableDocument(exportHtml(), fileName);
+    recordHistory(study.id, workflow, fileName, 0, "generated-pdf");
+    toast.success("Generated PDF live preview se open ho gaya");
+  };
+
+  const handleDownloadDraft = () => {
+    if (!study) return;
+    const fileName = fileNameFor(workflow, "json");
+    const size = exportDraftJson({ study, workflow: { ...workflow, importSummary: summary }, survey }, fileName);
+    recordHistory(study.id, workflow, fileName, size, "draft-json");
+    toast.success("Draft JSON downloaded");
+  };
+
+  const handleExportDocx = () => {
+    if (!study) return;
+    const fileName = fileNameFor(workflow, "docx");
+    const size = exportWordDocument(exportHtml(), fileName);
+    recordHistory(study.id, workflow, fileName, size, "docx");
+    toast.success("Editable DOCX downloaded");
+  };
+
+  const handlePrint = () => {
+    if (!study) return;
+    openPrintableDocument(exportHtml(), study.title);
+    recordHistory(study.id, workflow, fileNameFor(workflow, "pdf"), 0, "print");
+  };
+
+  const handleOriginalPdfSelect = (file: File | undefined) => {
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      toast.error("Original official file PDF hona chahiye");
+      return;
+    }
+    if (originalPdf?.url) URL.revokeObjectURL(originalPdf.url);
+    setOriginalPdf({ name: file.name, url: URL.createObjectURL(file), size: file.size });
+    toast.success("Original PDF ready hai");
+  };
+
+  const handleDownloadOriginalPdf = () => {
+    if (!study || !originalPdf) {
+      toast.error("Pehle official Replenishment PDF upload karo");
+      return;
+    }
+    fetch(originalPdf.url)
+      .then((response) => response.blob())
+      .then((blob) => {
+        downloadBlob(blob, originalPdf.name);
+        recordHistory(study.id, workflow, originalPdf.name, blob.size || originalPdf.size, "original-pdf");
+      })
+      .catch(() => toast.error("Original PDF download nahi ho paya"));
+  };
+
+  const downloadHistory = study ? loadDownloadHistory(study.id).slice(0, 4) : [];
+
   if (loading) {
     return <div className="rounded-2xl border border-slate-200 bg-white p-8 text-slate-600">Loading replenishment workflow...</div>;
   }
@@ -219,8 +406,49 @@ export default function ReplenishmentBuilderPage() {
       <PageHeader
         title="Enterprise Replenishment Report"
         description="Approved Final DSR se smart import, selective reuse, survey updates aur dynamic regeneration - sab database me persisted."
-        action={<button className="module-btn-primary" onClick={persist} disabled={saving || !study}><Save size={17}/>{saving ? "Saving..." : "Save to Database"}</button>}
+        action={
+          <div className="flex flex-wrap justify-end gap-2">
+            <label className="module-btn cursor-pointer">
+              <Upload size={17}/>Upload Original PDF
+              <input type="file" accept="application/pdf" hidden onChange={(event) => handleOriginalPdfSelect(event.target.files?.[0])} />
+            </label>
+            <button className="module-btn" onClick={handleDownloadOriginalPdf}><FileText size={17}/>Download Original PDF</button>
+            <button className="module-btn-primary" onClick={handleDownloadGeneratedPdf}><Download size={17}/>Download Generated PDF</button>
+            <button className="module-btn" onClick={handleDownloadDraft}><FileJson size={17}/>Download Draft (.json)</button>
+            <button className="module-btn" onClick={handleExportDocx}><FileText size={17}/>Export DOCX</button>
+            <button className="module-btn" onClick={handlePrint}><Printer size={17}/>Print</button>
+            <button className="module-btn-primary" onClick={persist} disabled={saving || !study}><Save size={17}/>{saving ? "Saving..." : "Save to Database"}</button>
+          </div>
+        }
       />
+
+      <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="grid gap-3 md:grid-cols-4">
+          {([
+            ["district", "District"],
+            ["river", "River"],
+            ["year", "Year"],
+            ["version", "Version"],
+          ] as const).map(([key, label]) => (
+            <label key={key} className="text-xs font-bold uppercase text-slate-500">
+              {label}
+              <input
+                value={String(workflow[key] || (key === "version" ? 1 : ""))}
+                onChange={(event) => updateWorkflowMeta(key, event.target.value)}
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold normal-case text-slate-700 outline-none focus:border-blue-500"
+              />
+            </label>
+          ))}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+          {originalPdf && <span className="rounded-full bg-emerald-50 px-3 py-1 font-semibold text-emerald-700">Original: {originalPdf.name}</span>}
+          {downloadHistory.map((item) => (
+            <span key={item.id} className="rounded-full bg-slate-100 px-3 py-1">
+              {item.fileName} | v{item.version} | {Math.ceil(item.fileSize / 1024)} KB | {item.downloadCount}x | {item.generatedBy}
+            </span>
+          ))}
+        </div>
+      </section>
 
       <section className="mb-5 grid gap-4 md:grid-cols-4">
         <Metric icon={FileStack} label="Study" value={study?.title || "Draft"} />

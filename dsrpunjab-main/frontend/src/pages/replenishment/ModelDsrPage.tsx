@@ -11,24 +11,13 @@ import {
   UploadCloud,
   FileText,
   Info,
-  Printer,
-  FileJson,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useParams } from "react-router-dom";
+import jsPDF from "jspdf";
 import PageHeader from "../../components/layout/PageHeader";
 import ResizableLayout from "../../components/layout/ResizableLayout";
 import { apiClient } from "../../api/client";
-import {
-  downloadBlob,
-  exportDraftJson,
-  exportWordDocument,
-  loadDownloadHistory,
-  openPrintableDocument,
-  recordDownloadHistory,
-  replenishmentFileName,
-  type DownloadFormat,
-} from "../../utils/reportExport";
 
 // ─────────────────────────────────────────────────────────
 // Types
@@ -42,13 +31,8 @@ interface ModelDsrReport {
   sections: ReportSection[];
   frontMatterPdfs: Record<string, string[]>; // uploadKey → dataURLs
   customPdfs: Record<string, string[]>;      // sectionId → dataURLs
-  originalPdfNames?: Record<string, string>;
   customSections: CustomSection[];
   sectionOrder: string[];
-  district?: string;
-  river?: string;
-  year?: string;
-  version?: number;
 }
 
 interface CustomSection {
@@ -158,13 +142,8 @@ async function fetchReportsFromServer(projectId: string): Promise<ModelDsrReport
           sections?: string[];
           frontMatterPdfs?: Record<string, string[]>;
           customPdfs?: Record<string, string[]>;
-          originalPdfNames?: Record<string, string>;
           customSections?: CustomSection[];
           sectionOrder?: string[];
-          district?: string;
-          river?: string;
-          year?: string;
-          version?: number;
         };
         return {
           id: s.id,
@@ -173,13 +152,8 @@ async function fetchReportsFromServer(projectId: string): Promise<ModelDsrReport
           sections: state.sections || [],
           frontMatterPdfs: state.frontMatterPdfs || {},
           customPdfs: state.customPdfs || {},
-          originalPdfNames: state.originalPdfNames || {},
           customSections: state.customSections || [],
           sectionOrder: state.sectionOrder || [],
-          district: state.district,
-          river: state.river,
-          year: state.year,
-          version: state.version || 1,
         };
       });
   } catch {
@@ -198,13 +172,8 @@ async function saveReportToServer(_projectId: string, report: ModelDsrReport) {
         sections: report.sections,
         frontMatterPdfs: report.frontMatterPdfs,
         customPdfs: report.customPdfs,
-        originalPdfNames: report.originalPdfNames || {},
         customSections: report.customSections,
         sectionOrder: report.sectionOrder,
-        district: report.district,
-        river: report.river,
-        year: report.year,
-        version: report.version || 1,
       },
     });
   } catch {
@@ -226,13 +195,8 @@ async function createReportOnServer(
           sections: [],
           frontMatterPdfs: {},
           customPdfs: {},
-          originalPdfNames: {},
           customSections: [],
           sectionOrder: [],
-          district: "Punjab",
-          river: "River",
-          year: String(new Date().getFullYear()),
-          version: 1,
         },
       }
     );
@@ -251,37 +215,72 @@ async function deleteReportOnServer(reportId: string) {
 }
 
 // ─────────────────────────────────────────────────────────
-// Export helpers
+// PDF generation (jsPDF)
 // ─────────────────────────────────────────────────────────
-function currentUserName() {
-  try {
-    const raw = localStorage.getItem("dsr:auth_user");
-    const user = raw ? JSON.parse(raw) : null;
-    return user?.fullName || user?.username || user?.email || "Current Officer";
-  } catch {
-    return "Current Officer";
+function generateModelDsrPDF(
+  reportName: string,
+  sections: SectionDef[],
+  selectedIds: string[]
+) {
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageW = pdf.internal.pageSize.getWidth();
+
+  pdf.setFillColor(23, 50, 77);
+  pdf.rect(0, 0, pageW, 40, "F");
+  pdf.setTextColor(255, 255, 255);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(18);
+  pdf.text("Government of Punjab", pageW / 2, 15, { align: "center" });
+  pdf.setFontSize(12);
+  pdf.text("Model DSR Report", pageW / 2, 24, { align: "center" });
+  pdf.setFontSize(10);
+  pdf.setFont("helvetica", "normal");
+  pdf.text(reportName, pageW / 2, 33, { align: "center" });
+
+  pdf.setTextColor(30, 41, 59);
+  pdf.setFontSize(14);
+  pdf.setFont("helvetica", "bold");
+  pdf.text("Selected DSR Sections", 14, 55);
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(10);
+  let y = 65;
+  const selected = sections.filter((s) => selectedIds.includes(s.id));
+
+  if (selected.length === 0) {
+    pdf.setTextColor(100, 116, 139);
+    pdf.text("No sections were selected for this report.", 14, y);
+  } else {
+    selected.forEach((s, i) => {
+      if (y > 270) {
+        pdf.addPage();
+        y = 20;
+      }
+      pdf.setFillColor(248, 250, 252);
+      pdf.roundedRect(12, y - 5, pageW - 24, 10, 2, 2, "F");
+      pdf.setTextColor(30, 41, 59);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(`${i + 1}. ${s.name}`, 16, y + 1);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(100, 116, 139);
+      pdf.text(s.type, pageW - 14, y + 1, { align: "right" });
+      y += 14;
+    });
   }
-}
 
-function recordReportDownload(report: ModelDsrReport, fileName: string, fileSize: number, format: DownloadFormat) {
-  recordDownloadHistory({
-    reportId: report.id,
-    generatedBy: currentUserName(),
-    version: report.version || 1,
-    fileName,
-    fileSize,
-    format,
-  });
-}
+  const now = new Date().toLocaleString("en-IN");
+  pdf.setFont("helvetica", "italic");
+  pdf.setFontSize(8);
+  pdf.setTextColor(148, 163, 184);
+  const totalPages = (pdf as unknown as { getNumberOfPages: () => number }).getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    pdf.setPage(p);
+    pdf.text(`Generated: ${now} | Page ${p} of ${totalPages}`, pageW / 2, 290, {
+      align: "center",
+    });
+  }
 
-function reportFileName(report: ModelDsrReport, extension: "pdf" | "json" | "docx") {
-  return replenishmentFileName({
-    district: report.district,
-    river: report.river,
-    year: report.year,
-    version: report.version,
-    extension,
-  });
+  pdf.save(`${reportName.replace(/[^a-z0-9]+/gi, "-")}.pdf`);
 }
 
 // ─────────────────────────────────────────────────────────
@@ -303,79 +302,6 @@ function TypeBadge({ type }: { type: string }) {
       {type}
     </span>
   );
-}
-
-function buildPreviewHtml(report: ModelDsrReport, sections: SectionDef[]) {
-  const checkedSet = new Set(report.sections);
-  const selectedSections = sections.filter(
-    (s) =>
-      checkedSet.has(s.id) ||
-      (s.hasSubsections && s.subsections?.some((sub) => checkedSet.has(sub.id)))
-  );
-  const district = report.district || "Punjab";
-  const year = report.year || String(new Date().getFullYear());
-
-  return `<!doctype html>
-<html>
-<head>
-<meta charset="utf-8">
-<title></title>
-<style>
-  @page { size: A4; margin: 14mm; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: "Noto Sans", "Nirmala UI", "Mangal", Arial, Helvetica, sans-serif; background: #f1f5f9; padding: 20px; color: #0f172a; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .page { position: relative; background: #fff; max-width: 700px; margin: 0 auto 20px; padding: 40px 48px; box-shadow: 0 4px 24px rgba(0,0,0,0.10); min-height: 900px; page-break-after: always; overflow: hidden; }
-  .watermark { position: absolute; inset: 35% 0 auto; text-align: center; transform: rotate(-28deg); font-size: 54px; font-weight: 800; color: rgba(23,50,77,0.06); pointer-events: none; }
-  .gov-header { text-align: center; border-bottom: 2px solid #17324d; padding-bottom: 16px; margin-bottom: 32px; }
-  .gov-header .emblem { height: 54px; object-fit: contain; margin-bottom: 8px; }
-  .gov-header h1 { font-size: 14px; font-weight: 700; color: #17324d; letter-spacing: 1px; text-transform: uppercase; }
-  .gov-header h2 { font-size: 11px; color: #64748b; margin-top: 2px; }
-  .report-title { text-align: center; margin-bottom: 28px; }
-  .report-title h3 { font-size: 18px; font-weight: 800; color: #1e293b; text-transform: uppercase; }
-  .report-title p { font-size: 11px; color: #64748b; margin-top: 6px; }
-  .section-list h4 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #475569; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
-  .section-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; margin-bottom: 5px; background: #f8fafc; border: 1px solid #e2e8f0; break-inside: avoid; }
-  .section-num { font-size: 10px; font-weight: 700; color: #94a3b8; min-width: 20px; }
-  .section-name { font-size: 12px; font-weight: 600; color: #1e293b; flex: 1; }
-  .section-badge { font-size: 9px; padding: 2px 7px; border-radius: 100px; font-weight: 700; background: #e2e8f0; color: #475569; }
-  .empty { text-align: center; padding: 60px 20px; color: #94a3b8; font-size: 13px; }
-  .footer { margin-top: 32px; border-top: 1px solid #e2e8f0; padding-top: 12px; font-size: 9px; color: #94a3b8; text-align: center; }
-  @media print { body { background: #fff; padding: 0; } .page { max-width: none; min-height: auto; box-shadow: none; margin: 0; } }
-</style>
-</head>
-<body>
-<div class="page">
-  <div class="watermark">GOVERNMENT OF PUNJAB</div>
-  <div class="gov-header">
-    <img class="emblem" src="/assets/state-emblem.png" alt="Punjab Logo">
-    <h1>Government of Punjab</h1>
-    <h2>District Survey Report Portal</h2>
-  </div>
-  <div class="report-title">
-    <h3>${report.name || "Model DSR Report"}</h3>
-    <p>${district} | ${report.river || "River"} | ${year} | Version ${report.version || 1}</p>
-  </div>
-  <div class="section-list">
-    <h4>Selected Sections (${selectedSections.length})</h4>
-    ${
-      selectedSections.length === 0
-        ? '<div class="empty">No sections selected yet.<br>Select sections on the left to see the live preview.</div>'
-        : selectedSections
-            .map(
-              (s, i) =>
-                `<div class="section-item">
-                  <span class="section-num">${i + 1}.</span>
-                  <span class="section-name">${s.name}</span>
-                  <span class="section-badge">${s.type}</span>
-                </div>`
-            )
-            .join("")
-    }
-  </div>
-  <div class="footer">Generated by DSR Portal | Page 1 | Unicode-safe live preview export</div>
-</div>
-</body>
-</html>`;
 }
 
 // ─────────────────────────────────────────────────────────
@@ -431,13 +357,8 @@ export default function ModelDsrPage() {
         sections: [],
         frontMatterPdfs: {},
         customPdfs: {},
-        originalPdfNames: {},
         customSections: [],
         sectionOrder: DEFAULT_ORDER,
-        district: "Punjab",
-        river: "River",
-        year: String(new Date().getFullYear()),
-        version: 1,
       };
       setReports((prev) => [newReport, ...prev]);
       setActiveReport(newReport);
@@ -495,9 +416,7 @@ export default function ModelDsrPage() {
       return;
     }
     const allSections = buildSectionList(report);
-    const fileName = reportFileName(report, "pdf");
-    openPrintableDocument(buildPreviewHtml(report, allSections), fileName);
-    recordReportDownload(report, fileName, 0, "generated-pdf");
+    generateModelDsrPDF(report.name, allSections, report.sections);
   };
 
   return (
@@ -736,7 +655,7 @@ function ReportListView({
           <h2 className="text-lg font-extrabold text-slate-800">Saved Model DSR Reports</h2>
           <p className="mt-0.5 text-xs text-slate-500">{reports.length} report(s) saved</p>
         </div>
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="flex gap-2">
           <button
             onClick={onRefresh}
             disabled={loading}
@@ -989,56 +908,9 @@ function ReportEditor({
       return;
     }
     const allSecs = buildSectionList(report);
-    const fileName = reportFileName(report, "pdf");
-    openPrintableDocument(buildPreviewHtml(report, allSecs), fileName);
-    recordReportDownload(report, fileName, 0, "generated-pdf");
-    toast.success("Generated PDF opened from live preview");
+    generateModelDsrPDF(report.name, allSecs, selected);
+    toast.success("PDF generated!");
   };
-
-  const handleDownloadDraft = () => {
-    const fileName = reportFileName(report, "json");
-    const size = exportDraftJson(report, fileName);
-    recordReportDownload(report, fileName, size, "draft-json");
-    toast.success("Draft JSON downloaded");
-  };
-
-  const handleExportDocx = () => {
-    const fileName = reportFileName(report, "docx");
-    const size = exportWordDocument(buildPreviewHtml(report, buildSectionList(report)), fileName);
-    recordReportDownload(report, fileName, size, "docx");
-    toast.success("Editable Word document downloaded");
-  };
-
-  const handlePrint = () => {
-    openPrintableDocument(buildPreviewHtml(report, buildSectionList(report)), report.name);
-    recordReportDownload(report, reportFileName(report, "pdf"), 0, "print");
-  };
-
-  const handleDownloadOriginal = () => {
-    const firstEntry =
-      Object.entries(report.frontMatterPdfs || {})[0] || Object.entries(report.customPdfs || {})[0];
-    if (!firstEntry) {
-      toast.error("No original PDF has been uploaded yet");
-      return;
-    }
-    const [key, urls] = firstEntry;
-    const url = urls?.[0];
-    if (!url) {
-      toast.error("Original PDF is unavailable in this browser session");
-      return;
-    }
-    const fileName = report.originalPdfNames?.[key] || `${key}.pdf`;
-    fetch(url)
-      .then((response) => response.blob())
-      .then((blob) => {
-        downloadBlob(blob, fileName);
-        recordReportDownload(report, fileName, blob.size, "original-pdf");
-        toast.success("Original PDF downloaded");
-      })
-      .catch(() => toast.error("Could not download the original PDF"));
-  };
-
-  const downloadHistory = loadDownloadHistory(report.id).slice(0, 3);
 
   return (
     <div
@@ -1051,17 +923,8 @@ function ReportEditor({
           <div className="mt-0.5 text-xs text-slate-500">
             Select DSR sections &amp; annexures to compile into a Model DSR report
           </div>
-          {downloadHistory.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-slate-500">
-              {downloadHistory.map((item) => (
-                <span key={item.id} className="rounded-full bg-slate-100 px-2 py-0.5">
-                  {item.fileName} | v{item.version} | {Math.ceil(item.fileSize / 1024)} KB | {item.downloadCount}x | {item.generatedBy}
-                </span>
-              ))}
-            </div>
-          )}
         </div>
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="flex gap-2">
           <button
             onClick={onBack}
             className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
@@ -1069,34 +932,10 @@ function ReportEditor({
             ← Back
           </button>
           <button
-            onClick={handleDownloadOriginal}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
-          >
-            <FileText size={13} /> Download Original PDF
-          </button>
-          <button
             onClick={handleDownload}
             className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-blue-700"
           >
-            <Download size={13} /> Download Generated PDF
-          </button>
-          <button
-            onClick={handleDownloadDraft}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
-          >
-            <FileJson size={13} /> Download Draft (.json)
-          </button>
-          <button
-            onClick={handleExportDocx}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
-          >
-            <FileText size={13} /> Export DOCX
-          </button>
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
-          >
-            <Printer size={13} /> Print
+            <Download size={13} /> Download PDF
           </button>
         </div>
       </div>
@@ -1131,28 +970,6 @@ function ReportEditor({
                     <GripVertical size={10} /> Drag to reorder
                   </span>
                 </div>
-              </div>
-              <div className="grid gap-2 border-b border-slate-100 bg-white px-5 py-3 sm:grid-cols-4">
-                {[
-                  ["district", "District"],
-                  ["river", "River"],
-                  ["year", "Year"],
-                  ["version", "Version"],
-                ].map(([key, label]) => (
-                  <label key={key} className="text-[10px] font-bold uppercase text-slate-500">
-                    {label}
-                    <input
-                      value={String((report as unknown as Record<string, unknown>)[key] || (key === "version" ? 1 : ""))}
-                      onChange={(event) =>
-                        onChange({
-                          ...report,
-                          [key]: key === "version" ? Number(event.target.value) || 1 : event.target.value,
-                        })
-                      }
-                      className="mt-1 w-full rounded-md border border-slate-200 px-2 py-1 text-xs font-semibold normal-case text-slate-700 outline-none focus:border-blue-400"
-                    />
-                  </label>
-                ))}
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-2">
@@ -1235,11 +1052,7 @@ function DraggableSectionItem({
     }
     const url = URL.createObjectURL(file);
     const newFM = { ...report.frontMatterPdfs, [uploadKey]: [url] };
-    onChange({
-      ...report,
-      frontMatterPdfs: newFM,
-      originalPdfNames: { ...(report.originalPdfNames || {}), [uploadKey]: file.name },
-    });
+    onChange({ ...report, frontMatterPdfs: newFM });
     toast.success("Front matter PDF uploaded!");
     e.target.value = "";
   };
@@ -1261,11 +1074,7 @@ function DraggableSectionItem({
     }
     const url = URL.createObjectURL(file);
     const newCustomPdfs = { ...report.customPdfs, [section.id]: [url] };
-    onChange({
-      ...report,
-      customPdfs: newCustomPdfs,
-      originalPdfNames: { ...(report.originalPdfNames || {}), [section.id]: file.name },
-    });
+    onChange({ ...report, customPdfs: newCustomPdfs });
     toast.success("PDF uploaded!");
     e.target.value = "";
   };
