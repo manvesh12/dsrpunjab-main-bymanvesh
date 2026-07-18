@@ -61,7 +61,16 @@ export default function FrontMatterPage(){
     <aside className="h-full rounded-2xl border bg-slate-200 p-4 flex flex-col">
       <p className="mb-3 text-xs font-bold uppercase text-slate-600 shrink-0">Live Front Matter Preview</p>
       <div className="flex-1 overflow-y-auto min-h-0 rounded-xl pb-10 custom-scrollbar">
-        <div id="front-matter-pdf-preview" className="flex flex-col gap-6 items-center">
+        <div id="front-matter-pdf-preview" className="flex flex-col gap-6 items-center" style={{ color: '#0f172a' }}>
+          <style>{`
+            #front-matter-pdf-preview * {
+              border-color: #e2e8f0 !important;
+              outline-color: transparent !important;
+              text-decoration-color: transparent !important;
+              box-shadow: none !important;
+              text-shadow: none !important;
+            }
+          `}</style>
           
           {/* Cover Page */}
           <div className={`bg-[#ffffff] aspect-[1/1.414] w-full max-w-[794px] text-center border border-[#e2e8f0] shrink-0 flex flex-col relative overflow-hidden ${coverFile?.preview ? 'p-0' : 'p-10'}`}>
