@@ -26,7 +26,7 @@ export default function PortalLayout() {
     sectionPaths.some((p) => location.pathname.includes(`/${p}`));
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 transition-colors">
+    <div className="gov-portal min-h-screen bg-[#f3f4f6] dark:bg-slate-950 transition-colors">
       <Sidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -37,7 +37,7 @@ export default function PortalLayout() {
       <div className={collapsed ? "lg:pl-20" : "lg:pl-72"}>
         <Header onMenuClick={() => setSidebarOpen(true)} />
 
-        <main className="p-4 md:p-6 lg:p-8 text-slate-900 dark:text-slate-100 transition-colors">
+        <main id="main-content" className="p-4 md:p-6 lg:p-8 text-slate-900 dark:text-slate-100 transition-colors">
           <Outlet />
         </main>
       </div>
@@ -76,7 +76,7 @@ function BackToProjectTab({ projectId }: { projectId: string }) {
         transition: "max-width 0.3s ease, background 0.2s ease, box-shadow 0.2s ease",
         padding: "0.75rem 0",
         borderRadius: "0 0.875rem 0.875rem 0",
-        background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+        background: "#12396b",
         color: "#fff",
         border: "none",
         cursor: "pointer",

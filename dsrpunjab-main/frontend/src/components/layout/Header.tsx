@@ -1,4 +1,4 @@
-import { Bell, Menu, Search, User, LogOut } from "lucide-react";
+import { Bell, Menu, Search, User, LogOut, Landmark } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../security/auth.context";
 import ThemeToggle from "../ui/ThemeToggle";
@@ -17,11 +17,16 @@ export default function Header({ onMenuClick }: HeaderProps) {
   };
 
   return (
-    <header className="sticky top-0 z-20 flex h-20 items-center gap-4 border-b border-slate-200 bg-white/95 px-4 backdrop-blur md:px-6 dark:border-slate-800 dark:bg-slate-900/95 transition-colors">
+    <header className="gov-header sticky top-0 z-20 bg-white dark:bg-slate-900">
+      <div className="gov-utility-bar">
+        <div className="flex items-center gap-2"><Landmark size={13} /><span>Government of Punjab</span><span className="opacity-50">|</span><span>Department of Mines &amp; Geology</span></div>
+        <div className="hidden items-center gap-3 sm:flex"><span>ਸਰਕਾਰ ਪੰਜਾਬ</span><span className="opacity-50">|</span><span>भारत सरकार</span></div>
+      </div>
+      <div className="flex h-[76px] items-center gap-4 border-b border-slate-300 px-4 md:px-6 dark:border-slate-700">
       <button
         type="button"
         onClick={onMenuClick}
-        className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden dark:text-slate-300 dark:hover:bg-slate-800 transition-colors"
+          className="rounded-sm border border-slate-300 p-2 text-[#12396b] hover:bg-slate-100 lg:hidden dark:text-slate-300 dark:hover:bg-slate-800 transition-colors"
       >
         <Menu size={22} />
       </button>
@@ -35,7 +40,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
         <input
           type="search"
           placeholder="Search projects, districts and reports..."
-          className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-blue-500 focus:bg-white dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-200 dark:placeholder:text-slate-500 dark:focus:border-blue-500 dark:focus:bg-slate-800 transition-colors"
+          className="w-full rounded-sm border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-[#12396b] focus:ring-2 focus:ring-[#12396b]/15 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 transition-colors"
         />
       </div>
 
@@ -44,7 +49,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
         <button
           type="button"
-          className="relative rounded-xl p-2.5 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors"
+          className="relative rounded-sm border border-slate-300 p-2.5 text-[#12396b] hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors"
         >
           <Bell size={21} />
           <span className="absolute right-2 top-2 size-2 rounded-full bg-red-500" />
@@ -53,9 +58,9 @@ export default function Header({ onMenuClick }: HeaderProps) {
         <button
           type="button"
           onClick={() => navigate('/profile')}
-          className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 transition-colors"
+          className="flex items-center gap-2 rounded-sm border border-slate-300 px-3 py-2 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 transition-colors"
         >
-          <span className="flex size-8 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 transition-colors overflow-hidden">
+          <span className="flex size-8 items-center justify-center rounded-sm bg-[#12396b] text-white transition-colors overflow-hidden">
             {user?.profilePhoto ? (
               <img src={user.profilePhoto} alt="Profile" className="w-full h-full object-cover" />
             ) : (
@@ -78,14 +83,14 @@ export default function Header({ onMenuClick }: HeaderProps) {
         <button
           type="button"
           onClick={handleLogout}
-          className="relative flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors dark:text-slate-400 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+          className="relative flex items-center gap-2 rounded-sm px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-red-50 hover:text-red-700 transition-colors dark:text-slate-400 dark:hover:bg-red-500/10 dark:hover:text-red-400"
           title="Logout"
         >
           <LogOut size={19} />
           <span className="hidden sm:inline">Logout</span>
         </button>
       </div>
-
+      </div>
     </header>
   );
 }
