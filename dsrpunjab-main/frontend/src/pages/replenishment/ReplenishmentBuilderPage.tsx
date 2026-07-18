@@ -343,7 +343,12 @@ export default function ReplenishmentBuilderPage() {
     setWorkflow((current) => ({ ...current, [key]: key === "version" ? Number(value) || 1 : value }));
   };
 
-  const exportHtml = () => buildReplenishmentPreviewHtml(study, { ...workflow, importSummary: summary }, survey);
+  const livePreviewHtml = useMemo(
+    () => buildReplenishmentPreviewHtml(study, { ...workflow, importSummary: summary }, survey),
+    [study, workflow, summary, survey],
+  );
+
+  const exportHtml = () => livePreviewHtml;
 
   const handleDownloadGeneratedPdf = async () => {
     if (!study) return;
@@ -734,10 +739,15 @@ export default function ReplenishmentBuilderPage() {
 
       <div className="mt-5">
         <Panel title="Live Replenishment Preview" icon={Eye} description="Database draft ka current printable report preview. Har form change yahan turant update hota hai.">
+          <div className="mb-3 flex justify-end">
+            <button className="module-btn-primary" onClick={handleDownloadGeneratedPdf} disabled={!study}>
+              <Download size={17}/>Download This Preview PDF
+            </button>
+          </div>
           <div className="overflow-hidden rounded-xl border border-slate-300 bg-slate-200">
             <iframe
               title="Live replenishment report preview"
-              srcDoc={exportHtml()}
+              srcDoc={livePreviewHtml}
               className="block h-[760px] w-full bg-white lg:h-[920px]"
             />
           </div>
