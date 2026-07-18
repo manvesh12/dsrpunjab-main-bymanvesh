@@ -487,10 +487,9 @@ function GraphBlock({ graph: g, updateG, onDelete }: { graph: Graph; updateG: (k
               <div className="rounded-xl border bg-slate-50 p-3"><div className="text-[11px] text-slate-500 font-medium">Potential Area</div><div className="text-lg font-bold text-slate-900">{o.pArea.toFixed(2)}<span className="text-xs text-slate-500 ml-1">Ha</span></div></div>
               <div className="rounded-xl border bg-slate-50 p-3"><div className="text-[11px] text-slate-500 font-medium">Total Excav.</div><div className="text-lg font-bold text-slate-900">{new Intl.NumberFormat().format(Math.floor(o.allowed))}<span className="text-xs text-slate-500 ml-1">MT</span></div></div>
             </div>
-            
-            <div className="rounded-xl bg-slate-900 p-4 text-white mb-4 shadow-md">
-              <div className="text-xs text-slate-300 mb-1">Allowed Excavation ({g.pct}%)</div>
-              <div className="text-xl font-black mb-2 text-blue-400">{o.allowed.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} MT</div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 mb-4 shadow-sm">
+              <div className="text-xs font-semibold text-slate-500 mb-1">Allowed Excavation ({g.pct}%)</div>
+              <div className="text-2xl font-black mb-2 text-slate-900">{o.allowed.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} <span className="text-sm font-bold text-slate-500">MT</span></div>
               <div className="text-[10px] text-slate-400 font-mono tracking-tight leading-relaxed break-words">= {o.pArea.toFixed(2)} Ha × 10000 × {o.activeCalcThick.toFixed(2)}m × {g.bulk} × {g.pct}%</div>
             </div>
 
@@ -628,10 +627,10 @@ function LivePreviewPanel({ graphs }: { graphs: Graph[] }) {
                   <p className="text-blue-400 mb-0.5">Calc Thickness</p>
                   <p className="font-bold text-blue-700">{o.activeCalcThick.toFixed(2)} m</p>
                 </div>
-                <div className="col-span-4 bg-slate-900 rounded p-2 text-white">
-                  <p className="text-slate-400 text-[7px] mb-0.5">Allowed Excavation ({g.pct}%)</p>
-                  <p className="font-black text-blue-400 text-[11px]">{o.allowed.toLocaleString(undefined, { maximumFractionDigits: 0 })} MT</p>
-                  <p className="text-slate-500 text-[7px] font-mono mt-0.5">{o.pArea.toFixed(2)} × 10000 × {o.activeCalcThick.toFixed(2)} × {g.bulk} × {g.pct}%</p>
+                <div className="col-span-4 bg-slate-50 rounded p-2">
+                  <p className="text-slate-400 font-semibold text-[7px] mb-0.5">Allowed Excavation ({g.pct}%)</p>
+                  <p className="font-black text-slate-800 text-[11px]">{o.allowed.toLocaleString(undefined, { maximumFractionDigits: 0 })} <span className="text-[8px] font-bold text-slate-500">MT</span></p>
+                  <p className="text-slate-400 text-[7px] font-mono mt-0.5">{o.pArea.toFixed(2)} × 10000 × {o.activeCalcThick.toFixed(2)} × {g.bulk} × {g.pct}%</p>
                 </div>
               </div>
 
