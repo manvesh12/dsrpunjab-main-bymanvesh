@@ -20,7 +20,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
     <header className="gov-header sticky top-0 z-20 bg-white dark:bg-slate-900">
       <div className="gov-utility-bar">
         <div className="flex items-center gap-2"><Landmark size={13} /><span>Government of Punjab</span><span className="opacity-50">|</span><span>Department of Mines &amp; Geology</span></div>
-        <div className="hidden items-center gap-3 sm:flex"><span>ਸਰਕਾਰ ਪੰਜਾਬ</span><span className="opacity-50">|</span><span>भारत सरकार</span></div>
+        <div className="hidden items-center gap-3 sm:flex"><span>ਪੰਜਾਬ ਸਰਕਾਰ</span><span className="opacity-50">|</span><span>English</span></div>
       </div>
       <div className="flex h-[76px] items-center gap-4 border-b border-slate-300 px-4 md:px-6 dark:border-slate-700">
       <button
