@@ -1270,6 +1270,7 @@ function PreviewPanel({
   sections: SectionDef[];
   selectedCount: number;
 }) {
+  const previewScrollRef = useRef<HTMLDivElement>(null);
   const checkedSet = new Set(report.sections);
   const selectedSections = sections.filter(
     (s) =>
@@ -1294,6 +1295,10 @@ function PreviewPanel({
 
   const district = "Punjab";
   const year = "2025-26";
+
+  useEffect(() => {
+    if (previewScrollRef.current) previewScrollRef.current.scrollTop = 0;
+  }, [report.id]);
 
   const previewHtml = `<!doctype html>
 <html>
@@ -1360,12 +1365,13 @@ function PreviewPanel({
           {selectedCount} selected
         </span>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+      <div ref={previewScrollRef} className="min-h-0 flex-1 overflow-y-auto p-4">
         <iframe
-          key={report.sections.join(",")}
+          key={`${report.id}-${report.sections.join(",")}-${uploadedPreviews.map((upload) => upload.url).join(",")}`}
           srcDoc={previewHtml}
           className="block h-[940px] w-full border-none bg-white shadow-sm"
           title="Model DSR Live Preview"
+          scrolling="no"
         />
         {uploadedPreviews.map((upload) => (
           <section key={upload.id} className="mt-5">
