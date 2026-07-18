@@ -99,7 +99,7 @@ export async function downloadHtmlAsPdf(elementOrHtml: HTMLElement | string, fil
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true, letterRendering: false },
       jsPDF: { unit: 'mm', format: 'a4', orientation: isLandscape ? 'landscape' : 'portrait' },
-      pagebreak: typeof elementOrHtml === 'string' ? { mode: ['css', 'legacy'] } : undefined
+      pagebreak: { mode: typeof elementOrHtml === 'string' ? ['css', 'legacy'] : ['avoid-all', 'css', 'legacy'] }
     };
 
     await html2pdf().set(opt).from(container).save();
