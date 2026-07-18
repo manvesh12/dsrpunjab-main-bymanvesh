@@ -1,8 +1,12 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { apiClient } from "../api/client";
 import { downloadBlob } from "./reportExport";
 
 export type PdfUpload = { name: string; url?: string } | null | undefined;
+export type ReportDataTable = { title: string; columns: Array<{ key: string; label: string }>; rows: Record<string, string>[] };
+export type ReportCrossSection = { name?: string; dist?: string; post?: string; red?: string; thal?: string; area?: string; noMine?: string; bulk?: string; pct?: string; calcThick?: string };
 
 function safeText(value: string) {
   return value.replace(/[^\x20-\x7E\xA0-\xFF]/g, "-");
@@ -70,6 +74,66 @@ export async function createSectionPdf() {
   const regular = await document.embedFont(StandardFonts.Helvetica);
   const bold = await document.embedFont(StandardFonts.HelveticaBold);
   return { document, regular, bold };
+}
+
+/** Adds editable annexure tables and saved cross-section graphs to the final report. */
+export async function appendGeneratedReportContent(target: PDFDocument, input: {
+  district: string;
+  tables: ReportDataTable[];
+  graphs: ReportCrossSection[];
+}) {
+  if (!input.tables.length && !input.graphs.length) return;
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  let hasPage = false;
+  const addPage = () => { if (hasPage) pdf.addPage(); hasPage = true; };
+
+  input.graphs.forEach((graph, index) => {
+    addPage();
+    const distances = String(graph.dist || "").split(",").map(Number).filter(Number.isFinite);
+    const elevations = String(graph.post || "").split(",").map(Number).filter(Number.isFinite);
+    const values = [...elevations, Number(graph.red), Number(graph.thal)].filter(Number.isFinite);
+    const min = values.length ? Math.min(...values) - 0.2 : 0;
+    const max = values.length ? Math.max(...values) + 0.2 : 1;
+    const x = 25, y = 72, w = 160, h = 76;
+    pdf.setFont("times", "bold"); pdf.setFontSize(15);
+    pdf.text("CROSS SECTION SAND BAR", 105, 20, { align: "center" });
+    pdf.setFontSize(11); pdf.text(graph.name || `Cross Section ${index + 1}`, 105, 28, { align: "center" });
+    pdf.setDrawColor(160); pdf.rect(x, y, w, h);
+    for (let i = 1; i < 5; i += 1) { pdf.setDrawColor(225); pdf.line(x, y + h * i / 5, x + w, y + h * i / 5); }
+    const maxDistance = Math.max(...distances, 1);
+    const point = (distance: number, elevation: number) => [x + (distance / maxDistance) * w, y + h - ((elevation - min) / Math.max(max - min, 0.1)) * h] as const;
+    if (distances.length && elevations.length) {
+      pdf.setDrawColor(190, 110, 50); pdf.setLineWidth(0.8);
+      for (let i = 1; i < Math.min(distances.length, elevations.length); i += 1) { const a = point(distances[i - 1], elevations[i - 1]); const b = point(distances[i], elevations[i]); pdf.line(a[0], a[1], b[0], b[1]); }
+    }
+    [[Number(graph.red), [220, 55, 55]], [Number(graph.thal), [55, 135, 185]]].forEach(([level, color]) => {
+      if (!Number.isFinite(level)) return;
+      const py = point(0, level)[1]; pdf.setDrawColor(...(color as number[])); pdf.setLineWidth(0.5); pdf.line(x, py, x + w, py);
+    });
+    pdf.setFont("times", "normal"); pdf.setFontSize(9);
+    pdf.text(`Area: ${graph.area || "-"} Ha     No-mining: ${graph.noMine || "-"} Ha     Bulk density: ${graph.bulk || "-"}     Mining: ${graph.pct || "-"}%`, 25, 164);
+    pdf.text(`Post-monsoon levels: ${graph.post || "-"}`, 25, 172, { maxWidth: 160 });
+    pdf.text("Orange: post-monsoon elevation   Red: red line   Blue: thalweg", 25, 184);
+  });
+
+  input.tables.forEach((table) => {
+    addPage();
+    pdf.setFont("times", "bold"); pdf.setFontSize(13);
+    pdf.text(table.title, 105, 18, { align: "center", maxWidth: 175 });
+    autoTable(pdf, {
+      startY: 26,
+      head: [table.columns.map((column) => column.label)],
+      body: table.rows.length ? table.rows.map((row) => table.columns.map((column) => String(row[column.key] || ""))) : [["No data entered yet"]],
+      theme: "grid",
+      styles: { font: "times", fontSize: table.columns.length > 8 ? 5 : 7, cellPadding: 1, overflow: "linebreak" },
+      headStyles: { fillColor: [235, 235, 235], textColor: [0, 0, 0], fontStyle: "bold" },
+      margin: { left: 13, right: 13 },
+    });
+  });
+
+  const generated = await PDFDocument.load(pdf.output("arraybuffer"));
+  const pages = await target.copyPages(generated, generated.getPageIndices());
+  pages.forEach((page) => target.addPage(page));
 }
 
 /**

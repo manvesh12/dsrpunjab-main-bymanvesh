@@ -1,12 +1,13 @@
 import { Download, Printer } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { get } from "idb-keyval";
 import PageHeader from "../../components/layout/PageHeader";
 import UploadedFilePreview from "../../components/ui/UploadedFilePreview";
 import { projectsApi, type ProjectFile } from "../../api/projects.api";
 import { uploadsApi } from "../../api/uploads.api";
-import { appendUploadedDocument, applyDsrReportFrame, createSectionPdf, saveSectionPdf } from "../../utils/sectionPdf";
+import { appendGeneratedReportContent, appendUploadedDocument, applyDsrReportFrame, createSectionPdf, saveSectionPdf, type ReportCrossSection, type ReportDataTable } from "../../utils/sectionPdf";
 import { toast } from "sonner";
 
 type UploadRecord = { name: string; url?: string } | null;
@@ -19,6 +20,34 @@ type FrontMatterState = {
   prefaceFile?: UploadRecord;
 };
 type PreviewUpload = { id: string; title: string; name: string; url: string };
+type DraftColumn = { key: string; label: string };
+
+function reportOrder(title: string) {
+  const value = title.toLowerCase();
+  if (/cover|certificate|content page|preface|front matter/.test(value)) return 0;
+  if (value.includes("chapter")) return 1;
+  if (value.includes("cross section")) return 3;
+  if (value.includes("plate")) return 4;
+  if (value.includes("annexure")) return 6;
+  return 5;
+}
+
+function GeneratedSection({ table, graph, pageNumber, district }: { table?: ReportDataTable; graph?: ReportCrossSection; pageNumber: number; district: string }) {
+  const heading = table?.title || graph?.name || "Cross Section Sand Bar";
+  const points = String(graph?.post || "").split(",").map(Number).filter(Number.isFinite);
+  const levels = [...points, Number(graph?.red), Number(graph?.thal)].filter(Number.isFinite);
+  const min = levels.length ? Math.min(...levels) : 0;
+  const max = levels.length ? Math.max(...levels) : 1;
+  const svgPoints = points.map((value, index) => `${20 + index * (250 / Math.max(points.length - 1, 1))},${110 - ((value - min) / Math.max(max - min, .1)) * 82}`).join(" ");
+  return <section className="dsr-preview-page relative flex aspect-[1/1.414] w-full max-w-[794px] flex-col overflow-hidden bg-white text-black shadow-xl">
+    <div className="pointer-events-none absolute inset-4 border border-black" />
+    <header className="mx-16 mt-7 border-b border-black pb-2 font-serif leading-tight"><p className="text-[15px] italic">District Survey Report</p><p className="text-[12px] italic">{district} District, Punjab</p><p className="mt-1 text-[10px]">{heading}</p></header>
+    <div className="relative mx-14 mb-12 mt-4 min-h-0 flex-1 overflow-auto font-serif">
+      {table ? <><h2 className="mb-3 text-center text-sm font-bold">{table.title}</h2><table className="w-full border-collapse text-[8px]"><thead><tr>{table.columns.map((column) => <th key={column.key} className="border border-black bg-slate-100 p-1 text-left">{column.label}</th>)}</tr></thead><tbody>{table.rows.length ? table.rows.map((row, index) => <tr key={index}>{table.columns.map((column) => <td key={column.key} className="border border-slate-400 p-1">{row[column.key] || "-"}</td>)}</tr>) : <tr><td className="border p-3 text-center text-slate-500" colSpan={Math.max(table.columns.length, 1)}>No data entered yet</td></tr>}</tbody></table></> : <><h2 className="mb-2 text-center text-sm font-bold">CROSS SECTION SAND BAR</h2><p className="text-center text-xs font-bold">{heading}</p><svg viewBox="0 0 290 140" className="mx-auto mt-5 w-full max-w-md border border-slate-300"><line x1="20" y1="110" x2="270" y2="110" stroke="#64748b"/><line x1="20" y1="20" x2="20" y2="110" stroke="#64748b"/><polyline points={svgPoints} fill="none" stroke="#b86d32" strokeWidth="2"/>{Number.isFinite(Number(graph?.red)) && <line x1="20" y1={110 - ((Number(graph?.red) - min) / Math.max(max - min, .1)) * 82} x2="270" y2={110 - ((Number(graph?.red) - min) / Math.max(max - min, .1)) * 82} stroke="#dc2626"/>}{Number.isFinite(Number(graph?.thal)) && <line x1="20" y1={110 - ((Number(graph?.thal) - min) / Math.max(max - min, .1)) * 82} x2="270" y2={110 - ((Number(graph?.thal) - min) / Math.max(max - min, .1)) * 82} stroke="#2563eb"/>}</svg><div className="mt-4 grid grid-cols-2 gap-2 text-[10px]"><p>Area: {graph?.area || "-"} Ha</p><p>Bulk density: {graph?.bulk || "-"}</p><p>Post monsoon: {graph?.post || "-"}</p><p>Mining: {graph?.pct || "-"}%</p></div></>}
+    </div>
+    <footer className="absolute bottom-7 left-16 right-16 flex items-center justify-between border-t border-slate-300 pt-2 font-serif text-[9px]"><span className="font-bold uppercase">Prepared by: District Survey Report Committee</span><span>Page {pageNumber}</span></footer>
+  </section>;
+}
 
 function uploadSectionLabel(file: ProjectFile) {
   const key = file.objectKey.toLowerCase();
@@ -54,6 +83,7 @@ function UploadedSection({ upload, pageNumber, district }: { upload: PreviewUplo
 export default function ReportPreviewPage() {
   const { projectId = "default" } = useParams();
   const [downloading, setDownloading] = useState(false);
+  const [tables, setTables] = useState<ReportDataTable[]>([]);
   const { data: project, isLoading } = useQuery({
     queryKey: ["project", projectId, "preview"],
     queryFn: () => projectsApi.get(projectId),
@@ -66,6 +96,27 @@ export default function ReportPreviewPage() {
   const platesState = state.plates as { plates?: Plate[] } | Plate[] | undefined;
   const chapters = Array.isArray(chaptersState) ? chaptersState : chaptersState?.chapters || [];
   const plates = Array.isArray(platesState) ? platesState : platesState?.plates || [];
+  const crossSectionsState = state["cross-sections"] as { graphs?: ReportCrossSection[] } | ReportCrossSection[] | undefined;
+  const graphs = Array.isArray(crossSectionsState) ? crossSectionsState : crossSectionsState?.graphs || [];
+
+  useEffect(() => {
+    let active = true;
+    const loadDraftTables = async () => {
+      const locations = [...Array.from({ length: 7 }, (_, annexure) => ({ label: `Annexure ${annexure + 1}`, key: String(annexure + 1), count: 8 })), ...["f", "j", "k"].map((key) => ({ label: `Annexure ${key.toUpperCase()}`, key, count: 4 }))];
+      const result: ReportDataTable[] = [];
+      for (const location of locations) for (let index = 0; index < location.count; index += 1) {
+        const base = `dsr:project-${projectId}:annexure-${location.key}-${index}`;
+        const [rows, title, columns] = await Promise.all([get<unknown>(base), get<unknown>(`${base}:title`), get<unknown>(`${base}:columns`)]);
+        if (!Array.isArray(rows) && !Array.isArray(columns)) continue;
+        const validColumns = Array.isArray(columns) ? columns.filter((column): column is DraftColumn => Boolean(column && typeof column === "object" && "key" in column && "label" in column)) : [];
+        if (!validColumns.length) continue;
+        result.push({ title: typeof title === "string" ? title : `${location.label} - Table ${index + 1}`, columns: validColumns, rows: Array.isArray(rows) ? rows as Record<string, string>[] : [] });
+      }
+      if (active) setTables(result);
+    };
+    void loadDraftTables();
+    return () => { active = false; };
+  }, [projectId]);
 
   const uploads: PreviewUpload[] = [
     ["cover", "Cover Page", frontMatter?.coverFile],
@@ -88,7 +139,14 @@ export default function ReportPreviewPage() {
     name: file.fileName,
     url: uploadsApi.getDownloadUrl(file.annexureId),
   }));
-  const uniqueUploads = uploads.filter((upload, index) => uploads.findIndex((item) => item.url === upload.url) === index);
+  const uniqueUploads = uploads.filter((upload, index) => uploads.findIndex((item) => item.url === upload.url) === index).sort((a, b) => reportOrder(a.title) - reportOrder(b.title));
+  const previewPages: Array<{ upload?: PreviewUpload; table?: ReportDataTable; graph?: ReportCrossSection }> = [
+    ...uniqueUploads.filter((item) => reportOrder(item.title) < 3).map((upload) => ({ upload })),
+    ...graphs.map((graph) => ({ graph })),
+    ...uniqueUploads.filter((item) => reportOrder(item.title) >= 3 && reportOrder(item.title) < 6).map((upload) => ({ upload })),
+    ...tables.map((table) => ({ table })),
+    ...uniqueUploads.filter((item) => reportOrder(item.title) >= 6).map((upload) => ({ upload })),
+  ];
 
   const downloadFinalPdf = async () => {
     if (!uniqueUploads.length) return;
@@ -97,7 +155,7 @@ export default function ReportPreviewPage() {
       const { document } = await createSectionPdf();
       const skipped: string[] = [];
       const sections: Array<{ title: string; startPage: number }> = [];
-      for (const upload of uniqueUploads) {
+      const appendUpload = async (upload: PreviewUpload) => {
         try {
           const startPage = document.getPageCount();
           await appendUploadedDocument(document, upload);
@@ -106,7 +164,12 @@ export default function ReportPreviewPage() {
           console.warn(`Skipping unreadable final-report upload: ${upload.name}`, error);
           skipped.push(upload.name);
         }
-      }
+      };
+      for (const upload of uniqueUploads.filter((item) => reportOrder(item.title) < 3)) await appendUpload(upload);
+      if (graphs.length) { const startPage = document.getPageCount(); await appendGeneratedReportContent(document, { district: project?.district || "Punjab", tables: [], graphs }); if (document.getPageCount() > startPage) sections.push({ title: "Cross Sections", startPage }); }
+      for (const upload of uniqueUploads.filter((item) => reportOrder(item.title) >= 3 && reportOrder(item.title) < 6)) await appendUpload(upload);
+      if (tables.length) { const startPage = document.getPageCount(); await appendGeneratedReportContent(document, { district: project?.district || "Punjab", tables, graphs: [] }); if (document.getPageCount() > startPage) sections.push({ title: "Annexures", startPage }); }
+      for (const upload of uniqueUploads.filter((item) => reportOrder(item.title) >= 6)) await appendUpload(upload);
       if (document.getPageCount() === 0) throw new Error("No readable uploaded documents found");
       await applyDsrReportFrame(document, sections, project?.district || "Punjab");
       await saveSectionPdf(document, `DSR-Final-Report-${projectId}.pdf`);
@@ -135,11 +198,11 @@ export default function ReportPreviewPage() {
       />
       <main className="overflow-y-auto rounded-2xl border border-slate-200 bg-slate-100 p-4 md:p-8">
         <article id="report-preview-article" className="mx-auto flex min-h-screen w-full max-w-[1200px] flex-col items-center gap-12 bg-white px-4 py-16 shadow-xl md:px-12">
-          {!uniqueUploads.length ? (
+          {!previewPages.length ? (
             <div className="flex min-h-[500px] items-center justify-center text-center text-lg text-slate-500">
               {isLoading ? "Loading uploaded documents..." : "No uploaded documents found. Upload section or annexure files to build the final PDF."}
             </div>
-          ) : uniqueUploads.map((upload, index) => <UploadedSection key={upload.id} upload={upload} pageNumber={index + 1} district={project?.district || "Punjab"} />)}
+          ) : previewPages.map((page, index) => page.upload ? <UploadedSection key={page.upload.id} upload={page.upload} pageNumber={index + 1} district={project?.district || "Punjab"} /> : <GeneratedSection key={page.table ? `table-${index}` : `graph-${index}`} table={page.table} graph={page.graph} pageNumber={index + 1} district={project?.district || "Punjab"} />)}
         </article>
       </main>
     </>
