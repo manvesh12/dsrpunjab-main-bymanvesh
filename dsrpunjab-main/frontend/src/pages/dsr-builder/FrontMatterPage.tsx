@@ -1,24 +1,19 @@
-﻿import { FileUp, Replace, Save, Trash2, Download } from "lucide-react";
+import { FileUp, Replace, Save, Trash2, Download } from "lucide-react";
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import PageHeader from "../../components/layout/PageHeader";
 import ResizableLayout from "../../components/layout/ResizableLayout";
 import { useLocalDraft } from "../../hooks/useLocalDraft";
-import { downloadDataUrlFile, ensurePdfFileName } from "../../utils/reportExport";
+import { uploadsApi } from "../../api/uploads.api";
+import { toast } from "sonner";
 
 const defaults = { title:"District Survey Report for Sand Mining", district:"Jalandhar", state:"Punjab", year:"2025-26", version:"Final Draft", preparedBy:"Sub-Divisional Committee, Jalandhar District", assistedBy:"RSP Green Development and Laboratories Pvt. Ltd.", preface:"This District Survey Report has been prepared in compliance with EMGSM 2020 and records sand mining activity, river morphology, mineral deposits and replenishment studies.", acknowledgement:"The Sub-Divisional Committee acknowledges the support of the Government of Punjab, Department of Geology and Mining, and field surveyors." };
-type UploadRecord={name:string;preview?:string};
+type UploadRecord={name:string;url?:string};
 
-const isPdfUpload = (file: UploadRecord | null) => Boolean(file?.preview?.startsWith("data:application/pdf"));
+const isPdfUrl = (file: UploadRecord | null) => Boolean(file?.url && !file.url.match(/\.(jpe?g|png|gif|webp|bmp)$/i));
 
-function downloadUploadedPdfs(files: Array<{ label: string; file: UploadRecord | null }>) {
-  const pdfs = files.filter((item) => isPdfUpload(item.file));
-  pdfs.forEach((item, index) => {
-    window.setTimeout(() => {
-      downloadDataUrlFile(item.file!.preview!, ensurePdfFileName(item.file!.name || item.label));
-    }, index * 250);
-  });
-  return pdfs.length;
+function downloadUploadedPdfs(_files: Array<{ label: string; file: UploadRecord | null }>) {
+  return 0; // PDFs now served from backend URL; not base64
 }
 
 async function downloadPdf(
@@ -40,8 +35,8 @@ async function downloadPdf(
 
   const toImg = (src: string) => `<img src="${src}" width="794" height="1123" style="object-fit:fill;display:block;" />`;
 
-  const coverHtml = coverFile?.preview
-    ? `<div class="page">${toImg(coverFile.preview)}</div>`
+  const coverHtml = coverFile?.url
+    ? `<div class="page">${toImg(coverFile.url)}</div>`
     : `<div class="page"><div class="page-inner" style="text-align:center;align-items:center;">
         <p style="font-size:11px;font-weight:bold;letter-spacing:.2em;text-transform:uppercase;">Government of ${data.state}</p>
         <h1 style="margin-top:80px;font-size:28px;font-weight:bold;text-transform:uppercase;line-height:1.3;">${data.title}</h1>
@@ -53,21 +48,21 @@ async function downloadPdf(
         <p style="margin-top:50px;font-size:11px;color:#64748b;">Assisted By<br/>${data.assistedBy}</p>
       </div></div>`;
 
-  const certHtml = certFile?.preview
-    ? `<div class="page">${toImg(certFile.preview)}</div>`
+  const certHtml = certFile?.url
+    ? `<div class="page">${toImg(certFile.url)}</div>`
     : `<div class="page"><div class="page-inner" style="justify-content:center;align-items:center;">
         <p style="color:#94a3b8;border:2px dashed #e2e8f0;padding:40px 60px;">Certificate of Compliance Not Uploaded</p>
       </div></div>`;
 
-  const prefaceHtml = prefaceFile?.preview
-    ? `<div class="page">${toImg(prefaceFile.preview)}</div>`
+  const prefaceHtml = prefaceFile?.url
+    ? `<div class="page">${toImg(prefaceFile.url)}</div>`
     : `<div class="page"><div class="page-inner">
         <h2 style="font-size:20px;font-weight:bold;text-transform:uppercase;text-align:center;margin-bottom:40px;">Preface</h2>
         <div style="white-space:pre-wrap;line-height:1.7;">${data.preface}</div>
       </div></div>`;
 
-  const contentHtml = contentFile?.preview
-    ? `<div class="page">${toImg(contentFile.preview)}</div>`
+  const contentHtml = contentFile?.url
+    ? `<div class="page">${toImg(contentFile.url)}</div>`
     : `<div class="page"><div class="page-inner">
         <h2 style="font-size:20px;font-weight:bold;text-transform:uppercase;text-align:center;margin-bottom:40px;">Contents</h2>
         <ol style="font-size:13px;line-height:2;list-style:decimal;padding-left:20px;">
@@ -119,7 +114,7 @@ export default function FrontMatterPage(){
     <div className="grid items-start gap-5 xl:grid-cols-2">
       <section className="space-y-5">
         <Card title="Cover Page" subtitle="Upload a PDF or image, or use the generated template">
-          <Upload file={coverFile} onChange={setCoverFile} label="Upload Cover Page" hint="PDF or image" accept=".pdf,image/*" />
+          <Upload file={coverFile} onChange={setCoverFile} label="Upload Cover Page" hint="PDF or image" accept=".pdf,image/*" projectId={projectId} module="front-matter" />
           <div className="mt-5 grid gap-4">
             {field("title","Report Title")}
             <div className="grid gap-4 sm:grid-cols-2">
@@ -133,16 +128,16 @@ export default function FrontMatterPage(){
           </div>
         </Card>
         <Card title="Certificate of Compliance">
-          <Upload file={certFile} onChange={setCertFile} label="Upload Certificate" hint="PDF or image" accept=".pdf,image/*"/>
+          <Upload file={certFile} onChange={setCertFile} label="Upload Certificate" hint="PDF or image" accept=".pdf,image/*" projectId={projectId} module="front-matter" />
         </Card>
       </section>
       <section className="space-y-5">
         <Card title="Content Page" subtitle="Upload PDF or use the auto-generated contents">
-          <Upload file={contentFile} onChange={setContentFile} label="Upload Content Page" hint="PDF or image" accept=".pdf,image/*"/>
+          <Upload file={contentFile} onChange={setContentFile} label="Upload Content Page" hint="PDF or image" accept=".pdf,image/*" projectId={projectId} module="front-matter" />
           <AutoContents/>
         </Card>
         <Card title="Preface">
-          <Upload file={prefaceFile} onChange={setPrefaceFile} label="Upload Preface" hint="PDF or image" accept=".pdf,image/*"/>
+          <Upload file={prefaceFile} onChange={setPrefaceFile} label="Upload Preface" hint="PDF or image" accept=".pdf,image/*" projectId={projectId} module="front-matter" />
           <TextArea label="Preface Text" value={data.preface} onChange={value=>setData(v=>({...v,preface:value}))}/>
         </Card>
         <Card title="Acknowledgement">
@@ -233,13 +228,13 @@ export default function FrontMatterPage(){
                     { label: "Content_Page.pdf", file: contentFile },
                     { label: "Preface.pdf", file: prefaceFile },
                   ]);
-                  const hasGeneratedContent = [coverFile, certFile, contentFile, prefaceFile].some((file) => !isPdfUpload(file));
+                  const hasGeneratedContent = [coverFile, certFile, contentFile, prefaceFile].some((file) => !isPdfUrl(file));
                   if (hasGeneratedContent || downloadedUploads === 0) {
                     await downloadPdf(
-                      isPdfUpload(coverFile) ? null : coverFile,
-                      isPdfUpload(certFile) ? null : certFile,
-                      isPdfUpload(contentFile) ? null : contentFile,
-                      isPdfUpload(prefaceFile) ? null : prefaceFile,
+                      isPdfUrl(coverFile) ? null : coverFile,
+                      isPdfUrl(certFile) ? null : certFile,
+                      isPdfUrl(contentFile) ? null : contentFile,
+                      isPdfUrl(prefaceFile) ? null : prefaceFile,
                       data
                     );
                   }
@@ -268,8 +263,8 @@ export default function FrontMatterPage(){
 function PageSlot({ file, children }: { file: UploadRecord | null; children: React.ReactNode }) {
   return (
     <div className="bg-white aspect-[1/1.414] w-full max-w-[794px] border border-[#e2e8f0] shrink-0 relative overflow-hidden flex flex-col">
-      {file?.preview ? (
-        <UploadedPreview src={file.preview} />
+      {file?.url ? (
+        <UploadedPreview src={file.url} />
       ) : (
         children
       )}
@@ -281,18 +276,27 @@ function Card({title,subtitle,children}:{title:string;subtitle?:string;children:
   return <div className="rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="border-b px-5 py-4"><h2 className="font-bold">{title}</h2>{subtitle&&<p className="text-sm text-slate-500">{subtitle}</p>}</div><div className="p-5">{children}</div></div>;
 }
 
-function Upload({file,onChange,label,hint,accept}:{file:UploadRecord|null;onChange:(f:UploadRecord|null)=>void;label:string;hint:string;accept:string}){
+function Upload({file,onChange,label,hint,accept,projectId,module}:{file:UploadRecord|null;onChange:(f:UploadRecord|null)=>void;label:string;hint:string;accept:string;projectId:string;module:string}){
+  const [isUploading, setIsUploading] = useState(false);
   const select=async(selected:File|undefined)=>{
     if(!selected)return;
-    const preview=await readFile(selected);
-    onChange({name:selected.name,preview});
+    setIsUploading(true);
+    try {
+      const result = await uploadsApi.upload(selected, projectId, module);
+      onChange({name:selected.name,url:result.url});
+      toast.success(`${selected.name} uploaded`);
+    } catch {
+      toast.error("Upload failed");
+    } finally {
+      setIsUploading(false);
+    }
   };
   if(file) return (
     <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-      <p className="text-sm font-semibold text-emerald-900">Ready: {file.name}</p>
-      {file.preview&&<UploadedPreview src={file.preview} small/>}
+      <p className="text-sm font-semibold text-emerald-900">{isUploading ? "Uploading..." : `Ready: ${file.name}`}</p>
+      {file.url&&<UploadedPreview src={file.url} small/>}
       <div className="mt-3 flex gap-2">
-        <label className="module-btn cursor-pointer"><Replace size={16}/>Replace<input type="file" accept={accept} hidden onChange={e=>select(e.target.files?.[0])}/></label>
+        <label className="module-btn cursor-pointer"><Replace size={16}/>Replace<input type="file" accept={accept} hidden disabled={isUploading} onChange={e=>select(e.target.files?.[0])}/></label>
         <button type="button" onClick={()=>onChange(null)} className="module-btn text-red-600"><Trash2 size={16}/>Delete</button>
       </div>
     </div>
@@ -300,15 +304,15 @@ function Upload({file,onChange,label,hint,accept}:{file:UploadRecord|null;onChan
   return (
     <label className="flex cursor-pointer flex-col items-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-6 text-center hover:border-blue-400">
       <FileUp className="text-blue-600"/>
-      <span className="mt-2 font-semibold">{label}</span>
+      <span className="mt-2 font-semibold">{isUploading ? "Uploading..." : label}</span>
       <span className="text-xs text-slate-500">{hint}</span>
-      <input type="file" accept={accept} hidden onChange={e=>select(e.target.files?.[0])}/>
+      <input type="file" accept={accept} hidden disabled={isUploading} onChange={e=>select(e.target.files?.[0])}/>
     </label>
   );
 }
 
 function UploadedPreview({ src, small = false }: { src: string; small?: boolean }) {
-  const isImage = src.startsWith("data:image");
+  const isImage = !src.match(/\.pdf(#.*)?$/) && (src.match(/\.(jpe?g|png|gif|webp|bmp)$/) || src.startsWith("data:image"));
 
   if (small) {
     return isImage ? (
@@ -343,13 +347,4 @@ function TextArea({label,value,onChange}:{label:string;value:string;onChange:(v:
 function AutoContents(){
   const entries=["Cover Page","Certificate of Compliance","Preface","Acknowledgement",...Array.from({length:10},(_,i)=>`Chapter ${i+1}`),"Plates and Maps","Cross Section Graphs","Annexures I–VII","Additional Annexures B–K","Replenishment Report / Model DSR"];
   return <div className="mt-4 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] p-4"><div className="flex items-center justify-between"><p className="font-semibold text-[#1e293b]">Auto-generated Contents</p><span className="text-xs text-[#047857]">Live</span></div><ol className="mt-3 space-y-1 text-xs text-[#475569]">{entries.map((entry,index)=><li key={entry} className="flex gap-2"><span className="w-5 text-[#94a3b8]">{index+1}</span><span>{entry}</span></li>)}</ol></div>;
-}
-
-function readFile(file:File):Promise<string>{
-  return new Promise((resolve,reject)=>{
-    const reader=new FileReader();
-    reader.onload=()=>resolve(String(reader.result));
-    reader.onerror=reject;
-    reader.readAsDataURL(file);
-  });
 }

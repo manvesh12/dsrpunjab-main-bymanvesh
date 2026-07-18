@@ -4,21 +4,12 @@ import PageHeader from "../../components/layout/PageHeader";
 import ResizableLayout from "../../components/layout/ResizableLayout";
 import { useLocalDraft } from "../../hooks/useLocalDraft";
 import { useParams } from "react-router-dom";
-import { downloadDataUrlFile, ensurePdfFileName } from "../../utils/reportExport";
+import { uploadsApi } from "../../api/uploads.api";
+import { toast } from "sonner";
 
-type Plate = { name: string; summary: string; fileName?: string; preview?: string };
+type Plate = { name: string; summary: string; fileName?: string; url?: string };
 
-const isPdfUpload = (plate: Plate) => Boolean(plate.preview?.startsWith("data:application/pdf"));
-
-function downloadPlateUploads(plates: Plate[]) {
-  const pdfs = plates.filter(isPdfUpload);
-  pdfs.forEach((plate, index) => {
-    window.setTimeout(() => {
-      downloadDataUrlFile(plate.preview!, ensurePdfFileName(plate.fileName || plate.name));
-    }, index * 250);
-  });
-  return pdfs.length;
-}
+const isPdfUrl = (url: string) => !url.match(/\.(jpe?g|png|gif|webp|bmp)$/i);
 
 const initial: Plate[] = [
   { name: "Plate 1 - Pre/Post Monsoon Cross Section", summary: "Auto-generated elevation chart for sand volume calculation." },
@@ -50,11 +41,10 @@ async function downloadPlatesPdf(plates: Plate[]) {
     </div>
   </div>`;
 
-  const platePages = plates.filter(p => p.preview).map(p => {
-    const isImage = p.preview!.startsWith("data:image");
-    if (!isImage) return "";
+  // For PDF export with backend URLs, only render image plates in PDF (iframe not supported in html2pdf)
+  const platePages = plates.filter(p => p.url && !isPdfUrl(p.url)).map(p => {
     return `<div class="plate-page">
-      <img src="${p.preview}" />
+      <img src="${p.url}" />
     </div>`;
   }).join("");
 
@@ -81,19 +71,11 @@ async function downloadPlatesPdf(plates: Plate[]) {
   document.body.removeChild(container);
 }
 
-function readFile(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 export default function PlatesPage() {
   const { projectId = "default" } = useParams();
   const [plates, setPlates] = useLocalDraft<Plate[]>("plates-exact", initial);
   const [downloading, setDownloading] = useState(false);
+  const [uploading, setUploading] = useState<number | null>(null);
 
   const update = (i: number, p: Partial<Plate>) => setPlates(c => c.map((x, j) => j === i ? { ...x, ...p } : x));
   const move = (i: number, d: number) => setPlates(c => { const n = [...c]; [n[i], n[i + d]] = [n[i + d], n[i]]; return n; });
@@ -111,24 +93,33 @@ export default function PlatesPage() {
               <textarea value={plate.summary} onChange={e => update(i, { summary: e.target.value })} rows={2} className="mt-2 w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-blue-500" />
               <label className="module-btn mt-2 cursor-pointer">
                 <Upload size={16} />
-                {plate.fileName || "Upload PDF / Image"}
+                {uploading === i ? "Uploading..." : (plate.fileName || "Upload PDF / Image")}
                 <input
                   type="file"
                   accept="application/pdf,image/*"
                   hidden
+                  disabled={uploading === i}
                   onChange={async e => {
                     const file = e.target.files?.[0];
                     if (!file) return;
-                    const preview = await readFile(file);
-                    update(i, { fileName: file.name, preview });
+                    setUploading(i);
+                    try {
+                      const result = await uploadsApi.upload(file, projectId, "plates");
+                      update(i, { fileName: file.name, url: result.url });
+                      toast.success(`${file.name} uploaded`);
+                    } catch {
+                      toast.error("Upload failed");
+                    } finally {
+                      setUploading(null);
+                    }
                   }}
                 />
               </label>
-              {plate.preview && (
+              {plate.url && (
                 <div className="mt-2 rounded-lg overflow-hidden border" style={{ height: 80 }}>
-                  {plate.preview.startsWith("data:image")
-                    ? <img src={plate.preview} alt="preview" className="w-full h-full object-contain" />
-                    : <iframe src={`${plate.preview}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`} className="w-full h-full" style={{ border: 'none' }} title="plate preview" />
+                  {!isPdfUrl(plate.url)
+                    ? <img src={plate.url} alt="preview" className="w-full h-full object-contain" />
+                    : <iframe src={`${plate.url}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`} className="w-full h-full" style={{ border: 'none' }} title="plate preview" />
                   }
                 </div>
               )}
@@ -164,16 +155,16 @@ export default function PlatesPage() {
         </div>
 
         {/* Individual plate previews - full A4 aspect ratio */}
-        {plates.filter(p => p.preview).map((p, i) => (
+        {plates.filter(p => p.url).map((p, i) => (
           <div key={i} className="mb-4">
             <p className="mb-1 text-xs font-semibold text-slate-500 uppercase">{p.name}</p>
             <div className="bg-white aspect-[1/1.414] w-full border border-slate-200 relative overflow-hidden">
-              {p.preview!.startsWith("data:image") ? (
-                <img src={p.preview} alt={p.name} className="absolute inset-0 w-full h-full" style={{ objectFit: 'fill' }} />
+              {!isPdfUrl(p.url!) ? (
+                <img src={p.url} alt={p.name} className="absolute inset-0 w-full h-full" style={{ objectFit: 'fill' }} />
               ) : (
                 <iframe
                   title={p.name}
-                  src={`${p.preview}#toolbar=0&navpanes=0&scrollbar=0&view=Fit&zoom=page-fit`}
+                  src={`${p.url}#toolbar=0&navpanes=0&scrollbar=0&view=Fit&zoom=page-fit`}
                   className="absolute inset-0 w-full h-full"
                   style={{ border: 'none', display: 'block' }}
                 />
@@ -199,9 +190,7 @@ export default function PlatesPage() {
               onClick={async () => {
                 setDownloading(true);
                 try {
-                  const downloadedUploads = downloadPlateUploads(plates);
-                  const hasGeneratedOrImageContent = downloadedUploads === 0 || plates.some((plate) => !isPdfUpload(plate));
-                  if (hasGeneratedOrImageContent) await downloadPlatesPdf(plates);
+                  await downloadPlatesPdf(plates);
                 }
                 catch (e) { console.error("PDF generation failed:", e); }
                 finally { setDownloading(false); }
@@ -222,4 +211,3 @@ export default function PlatesPage() {
     </>
   );
 }
-

@@ -1,25 +1,18 @@
 import { ArrowDown, ArrowUp, Plus, Trash2, Upload, Download } from "lucide-react";
-import { downloadDataUrlFile, downloadHtmlAsPdf, ensurePdfFileName } from "../../utils/reportExport";
+import { useState } from "react";
+import { downloadHtmlAsPdf } from "../../utils/reportExport";
 import PageHeader from "../../components/layout/PageHeader";
 import ResizableLayout from "../../components/layout/ResizableLayout";
 import { useLocalDraft } from "../../hooks/useLocalDraft";
 import { useAuth } from "../../security/auth.context";
 import { hasPermission, Permission } from "../../security/access";
 import { useParams } from "react-router-dom";
+import { uploadsApi } from "../../api/uploads.api";
+import { toast } from "sonner";
 
-type Chapter = { name: string; summary: string; file?: { name: string; preview?: string } };
+type Chapter = { name: string; summary: string; file?: { name: string; url: string } };
 
-const isPdfUpload = (file?: Chapter["file"]) => Boolean(file?.preview?.startsWith("data:application/pdf"));
-
-function downloadChapterUploads(chapters: Chapter[]) {
-  const pdfs = chapters.filter((chapter) => isPdfUpload(chapter.file));
-  pdfs.forEach((chapter, index) => {
-    window.setTimeout(() => {
-      downloadDataUrlFile(chapter.file!.preview!, ensurePdfFileName(chapter.file!.name || chapter.name));
-    }, index * 250);
-  });
-  return pdfs.length;
-}
+const isPdfUrl = (url: string) => !url.match(/\.(jpe?g|png|gif|webp|bmp)$/i);
 
 const initial: Chapter[] = [
   ["CHAPTER 1 - INTRODUCTION", "Overview of the district and purpose of the DSR under EMGSM 2020 guidelines."],
@@ -38,6 +31,7 @@ export default function ChaptersPage() {
   const { projectId = "default" } = useParams();
   const { user } = useAuth();
   const [chapters, setChapters] = useLocalDraft<Chapter[]>("chapters-exact", initial);
+  const [uploading, setUploading] = useState<number | null>(null);
   const canEditFirstHalf = hasPermission(user, Permission.SectionChaptersFirstHalf);
   const canEditSecondHalf = hasPermission(user, Permission.SectionChaptersSecondHalf);
   const canEditAnyChapter = canEditFirstHalf || canEditSecondHalf;
@@ -61,110 +55,11 @@ export default function ChaptersPage() {
             <button
               className="module-btn"
               onClick={async () => {
-                const downloadedUploads = downloadChapterUploads(chapters);
-                const shouldDownloadIndex = downloadedUploads === 0 || chapters.some((chapter) => !isPdfUpload(chapter.file));
                 const element = document.getElementById("chapters-pdf-preview");
-                if (element && shouldDownloadIndex) {
+                if (element) {
                   try {
                     await downloadHtmlAsPdf(element, "Chapters.pdf");
                   } catch (e) {
-                    console.error("Failed to generate PDF", e);
-                  }
-                }
-              }}
-            >
-              <Download size={17} />
-              Download PDF
-            </button>
-          <button
-            className="module-btn-primary disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={!canEditAnyChapter}
-            onClick={() =>
-              setChapters((current) => [
-                ...current,
-                { name: "NEW CHAPTER - ENTER TITLE", summary: "Enter chapter summary here..." },
-              ])
-            }
-          >
-            <Plus size={17} />
-            Add Chapter
-          </button>
-          </div>
-        }
-      />
-      <div className="h-[calc(100vh-12rem)] flex">
-        <ResizableLayout
-          leftPanelDefaultSize={60}
-          rightPanelDefaultSize={40}
-          leftPanel={
-            <div className="space-y-3">
-              {chapters.map((chapter, index) => {
-                const editable = canEditChapter(index);
-                return (
-                  <article
-                    key={index}
-                    className={`flex gap-4 rounded-2xl border p-4 shadow-sm ${editable ? "border-slate-200 bg-white" : "border-slate-200 bg-slate-50 opacity-80"}`}
-                  >
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 font-bold text-white">
-                      {index + 1}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      {!editable && (
-                        <p className="mb-2 rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-500">
-                          Locked - not accessible for you
-                        </p>
-                      )}
-                      <input
-                        value={chapter.name}
-                        disabled={!editable}
-                        onChange={(event) =>
-                          setChapters((current) =>
-                            current.map((item, itemIndex) =>
-                              itemIndex === index ? { ...item, name: event.target.value } : item
-                            )
-                          )
-                        }
-                        className="w-full rounded-lg border border-slate-200 px-3 py-2 font-bold outline-none focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-500"
-                      />
-                      <textarea
-                        rows={2}
-                        value={chapter.summary}
-                        disabled={!editable}
-                        onChange={(event) =>
-                          setChapters((current) =>
-                            current.map((item, itemIndex) =>
-                              itemIndex === index ? { ...item, summary: event.target.value } : item
-                            )
-                          )
-                        }
-                        className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-500"
-                      />
-                      <label className={`module-btn mt-2 ${editable ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}>
-                        <Upload size={16} />
-                        Upload Chapter PDF
-                        <input
-                          type="file"
-                          accept="application/pdf,.pdf"
-                          hidden
-                          disabled={!editable}
-                          onChange={async (event) => {
-                            const selected = event.target.files?.[0];
-                            if (!selected) return;
-                            const preview = await readFile(selected);
-                            setChapters((current) =>
-                              current.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, file: { name: selected.name, preview } } : item
-                              )
-                            );
-                          }}
-                        />
-                      </label>
-                      {chapter.file && (
-                        <p className="mt-2 truncate text-xs font-medium text-emerald-600">
-                          Uploaded: {chapter.file.name}
-                        </p>
-                      )}
-                    </div>
                     <div className="flex flex-col gap-1">
                       <button
                         disabled={index === 0 || !editable}
@@ -215,16 +110,16 @@ export default function ChaptersPage() {
                 </div>
 
                 {/* Individual chapter previews - full A4 aspect ratio */}
-                {chapters.filter(c => c.file?.preview).map((c, i) => (
+                {chapters.filter(c => c.file?.url).map((c, i) => (
                   <div key={i} className="mb-4">
                     <p className="mb-1 text-xs font-semibold text-slate-500 uppercase">{c.name}</p>
                     <div className="bg-white aspect-[1/1.414] w-full border border-slate-200 relative overflow-hidden">
-                      {c.file!.preview!.startsWith("data:image") ? (
-                        <img src={c.file!.preview} alt={c.name} className="absolute inset-0 w-full h-full" style={{ objectFit: 'fill' }} />
+                      {!isPdfUrl(c.file!.url) ? (
+                        <img src={c.file!.url} alt={c.name} className="absolute inset-0 w-full h-full" style={{ objectFit: 'fill' }} />
                       ) : (
                         <iframe
                           title={c.name}
-                          src={`${c.file!.preview}#toolbar=0&navpanes=0&scrollbar=0&view=Fit&zoom=page-fit`}
+                          src={`${c.file!.url}#toolbar=0&navpanes=0&scrollbar=0&view=Fit&zoom=page-fit`}
                           className="absolute inset-0 w-full h-full"
                           style={{ border: 'none', display: 'block' }}
                         />
@@ -239,13 +134,4 @@ export default function ChaptersPage() {
       </div>
     </>
   );
-}
-
-function readFile(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 }

@@ -11,9 +11,11 @@ export interface FileMetadata {
 
 export const uploadsApi = {
   /** Upload a file generically to the backend */
-  upload: async (file: File): Promise<FileMetadata> => {
+  upload: async (file: File, projectId?: string | number, moduleName?: string): Promise<FileMetadata> => {
     const formData = new FormData();
     formData.append("file", file);
+    if (projectId) formData.append("projectId", String(projectId));
+    if (moduleName) formData.append("module", moduleName);
     const { data } = await apiClient.post<FileMetadata>("/files/upload", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });

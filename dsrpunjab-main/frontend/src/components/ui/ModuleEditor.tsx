@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import PageHeader from "../layout/PageHeader";
 import { useLocalDraft } from "../../hooks/useLocalDraft";
+import { uploadsApi } from "../../api/uploads.api";
 
 export type EditorColumn = {
   key: string;
@@ -31,6 +32,7 @@ type ModuleEditorProps = {
   showLivePreview?: boolean;
   onRowsChange?: (rows: Record<string, string>[]) => void;
   editableStructure?: boolean;
+  projectId?: string;
   onSnapshotChange?: (snapshot: {
     title: string;
     columns: EditorColumn[];
@@ -50,6 +52,7 @@ export default function ModuleEditor({
   showLivePreview = true,
   onRowsChange,
   editableStructure = false,
+  projectId,
   onSnapshotChange,
 }: ModuleEditorProps) {
   const [rows, setRows] = useLocalDraft<Record<string, string>[]>(
@@ -69,6 +72,7 @@ export default function ModuleEditor({
     [],
   );
   const [preview, setPreview] = useState(false);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const snapshotCallback = useRef(onSnapshotChange);
   useEffect(() => {
@@ -137,16 +141,24 @@ export default function ModuleEditor({
     setRows(importedRows);
     toast.success(`${importedRows.length} entries imported`);
   };
-  const addAttachments = (files: FileList | null) => {
+  const addAttachments = async (files: FileList | null) => {
     if (!files?.length) return;
-    const names = Array.from(files).map((file) => file.name);
-    setAttachments((current) => [
-      ...current,
-      ...names.filter((name) => !current.includes(name)),
-    ]);
-    toast.success(
-      `${names.length} attachment${names.length === 1 ? "" : "s"} added`,
-    );
+    setUploadingAttachment(true);
+    try {
+      const uploaded = await Promise.all(
+        Array.from(files).map(file => uploadsApi.upload(file, projectId, 'annexures'))
+      );
+      const urls = uploaded.map(r => r.url);
+      setAttachments((current) => [
+        ...current,
+        ...urls.filter((url) => !current.includes(url)),
+      ]);
+      toast.success(`${uploaded.length} file${uploaded.length === 1 ? '' : 's'} uploaded`);
+    } catch {
+      toast.error('Attachment upload failed');
+    } finally {
+      setUploadingAttachment(false);
+    }
   };
   const addColumn = () => {
     const index = editableColumns.length + 1;
@@ -241,12 +253,13 @@ export default function ModuleEditor({
               <Upload size={17} /> Upload Template
             </button>
             <label className="module-btn cursor-pointer">
-              <FileUp size={17} /> Upload File
+              <FileUp size={17} /> {uploadingAttachment ? 'Uploading...' : 'Upload File'}
               <input
                 type="file"
                 accept=".pdf,.doc,.docx,.xlsx,.xls,.csv,image/*"
                 multiple
                 hidden
+                disabled={uploadingAttachment}
                 onChange={(event) => addAttachments(event.target.files)}
               />
             </label>
@@ -351,7 +364,12 @@ export default function ModuleEditor({
             </div>
             {attachments.length > 0 && (
               <div className="border-t bg-slate-50 px-5 py-3 text-sm text-slate-600">
-                <strong>Attached files:</strong> {attachments.join(", ")}
+                <strong>Attached files:</strong>{" "}
+                {attachments.map((url, i) => (
+                  <a key={i} href={url} target="_blank" rel="noreferrer" className="text-blue-600 underline mr-2">
+                    File {i + 1}
+                  </a>
+                ))}
               </div>
             )}
             {showLivePreview && (
