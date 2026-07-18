@@ -20,6 +20,8 @@ import ResizableLayout from "../../components/layout/ResizableLayout";
 import { apiClient } from "../../api/client";
 import { uploadErrorMessage, uploadsApi } from "../../api/uploads.api";
 import UploadedFilePreview from "../../components/ui/UploadedFilePreview";
+import { projectsApi, type ProjectDetail } from "../../api/projects.api";
+import { appendUploadedDocument, createSectionPdf, drawPdfHeading, drawWrappedLines, saveSectionPdf } from "../../utils/sectionPdf";
 
 // ─────────────────────────────────────────────────────────
 // Types
@@ -42,6 +44,64 @@ interface CustomSection {
   name: string;
   type: string;
   isCustom: true;
+}
+
+type ProjectChapter = { name: string; summary: string; file?: { name: string; url: string } };
+type ProjectPlate = { name: string; summary: string; fileName?: string; url?: string };
+type ProjectUpload = { title: string; name: string; url: string };
+
+function projectBuilderContent(project: ProjectDetail | null) {
+  const state = project?.projectState || {};
+  const frontMatter = state["front-matter"] as {
+    data?: Record<string, string>;
+    coverFile?: { name: string; url?: string } | null;
+    certFile?: { name: string; url?: string } | null;
+    contentFile?: { name: string; url?: string } | null;
+    prefaceFile?: { name: string; url?: string } | null;
+  } | undefined;
+  const chaptersState = state.chapters as { chapters?: ProjectChapter[] } | ProjectChapter[] | undefined;
+  const platesState = state.plates as { plates?: ProjectPlate[] } | ProjectPlate[] | undefined;
+  return {
+    frontMatter,
+    chapters: Array.isArray(chaptersState) ? chaptersState : chaptersState?.chapters || [],
+    plates: Array.isArray(platesState) ? platesState : platesState?.plates || [],
+  };
+}
+
+function selectedModelUploads(report: ModelDsrReport, project: ProjectDetail | null): ProjectUpload[] {
+  const checked = new Set(report.sections);
+  const content = projectBuilderContent(project);
+  const uploads: ProjectUpload[] = [];
+  const push = (title: string, file?: { name: string; url?: string } | null) => {
+    if (file?.url) uploads.push({ title, name: file.name, url: file.url });
+  };
+  const frontMap = [
+    ["fm-cover", "cover", "Cover Page", content.frontMatter?.coverFile],
+    ["fm-toc", "toc", "Content Page", content.frontMatter?.contentFile],
+    ["fm-pref", "pref", "Preface", content.frontMatter?.prefaceFile],
+    ["fm-cert", "cert", "Certificate of Compliance", content.frontMatter?.certFile],
+  ] as const;
+  frontMap.forEach(([sectionId, uploadKey, title, projectFile]) => {
+    if (!checked.has(sectionId)) return;
+    const modelUrl = report.frontMatterPdfs?.[uploadKey]?.[0];
+    if (modelUrl) uploads.push({ title, name: `${title}.pdf`, url: modelUrl });
+    else push(title, projectFile);
+  });
+  if (checked.has("chapters")) content.chapters.forEach((chapter) => push(chapter.name, chapter.file));
+  if (checked.has("plates")) content.plates.forEach((plate) => push(plate.name, plate.url ? { name: plate.fileName || plate.name, url: plate.url } : null));
+  report.customSections.forEach((section) => {
+    if (!checked.has(section.id)) return;
+    (report.customPdfs?.[section.id] || []).forEach((url, index) => uploads.push({ title: section.name, name: `${section.name}-${index + 1}.pdf`, url }));
+  });
+  (project?.files || []).forEach((file) => {
+    const key = file.objectKey.toLowerCase();
+    const matchingAnnexure = report.sections.some((sectionId) => {
+      const annexure = sectionId.startsWith("anx") ? sectionId.slice(3) : sectionId.startsWith("annexure-") ? sectionId.slice(9) : "";
+      return annexure && key.includes(`/annexure-${annexure}/`);
+    });
+    if (matchingAnnexure) uploads.push({ title: file.fileName, name: file.fileName, url: uploadsApi.getDownloadUrl(file.annexureId) });
+  });
+  return uploads.filter((upload, index) => uploads.findIndex((item) => item.url === upload.url) === index);
 }
 
 type View = "options" | "create" | "list" | "editor";
@@ -285,6 +345,62 @@ function generateModelDsrPDF(
   pdf.save(`${reportName.replace(/[^a-z0-9]+/gi, "-")}.pdf`);
 }
 
+async function downloadCompiledModelDsr(report: ModelDsrReport, sections: SectionDef[], project: ProjectDetail | null) {
+  const { document, regular, bold } = await createSectionPdf();
+  const content = projectBuilderContent(project);
+  let page = document.addPage([595.28, 841.89]);
+  drawPdfHeading(page, bold, "GOVERNMENT OF PUNJAB", 790, 12);
+  drawPdfHeading(page, bold, report.name || "MODEL DSR REPORT", 690, 22);
+  page.drawText("Selected DSR Sections", { x: 55, y: 620, size: 14, font: bold });
+  let y = 590;
+  sections.filter((section) => report.sections.includes(section.id) || section.subsections?.some((subsection) => report.sections.includes(subsection.id))).forEach((section, index) => {
+    page.drawText(`${index + 1}. ${section.name}`, { x: 65, y, size: 11, font: regular });
+    y -= 24;
+  });
+
+  if (report.sections.includes("chapters") && content.chapters.length) {
+    page = document.addPage([595.28, 841.89]);
+    drawPdfHeading(page, bold, "CHAPTERS");
+    y = 745;
+    content.chapters.forEach((chapter, index) => {
+      if (y < 110) {
+        page = document.addPage([595.28, 841.89]);
+        drawPdfHeading(page, bold, "CHAPTERS (CONTINUED)");
+        y = 745;
+      }
+      page.drawText(`${index + 1}. ${chapter.name}`, { x: 45, y, size: 11, font: bold });
+      y = drawWrappedLines(page, regular, chapter.summary, { x: 55, y: y - 20, maxWidth: 495, size: 9, lineHeight: 13 }) - 20;
+    });
+  }
+
+  if (report.sections.includes("plates") && content.plates.length) {
+    page = document.addPage([595.28, 841.89]);
+    drawPdfHeading(page, bold, "PLATES AND MAPS");
+    y = 745;
+    content.plates.forEach((plate, index) => {
+      page.drawText(`${index + 1}. ${plate.name}`, { x: 45, y, size: 11, font: bold });
+      y = drawWrappedLines(page, regular, plate.summary, { x: 55, y: y - 20, maxWidth: 495, size: 9, lineHeight: 13 }) - 22;
+    });
+  }
+
+  const frontData = content.frontMatter?.data || {};
+  if (report.sections.includes("fm-pref") && !selectedModelUploads(report, project).some((upload) => upload.title === "Preface") && frontData.preface) {
+    page = document.addPage([595.28, 841.89]);
+    drawPdfHeading(page, bold, "PREFACE");
+    drawWrappedLines(page, regular, frontData.preface, { x: 55, y: 730, maxWidth: 485, size: 11, lineHeight: 18 });
+  }
+  if (report.sections.includes("fm-ack") && frontData.acknowledgement) {
+    page = document.addPage([595.28, 841.89]);
+    drawPdfHeading(page, bold, "ACKNOWLEDGEMENT");
+    drawWrappedLines(page, regular, frontData.acknowledgement, { x: 55, y: 730, maxWidth: 485, size: 11, lineHeight: 18 });
+  }
+
+  for (const upload of selectedModelUploads(report, project)) {
+    await appendUploadedDocument(document, { name: upload.name, url: upload.url });
+  }
+  await saveSectionPdf(document, `${report.name.replace(/[^a-z0-9]+/gi, "-") || "Model-DSR"}.pdf`);
+}
+
 // ─────────────────────────────────────────────────────────
 // Badge component
 // ─────────────────────────────────────────────────────────
@@ -317,10 +433,16 @@ export default function ModelDsrPage() {
   const [activeReport, setActiveReport] = useState<ModelDsrReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [newReportName, setNewReportName] = useState("");
+  const [project, setProject] = useState<ProjectDetail | null>(null);
 
   // Load reports from localStorage on mount
   useEffect(() => {
     setReports(loadReports(projectId));
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!/^\d+$/.test(projectId)) return;
+    projectsApi.get(projectId).then(setProject).catch((error) => console.error("Failed to load Model DSR project content:", error));
   }, [projectId]);
 
   // Persist reports to localStorage whenever they change
@@ -410,7 +532,7 @@ export default function ModelDsrPage() {
   );
 
   // ── Download PDF directly from list ──
-  const handleDownloadDirect = (reportId: string) => {
+  const handleDownloadDirect = async (reportId: string) => {
     const report = reports.find((r) => r.id === reportId);
     if (!report) return;
     if (report.sections.length === 0) {
@@ -418,7 +540,13 @@ export default function ModelDsrPage() {
       return;
     }
     const allSections = buildSectionList(report);
-    generateModelDsrPDF(report.name, allSections, report.sections);
+    try {
+      await downloadCompiledModelDsr(report, allSections, project);
+      toast.success("Model DSR PDF downloaded");
+    } catch (error) {
+      console.error("Model DSR compilation failed:", error);
+      toast.error("Selected content PDF download failed");
+    }
   };
 
   return (
@@ -486,6 +614,7 @@ export default function ModelDsrPage() {
       {view === "editor" && activeReport && (
         <ReportEditor
           report={activeReport}
+          project={project}
           onChange={(updated) => {
             setActiveReport(updated);
             persistActiveReport(updated);
@@ -774,10 +903,12 @@ function buildSectionList(report: ModelDsrReport): SectionDef[] {
 // ─────────────────────────────────────────────────────────
 function ReportEditor({
   report,
+  project,
   onChange,
   onBack,
 }: {
   report: ModelDsrReport;
+  project: ProjectDetail | null;
   onChange: (updated: ModelDsrReport) => void;
   onBack: () => void;
 }) {
@@ -904,15 +1035,20 @@ function ReportEditor({
   };
 
   // ── Download PDF ──
-  const handleDownload = () => {
+  const handleDownload = async () => {
     const selected = report.sections;
     if (selected.length === 0) {
       toast.error("No sections selected – please select at least one section");
       return;
     }
     const allSecs = buildSectionList(report);
-    generateModelDsrPDF(report.name, allSecs, selected);
-    toast.success("PDF generated!");
+    try {
+      await downloadCompiledModelDsr(report, allSecs, project);
+      toast.success("Selected content PDF downloaded!");
+    } catch (error) {
+      console.error("Model DSR compilation failed:", error);
+      toast.error("Selected content PDF download failed");
+    }
   };
 
   return (
@@ -999,6 +1135,7 @@ function ReportEditor({
               report={report}
               sections={orderedSections}
               selectedCount={selectedCount}
+              project={project}
             />
           }
         />
@@ -1265,33 +1402,30 @@ function PreviewPanel({
   report,
   sections,
   selectedCount,
+  project,
 }: {
   report: ModelDsrReport;
   sections: SectionDef[];
   selectedCount: number;
+  project: ProjectDetail | null;
 }) {
   const previewScrollRef = useRef<HTMLDivElement>(null);
   const checkedSet = new Set(report.sections);
+  const content = projectBuilderContent(project);
   const selectedSections = sections.filter(
     (s) =>
       checkedSet.has(s.id) ||
       (s.hasSubsections && s.subsections?.some((sub) => checkedSet.has(sub.id)))
   );
-  const uploadedPreviews: { id: string; title: string; url: string }[] = [];
-  const frontMatter = sections.find((section) => section.id === "front-matter");
-  frontMatter?.subsections?.forEach((subsection) => {
-    if (!checkedSet.has(subsection.id)) return;
-    const uploadKey = subsection.uploadKey || FRONT_MATTER_KEY[subsection.id] || subsection.id;
-    (report.frontMatterPdfs?.[uploadKey] || []).forEach((url, index) => {
-      uploadedPreviews.push({ id: `${subsection.id}-${index}`, title: subsection.name, url });
-    });
-  });
-  report.customSections.forEach((section) => {
-    if (!checkedSet.has(section.id)) return;
-    (report.customPdfs?.[section.id] || []).forEach((url, index) => {
-      uploadedPreviews.push({ id: `${section.id}-${index}`, title: section.name, url });
-    });
-  });
+  const uploadedPreviews = selectedModelUploads(report, project).map((upload, index) => ({
+    id: `${upload.url}-${index}`,
+    title: upload.title,
+    url: upload.url,
+  }));
+  const frontData = content.frontMatter?.data || {};
+  const showGeneratedPreface =
+    checkedSet.has("fm-pref") && !content.frontMatter?.prefaceFile?.url && Boolean(frontData.preface);
+  const showAcknowledgement = checkedSet.has("fm-ack") && Boolean(frontData.acknowledgement);
 
   const district = "Punjab";
   const year = "2025-26";
@@ -1373,6 +1507,30 @@ function PreviewPanel({
           title="Model DSR Live Preview"
           scrolling="no"
         />
+        {showGeneratedPreface && (
+          <PreviewTextPage title="Preface" text={frontData.preface} />
+        )}
+        {showAcknowledgement && (
+          <PreviewTextPage title="Acknowledgement" text={frontData.acknowledgement} />
+        )}
+        {checkedSet.has("chapters") && content.chapters.length > 0 && (
+          <PreviewContentPage
+            title="Chapters"
+            items={content.chapters.map((chapter) => ({
+              title: chapter.name,
+              text: chapter.summary,
+            }))}
+          />
+        )}
+        {checkedSet.has("plates") && content.plates.length > 0 && (
+          <PreviewContentPage
+            title="Plates and Maps"
+            items={content.plates.map((plate) => ({
+              title: plate.name,
+              text: plate.summary,
+            }))}
+          />
+        )}
         {uploadedPreviews.map((upload) => (
           <section key={upload.id} className="mt-5">
             <p className="mb-2 text-xs font-bold uppercase text-slate-600">{upload.title}</p>
@@ -1388,5 +1546,44 @@ function PreviewPanel({
         ))}
       </div>
     </div>
+  );
+}
+
+function PreviewTextPage({ title, text }: { title: string; text: string }) {
+  return (
+    <section className="mt-5 min-h-[720px] bg-white px-10 py-12 shadow-sm">
+      <h3 className="border-b border-slate-200 pb-3 text-center text-lg font-bold uppercase text-slate-800">
+        {title}
+      </h3>
+      <p className="mt-8 whitespace-pre-wrap text-sm leading-7 text-slate-700">{text}</p>
+    </section>
+  );
+}
+
+function PreviewContentPage({
+  title,
+  items,
+}: {
+  title: string;
+  items: { title: string; text: string }[];
+}) {
+  return (
+    <section className="mt-5 min-h-[720px] bg-white px-10 py-12 shadow-sm">
+      <h3 className="border-b border-slate-200 pb-3 text-center text-lg font-bold uppercase text-slate-800">
+        {title}
+      </h3>
+      <div className="mt-7 space-y-6">
+        {items.map((item, index) => (
+          <article key={`${item.title}-${index}`}>
+            <h4 className="text-sm font-bold text-slate-900">
+              {index + 1}. {item.title}
+            </h4>
+            {item.text && (
+              <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">{item.text}</p>
+            )}
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
