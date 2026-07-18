@@ -76,6 +76,20 @@ export async function createSectionPdf() {
   return { document, regular, bold };
 }
 
+/** Creates the standalone opening page used before every report section. */
+export async function appendReportSectionTitle(target: PDFDocument, title: string, subtitle = "") {
+  const page = target.addPage([595.28, 841.89]);
+  const regular = await target.embedFont(StandardFonts.TimesRoman);
+  const bold = await target.embedFont(StandardFonts.TimesRomanBold);
+  const cleanTitle = safeText(title.toUpperCase());
+  page.drawText(cleanTitle, { x: (page.getWidth() - bold.widthOfTextAtSize(cleanTitle, 24)) / 2, y: 455, size: 24, font: bold, color: rgb(0.05, 0.08, 0.12) });
+  if (subtitle) {
+    const cleanSubtitle = safeText(subtitle);
+    page.drawText(cleanSubtitle, { x: (page.getWidth() - regular.widthOfTextAtSize(cleanSubtitle, 13)) / 2, y: 420, size: 13, font: regular, color: rgb(0.25, 0.28, 0.32) });
+  }
+  page.drawLine({ start: { x: 150, y: 400 }, end: { x: 445, y: 400 }, thickness: 0.7, color: rgb(0.1, 0.1, 0.1) });
+}
+
 /** Adds editable annexure tables and saved cross-section graphs to the final report. */
 export async function appendGeneratedReportContent(target: PDFDocument, input: {
   district: string;
