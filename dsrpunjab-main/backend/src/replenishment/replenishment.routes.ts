@@ -18,5 +18,7 @@ replenishmentRouter.delete("/replenishment/:id", requireAuth, replenishmentContr
 replenishmentRouter.post("/replenishment/:id/fetch-final-dsr", requireAuth, replenishmentController.fetchFinalDsr);
 replenishmentRouter.put("/replenishment/:id/state", requireAuth, replenishmentController.saveState);
 replenishmentRouter.post("/replenishment/:id/upload", requireAuth, upload.single("file"), replenishmentController.upload);
+replenishmentRouter.get("/replenishment/:id/files", requireAuth, replenishmentController.listFiles);
+replenishmentRouter.get("/replenishment/:id/files/:fileId/download", requireAuth, replenishmentController.downloadFile);
 replenishmentRouter.post("/replenishment/:id/workflow", requireAuth, replenishmentController.workflow);
 replenishmentRouter.post("/replenishment/:id/generate-ai", requireAuth, replenishmentController.generateAi);

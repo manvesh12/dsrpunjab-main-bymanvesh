@@ -58,11 +58,24 @@ export class ReplenishmentRepository {
   createFile(data: Prisma.ReplenishmentFileUncheckedCreateInput) {
     return this.database.replenishmentFile.create({ data });
   }
+
+  listFiles(replenishmentId: string) {
+    return this.database.replenishmentFile.findMany({
+      where: { replenishmentId },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  findFile(replenishmentId: string, fileId: string) {
+    return this.database.replenishmentFile.findFirst({
+      where: { id: fileId, replenishmentId },
+    });
+  }
 }
 
 export type ReplenishmentRepositoryContract = Pick<
   ReplenishmentRepository,
-  "findProject" | "findProjectForSync" | "findApprovedDsrs" | "list" | "create" | "findById" | "findByIdWithProjectDistrict" | "findByIdWithProject" | "update" | "delete" | "createFile"
+  "findProject" | "findProjectForSync" | "findApprovedDsrs" | "list" | "create" | "findById" | "findByIdWithProjectDistrict" | "findByIdWithProject" | "update" | "delete" | "createFile" | "listFiles" | "findFile"
 >;
 
 export const replenishmentRepository = new ReplenishmentRepository(prisma);

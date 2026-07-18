@@ -35,6 +35,7 @@ import { toast } from "sonner";
 import PageHeader from "../../components/layout/PageHeader";
 import {
   replenishmentApi,
+  type ReplenishmentFile,
   type ReplenishmentStudy,
 } from "../../api/replenishment.api";
 import {
@@ -108,6 +109,17 @@ type EvidenceFile = {
   uploadedAt: string;
 };
 
+function toEvidenceFile(file: ReplenishmentFile): EvidenceFile {
+  return {
+    id: file.id,
+    sectionId: file.sectionId,
+    name: file.fileName,
+    size: file.sizeBytes,
+    objectKey: file.objectKey,
+    uploadedAt: file.createdAt,
+  };
+}
+
 type WorkflowState = {
   type: "replenishment_enterprise_workflow";
   importMode: ImportMode;
@@ -119,6 +131,7 @@ type WorkflowState = {
   dynamicRegeneration: string[];
   previewNotes: string[];
   evidenceFiles: EvidenceFile[];
+  customExcelTemplate?: EvidenceFile;
   lastSavedAt?: string;
   district?: string;
   river?: string;
@@ -559,7 +572,11 @@ export default function ReplenishmentBuilderPage() {
         surveyData: defaultSurvey,
       });
       setStudy(active);
-      setWorkflow({ ...defaultWorkflow, ...(active.reportState as Partial<WorkflowState>) });
+      const storedFiles = await replenishmentApi.listFiles(active.id);
+      const evidenceFiles = storedFiles.map(toEvidenceFile);
+      const savedWorkflow = active.reportState as Partial<WorkflowState>;
+      const customExcelTemplate = evidenceFiles.find((file) => file.sectionId === "custom_excel_template");
+      setWorkflow({ ...defaultWorkflow, ...savedWorkflow, evidenceFiles, customExcelTemplate });
       setSurvey({ ...defaultSurvey, ...(active.surveyData as Partial<SurveyUpdate>) });
     } catch {
       toast.error("Replenishment workflow load nahi ho paya");
@@ -730,6 +747,50 @@ export default function ReplenishmentBuilderPage() {
   const handleEvidenceDrop = (event: DragEvent<HTMLLabelElement>) => {
     event.preventDefault();
     handleEvidenceFiles(event.dataTransfer.files);
+  };
+
+  const handleCustomExcelTemplate = async (file: File | undefined) => {
+    if (!file || !study) return;
+    if (!/\.xlsx?$/i.test(file.name)) {
+      toast.error("Custom format ke liye .xlsx ya .xls Excel file upload karo");
+      return;
+    }
+    setUploadingEvidence(true);
+    try {
+      const result = await replenishmentApi.uploadFile(study.id, "custom_excel_template", file);
+      const customExcelTemplate: EvidenceFile = {
+        id: result.id,
+        sectionId: "custom_excel_template",
+        name: result.fileName,
+        size: result.sizeBytes,
+        objectKey: result.objectKey,
+        uploadedAt: new Date().toISOString(),
+      };
+      const nextWorkflow = {
+        ...workflow,
+        customExcelTemplate,
+        evidenceFiles: [...workflow.evidenceFiles.filter((entry) => entry.sectionId !== "custom_excel_template"), customExcelTemplate],
+        lastSavedAt: new Date().toISOString(),
+      };
+      setWorkflow(nextWorkflow);
+      await replenishmentApi.update(study.id, { reportState: nextWorkflow, surveyData: survey });
+      toast.success("Custom Excel format saved and selected for this report");
+    } catch {
+      toast.error("Custom Excel format upload failed");
+    } finally {
+      setUploadingEvidence(false);
+    }
+  };
+
+  const handleDownloadEvidence = async (file: EvidenceFile) => {
+    if (!study) return;
+    try {
+      const blob = await replenishmentApi.downloadFile(study.id, file.id);
+      downloadBlob(blob, file.name);
+      toast.success(`${file.name} downloaded`);
+    } catch {
+      toast.error("Uploaded file download failed");
+    }
   };
 
   const handleCopyFromDsr = async (item: ContentItem) => {
@@ -994,6 +1055,22 @@ export default function ReplenishmentBuilderPage() {
                   </article>
                 ))}
               </div>
+              <div className="mt-4 border border-dashed border-emerald-400 bg-emerald-50 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <FileSpreadsheet size={24} className="mt-0.5 shrink-0 text-emerald-700" />
+                    <div>
+                      <h4 className="text-sm font-bold text-emerald-950">Upload Your Exact Excel Format</h4>
+                      <p className="mt-1 text-xs leading-5 text-emerald-900">Upload an existing replenishment `.xlsx`/`.xls` format. It becomes this study's active custom template and can be downloaded later as the exact original format.</p>
+                      {workflow.customExcelTemplate && <p className="mt-2 text-xs font-semibold text-emerald-800">Active format: {workflow.customExcelTemplate.name}</p>}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {workflow.customExcelTemplate && <button className="module-btn" onClick={() => handleDownloadEvidence(workflow.customExcelTemplate!)}><Download size={15}/>Copy Exact Format</button>}
+                    <label className="module-btn-primary cursor-pointer"><Upload size={15}/>{workflow.customExcelTemplate ? "Replace Format" : "Upload Format"}<input type="file" hidden accept=".xls,.xlsx" onChange={(event) => handleCustomExcelTemplate(event.target.files?.[0])} /></label>
+                  </div>
+                </div>
+              </div>
             </section>
 
             <section className="bg-white p-4 shadow-sm ring-1 ring-slate-200">
@@ -1016,6 +1093,7 @@ export default function ReplenishmentBuilderPage() {
                     <div key={file.id} className="flex items-center gap-3 px-3 py-2.5">
                       <FileText size={17} className="shrink-0 text-slate-500" />
                       <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{file.name}</p><p className="text-xs text-slate-500">{file.sectionId} | {Math.ceil(file.size / 1024)} KB</p></div>
+                      <button title="Download uploaded file" onClick={() => handleDownloadEvidence(file)} className="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-blue-600"><Download size={16}/></button>
                       <button title="Remove from report register" onClick={() => removeEvidenceFile(file.id)} className="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-red-600"><X size={16}/></button>
                     </div>
                   ))}

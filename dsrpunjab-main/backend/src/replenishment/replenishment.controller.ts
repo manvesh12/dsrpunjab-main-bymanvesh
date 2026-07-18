@@ -33,6 +33,23 @@ export class ReplenishmentController {
   upload = async (req: Request, res: Response, next: NextFunction) =>
     this.respond(res, next, () => this.service.upload(replenishmentId(req.params.id), req.body, req.file, req.user!));
 
+  listFiles = async (req: Request, res: Response, next: NextFunction) =>
+    this.respond(res, next, () => this.service.listFiles(replenishmentId(req.params.id), req.user!));
+
+  downloadFile = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { file, bytes } = await this.service.downloadFile(replenishmentId(req.params.id), String(req.params.fileId || ""), req.user!);
+      const inline = String(req.query.inline || "") === "true";
+      const safeName = file.fileName.replace(/["\\]/g, "-");
+      res.setHeader("Content-Type", file.contentType || "application/octet-stream");
+      res.setHeader("Content-Length", bytes.byteLength);
+      res.setHeader("Content-Disposition", `${inline ? "inline" : "attachment"}; filename="${safeName}"`);
+      res.send(bytes);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   workflow = async (req: Request, res: Response, next: NextFunction) =>
     this.respond(res, next, () => this.service.workflow(replenishmentId(req.params.id), req.body, req.user!));
 
