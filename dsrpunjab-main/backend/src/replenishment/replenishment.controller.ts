@@ -31,7 +31,7 @@ export class ReplenishmentController {
     this.respond(res, next, () => this.service.saveState(replenishmentId(req.params.id), req.body, req.user!));
 
   upload = async (req: Request, res: Response, next: NextFunction) =>
-    this.respond(res, next, () => this.service.upload(replenishmentId(req.params.id), req.body, req.user!));
+    this.respond(res, next, () => this.service.upload(replenishmentId(req.params.id), req.body, req.file, req.user!));
 
   workflow = async (req: Request, res: Response, next: NextFunction) =>
     this.respond(res, next, () => this.service.workflow(replenishmentId(req.params.id), req.body, req.user!));

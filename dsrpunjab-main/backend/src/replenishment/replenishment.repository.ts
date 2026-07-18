@@ -54,11 +54,15 @@ export class ReplenishmentRepository {
   }
 
   delete(id: string) { return this.database.replenishmentStudy.delete({ where: { id } }); }
+
+  createFile(data: Prisma.ReplenishmentFileUncheckedCreateInput) {
+    return this.database.replenishmentFile.create({ data });
+  }
 }
 
 export type ReplenishmentRepositoryContract = Pick<
   ReplenishmentRepository,
-  "findProject" | "findProjectForSync" | "findApprovedDsrs" | "list" | "create" | "findById" | "findByIdWithProjectDistrict" | "findByIdWithProject" | "update" | "delete"
+  "findProject" | "findProjectForSync" | "findApprovedDsrs" | "list" | "create" | "findById" | "findByIdWithProjectDistrict" | "findByIdWithProject" | "update" | "delete" | "createFile"
 >;
 
 export const replenishmentRepository = new ReplenishmentRepository(prisma);

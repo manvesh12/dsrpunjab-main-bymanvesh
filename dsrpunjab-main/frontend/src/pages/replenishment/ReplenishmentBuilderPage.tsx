@@ -22,6 +22,8 @@ import {
   Replace,
   Save,
   Upload,
+  Sparkles,
+  ArrowRight,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -272,9 +274,11 @@ export default function ReplenishmentBuilderPage() {
   const [study, setStudy] = useState<ReplenishmentStudy | null>(null);
   const [workflow, setWorkflow] = useState<WorkflowState>(defaultWorkflow);
   const [survey, setSurvey] = useState<SurveyUpdate>(defaultSurvey);
-  const [originalPdf, setOriginalPdf] = useState<{ name: string; url: string; size: number } | null>(null);
+  const [originalPdf, setOriginalPdf] = useState<{ name: string; url: string; size: number; serverKey?: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [generatingAi, setGeneratingAi] = useState(false);
+  const [importingDsr, setImportingDsr] = useState(false);
 
   const loadStudy = useCallback(async () => {
     if (!projectId) return;
@@ -370,15 +374,88 @@ export default function ReplenishmentBuilderPage() {
     recordHistory(study.id, workflow, fileNameFor(workflow, "pdf"), 0, "print");
   };
 
-  const handleOriginalPdfSelect = (file: File | undefined) => {
+  const handleOriginalPdfSelect = async (file: File | undefined) => {
     if (!file) return;
     if (file.type !== "application/pdf") {
       toast.error("Original official file PDF hona chahiye");
       return;
     }
-    if (originalPdf?.url) URL.revokeObjectURL(originalPdf.url);
-    setOriginalPdf({ name: file.name, url: URL.createObjectURL(file), size: file.size });
-    toast.success("Original PDF ready hai");
+    if (!study) {
+      toast.error("Please wait for study to load");
+      return;
+    }
+    try {
+      const result = await replenishmentApi.uploadFile(study.id, "original_pdf", file);
+      if (originalPdf?.url) URL.revokeObjectURL(originalPdf.url);
+      setOriginalPdf({ name: file.name, url: URL.createObjectURL(file), size: file.size, serverKey: result.objectKey });
+      toast.success("Original PDF uploaded successfully");
+    } catch {
+      toast.error("Upload failed");
+    }
+  };
+
+  const handleCrossSectionUpload = async (file: File | undefined) => {
+    if (!file || !study) return;
+    try {
+      await replenishmentApi.uploadFile(study.id, "cross_section", file);
+      toast.success("Cross section data uploaded successfully");
+    } catch {
+      toast.error("Upload failed");
+    }
+  };
+
+  const handleExecuteImport = async () => {
+    if (!study) return;
+    setImportingDsr(true);
+    try {
+      await replenishmentApi.fetchFinalDsr(study.id);
+      toast.success("Final DSR data imported successfully");
+      loadStudy(); // Reload to get updated inherited state
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || "Import failed");
+    } finally {
+      setImportingDsr(false);
+    }
+  };
+
+  const handleGenerateAi = async () => {
+    if (!study) return;
+    setGeneratingAi(true);
+    try {
+      const result = await replenishmentApi.generateAi(study.id, "general");
+      setWorkflow((current) => ({
+        ...current,
+        suggestions: [{ title: "AI Generated Insight", detail: result.generatedText, kind: "dynamic" }, ...current.suggestions]
+      }));
+      toast.success("AI insights generated successfully");
+    } catch {
+      toast.error("AI Generation failed");
+    } finally {
+      setGeneratingAi(false);
+    }
+  };
+
+  const WORKFLOW_STAGES = [
+    "DRAFT", "SURVEY_OFFICER_APPROVED", "GIS_EXPERT_APPROVED", 
+    "GEOLOGIST_APPROVED", "DISTRICT_OFFICER_APPROVED", "REVIEWER_APPROVED", 
+    "DISTRICT_ADMIN_APPROVED", "STATE_ADMIN_APPROVED", "FINAL_REPORT_GENERATED"
+  ];
+
+  const handleWorkflowAdvance = async () => {
+    if (!study) return;
+    const currentIndex = WORKFLOW_STAGES.indexOf(study.approvalState || "DRAFT");
+    const nextState = WORKFLOW_STAGES[currentIndex + 1];
+    if (!nextState) {
+      toast.success("Workflow already complete!");
+      return;
+    }
+    try {
+      await replenishmentApi.workflow(study.id, { action: nextState });
+      toast.success(`Workflow advanced to ${nextState}`);
+      loadStudy(); // Reload to get new status
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || "Workflow advancement failed");
+    }
   };
 
   const handleDownloadOriginalPdf = () => {
@@ -450,6 +527,28 @@ export default function ReplenishmentBuilderPage() {
         </div>
       </section>
 
+      {/* Workflow Progress Bar */}
+      <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <p className="text-xs font-bold uppercase text-slate-500">Current Workflow Stage</p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${study?.approvalState === 'FINAL_REPORT_GENERATED' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+              {study?.approvalState?.replace(/_/g, ' ') || "DRAFT"}
+            </span>
+            {study?.status === 'APPROVED' && <span className="text-green-600 font-bold ml-2">✓ GREEN FLAG - FULLY APPROVED</span>}
+          </div>
+        </div>
+        <div>
+          <button 
+            onClick={handleWorkflowAdvance} 
+            disabled={study?.approvalState === 'FINAL_REPORT_GENERATED'}
+            className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+          >
+            Advance Workflow Stage <ArrowRight size={16} />
+          </button>
+        </div>
+      </section>
+
       <section className="mb-5 grid gap-4 md:grid-cols-4">
         <Metric icon={FileStack} label="Study" value={study?.title || "Draft"} />
         <Metric icon={CheckCircle2} label="Imported" value={String(summary.imported)} />
@@ -488,10 +587,28 @@ export default function ReplenishmentBuilderPage() {
               </label>
             ))}
           </div>
+          <div className="mt-4 border-t border-slate-100 pt-4">
+            <button 
+              onClick={handleExecuteImport}
+              disabled={importingDsr}
+              className="flex items-center gap-2 rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+            >
+              {importingDsr ? "Importing Data..." : "Execute DSR Import"}
+            </button>
+          </div>
         </Panel>
 
         <Panel title="AI Smart Suggestions" icon={Bot} description="Static vs dynamic detection summary.">
-          <div className="space-y-3">
+          <div className="mb-3">
+            <button 
+              onClick={handleGenerateAi}
+              disabled={generatingAi}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-50 py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-100 disabled:opacity-50"
+            >
+              <Sparkles size={16} /> {generatingAi ? "Generating AI Insights..." : "Generate AI Insights"}
+            </button>
+          </div>
+          <div className="space-y-3 max-h-[250px] overflow-y-auto">
             {workflow.suggestions.map((suggestion) => (
               <div key={suggestion.title} className="rounded-xl border border-slate-200 p-3">
                 <p className="font-semibold">{suggestion.title}</p>
@@ -568,7 +685,10 @@ export default function ReplenishmentBuilderPage() {
                 </div>
               </div>
             ))}
-            <button className="module-btn-secondary"><Upload size={16}/>Upload updated Excel / graph</button>
+            <label className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer">
+              <Upload size={16}/> Upload updated Excel / graph
+              <input type="file" accept=".xls,.xlsx,.png,.jpg,.jpeg" hidden onChange={(e) => handleCrossSectionUpload(e.target.files?.[0])} />
+            </label>
           </div>
         </Panel>
 
