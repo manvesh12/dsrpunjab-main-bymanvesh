@@ -3,11 +3,15 @@ import { assertProjectDistrictAccess } from "../authorization/project-access.pol
 import { ApiError } from "../common/exceptions/api-error.js";
 import { logger } from "../common/logging/logger.js";
 import type { AuthUser } from "../authentication/auth-user.js";
+import { storageService, type StorageService } from "../storage/storage.service.js";
 import { MAX_SYNCABLE_PROJECT_STATE_BYTES } from "./replenishment.constants.js";
 import { replenishmentRepository, type ReplenishmentRepositoryContract } from "./replenishment.repository.js";
 
 export class ReplenishmentService {
-  constructor(private readonly repository: ReplenishmentRepositoryContract) {}
+  constructor(
+    private readonly repository: ReplenishmentRepositoryContract,
+    private readonly storage: Pick<StorageService, "putFile" | "getFile" | "deleteFile">
+  ) {}
 
   async list(projectId: bigint, user: AuthUser) {
     const project = await this.repository.findProject(projectId);
@@ -170,21 +174,45 @@ export class ReplenishmentService {
     if (!file) throw new ApiError(400, "FILE_REQUIRED", "No file uploaded");
 
     // Persist file metadata to the database
-    const sectionId = body?.sectionId || "general";
-    const objectKey = `replenishment/${id}/${sectionId}/${Date.now()}-${file.originalname}`;
-    
-    // Using the repository we just updated to add createFile
-    await this.repository.createFile({
-      replenishmentId: id,
-      sectionId,
-      fileName: file.originalname,
-      objectKey,
-      contentType: file.mimetype,
-      sizeBytes: file.size,
-      uploadedBy: user.id
-    });
-    
-    return { success: true, objectKey, fileName: file.originalname };
+    const sectionId = String(body?.sectionId || "general").replace(/[^a-zA-Z0-9_-]/g, "-");
+    const fileName = String(file.originalname || "upload").replace(/[\\/:*?"<>|]/g, "-");
+    const objectKey = `replenishment/${id}/${sectionId}/${Date.now()}-${fileName}`;
+    const contentType = file.mimetype || "application/octet-stream";
+
+    await this.storage.putFile(objectKey, file.buffer, contentType);
+    try {
+      const saved = await this.repository.createFile({
+        replenishmentId: id,
+        sectionId,
+        fileName,
+        objectKey,
+        contentType,
+        sizeBytes: file.size,
+        uploadedBy: user.id
+      });
+      return { success: true, id: saved.id, objectKey, fileName, sizeBytes: saved.sizeBytes, contentType };
+    } catch (error) {
+      await this.storage.deleteFile(objectKey).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  async listFiles(id: string, user: AuthUser) {
+    const existing = await this.repository.findById(id);
+    if (!existing) throw new ApiError(404, "REPLENISHMENT_NOT_FOUND", "Replenishment study not found");
+    const project = await this.repository.findProject(existing.projectId);
+    assertProjectDistrictAccess(project, user);
+    return this.repository.listFiles(id);
+  }
+
+  async downloadFile(id: string, fileId: string, user: AuthUser) {
+    const existing = await this.repository.findById(id);
+    if (!existing) throw new ApiError(404, "REPLENISHMENT_NOT_FOUND", "Replenishment study not found");
+    const project = await this.repository.findProject(existing.projectId);
+    assertProjectDistrictAccess(project, user);
+    const file = await this.repository.findFile(id, fileId);
+    if (!file) throw new ApiError(404, "REPLENISHMENT_FILE_NOT_FOUND", "Uploaded file not found");
+    return { file, bytes: await this.storage.getFile(file.objectKey) };
   }
 
   async workflow(id: string, body: any, user: AuthUser) {
@@ -257,4 +285,4 @@ export class ReplenishmentService {
   }
 }
 
-export const replenishmentService = new ReplenishmentService(replenishmentRepository);
+export const replenishmentService = new ReplenishmentService(replenishmentRepository, storageService);

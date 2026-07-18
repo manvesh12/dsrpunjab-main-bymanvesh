@@ -38,6 +38,7 @@ export interface ReplenishmentFile {
   contentType: string;
   sizeBytes: number;
   createdAt: string;
+  downloadUrl?: string;
 }
 
 export const replenishmentApi = {
@@ -89,6 +90,18 @@ export const replenishmentApi = {
     const { data } = await apiClient.post<ReplenishmentFile>(`/replenishment/${id}/upload`, formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
+    return data;
+  },
+
+  /** List files stored for this replenishment study */
+  listFiles: async (id: string): Promise<ReplenishmentFile[]> => {
+    const { data } = await apiClient.get<ReplenishmentFile[]>(`/replenishment/${id}/files`);
+    return data;
+  },
+
+  /** Authenticated endpoint for downloading an uploaded replenishment file */
+  downloadFile: async (studyId: string, fileId: string): Promise<Blob> => {
+    const { data } = await apiClient.get(`/replenishment/${studyId}/files/${fileId}/download`, { responseType: "blob" });
     return data;
   },
 
