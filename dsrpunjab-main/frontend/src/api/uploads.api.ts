@@ -6,7 +6,20 @@ export interface FileMetadata {
   contentType: string;
   sizeBytes: number;
   url: string;
+  downloadUrl?: string;
   createdAt: string;
+}
+
+export function resolveUploadUrl(url?: string): string {
+  if (!url) return "";
+  if (/^(blob:|data:|https?:\/\/)/i.test(url)) return url;
+
+  const apiBase = String(apiClient.defaults.baseURL || "").replace(/\/$/, "");
+  const backendOrigin = apiBase.replace(/\/api$/, "");
+  const path = url.startsWith("/") ? url : `/${url}`;
+
+  if (path.startsWith("/api/")) return `${backendOrigin}${path}`;
+  return `${apiBase}${path}`;
 }
 
 export const uploadsApi = {
@@ -19,12 +32,16 @@ export const uploadsApi = {
     const { data } = await apiClient.post<FileMetadata>("/files/upload", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
-    return data;
+    return {
+      ...data,
+      url: resolveUploadUrl(data.url),
+      downloadUrl: data.downloadUrl ? resolveUploadUrl(data.downloadUrl) : undefined,
+    };
   },
 
   /** Get the download URL for a file */
   getDownloadUrl: (identifier: string): string => {
-    return `${apiClient.defaults.baseURL}/files/download/${identifier}`;
+    return resolveUploadUrl(`/api/files/download/${identifier}`);
   },
 
   /** Delete an uploaded file */

@@ -7,7 +7,7 @@ import { useLocalDraft } from "../../hooks/useLocalDraft";
 import { useAuth } from "../../security/auth.context";
 import { hasPermission, Permission } from "../../security/access";
 import { useParams } from "react-router-dom";
-import { uploadsApi } from "../../api/uploads.api";
+import { resolveUploadUrl, uploadsApi } from "../../api/uploads.api";
 import { toast } from "sonner";
 
 type Chapter = { name: string; summary: string; file?: { name: string; url: string } };
@@ -98,11 +98,11 @@ export default function ChaptersPage() {
                 </label>
                 {chapter.file && (
                   <div className="mt-2 rounded-lg overflow-hidden border" style={{ height: 80 }}>
-                    {!isPdfUrl(chapter.file.url) ? (
-                      <img src={chapter.file.url} alt="preview" className="w-full h-full object-contain" />
+                    {!isPdfUrl(resolveUploadUrl(chapter.file.url)) ? (
+                      <img src={resolveUploadUrl(chapter.file.url)} alt="preview" className="w-full h-full object-contain" />
                     ) : (
                       <iframe
-                        src={`${chapter.file.url}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
+                        src={`${resolveUploadUrl(chapter.file.url)}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
                         className="w-full h-full"
                         style={{ border: "none" }}
                         title="chapter preview"
@@ -165,12 +165,12 @@ export default function ChaptersPage() {
           <div key={index} className="mb-4">
             <p className="mb-1 text-xs font-semibold text-slate-500 uppercase">{chapter.name}</p>
             <div className="bg-white aspect-[1/1.414] w-full border border-slate-200 relative overflow-hidden">
-              {!isPdfUrl(chapter.file!.url) ? (
-                <img src={chapter.file!.url} alt={chapter.name} className="absolute inset-0 w-full h-full" style={{ objectFit: "fill" }} />
+              {!isPdfUrl(resolveUploadUrl(chapter.file!.url)) ? (
+                <img src={resolveUploadUrl(chapter.file!.url)} alt={chapter.name} className="absolute inset-0 w-full h-full" style={{ objectFit: "fill" }} />
               ) : (
                 <iframe
                   title={chapter.name}
-                  src={`${chapter.file!.url}#toolbar=0&navpanes=0&scrollbar=0&view=Fit&zoom=page-fit`}
+                  src={`${resolveUploadUrl(chapter.file!.url)}#toolbar=0&navpanes=0&scrollbar=0&view=Fit&zoom=page-fit`}
                   className="absolute inset-0 w-full h-full"
                   style={{ border: "none", display: "block" }}
                 />

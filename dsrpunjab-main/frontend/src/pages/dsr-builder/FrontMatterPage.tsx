@@ -4,7 +4,7 @@ import { useParams } from "react-router-dom";
 import PageHeader from "../../components/layout/PageHeader";
 import ResizableLayout from "../../components/layout/ResizableLayout";
 import { useLocalDraft } from "../../hooks/useLocalDraft";
-import { uploadsApi } from "../../api/uploads.api";
+import { resolveUploadUrl, uploadsApi } from "../../api/uploads.api";
 import { toast } from "sonner";
 
 const defaults = { title:"District Survey Report for Sand Mining", district:"Jalandhar", state:"Punjab", year:"2025-26", version:"Final Draft", preparedBy:"Sub-Divisional Committee, Jalandhar District", assistedBy:"RSP Green Development and Laboratories Pvt. Ltd.", preface:"This District Survey Report has been prepared in compliance with EMGSM 2020 and records sand mining activity, river morphology, mineral deposits and replenishment studies.", acknowledgement:"The Sub-Divisional Committee acknowledges the support of the Government of Punjab, Department of Geology and Mining, and field surveyors." };
@@ -312,15 +312,16 @@ function Upload({file,onChange,label,hint,accept,projectId,module}:{file:UploadR
 }
 
 function UploadedPreview({ src, small = false }: { src: string; small?: boolean }) {
-  const isImage = !src.match(/\.pdf(#.*)?$/) && (src.match(/\.(jpe?g|png|gif|webp|bmp)$/) || src.startsWith("data:image"));
+  const previewSrc = resolveUploadUrl(src);
+  const isImage = !previewSrc.match(/\.pdf(#.*)?$/) && (previewSrc.match(/\.(jpe?g|png|gif|webp|bmp)$/) || previewSrc.startsWith("data:image"));
 
   if (small) {
     return isImage ? (
-      <img src={src} alt="Uploaded preview" className="mt-3 max-h-48 w-full rounded-lg object-contain border" />
+      <img src={previewSrc} alt="Uploaded preview" className="mt-3 max-h-48 w-full rounded-lg object-contain border" />
     ) : (
       <iframe
         title="PDF thumbnail"
-        src={`${src}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
+        src={`${previewSrc}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
         className="mt-3 h-48 w-full rounded-lg border bg-white"
         style={{ border: 'none' }}
       />
@@ -329,11 +330,11 @@ function UploadedPreview({ src, small = false }: { src: string; small?: boolean 
 
   // Full-page slot: absolute fill so it respects the A4 aspect-ratio container exactly
   return isImage ? (
-    <img src={src} alt="Uploaded preview" className="absolute inset-0 w-full h-full" style={{ objectFit: 'fill' }} />
+    <img src={previewSrc} alt="Uploaded preview" className="absolute inset-0 w-full h-full" style={{ objectFit: 'fill' }} />
   ) : (
     <iframe
       title="PDF preview"
-      src={`${src}#toolbar=0&navpanes=0&scrollbar=0&view=Fit&zoom=page-fit`}
+      src={`${previewSrc}#toolbar=0&navpanes=0&scrollbar=0&view=Fit&zoom=page-fit`}
       className="absolute inset-0 w-full h-full"
       style={{ border: 'none', display: 'block' }}
     />
