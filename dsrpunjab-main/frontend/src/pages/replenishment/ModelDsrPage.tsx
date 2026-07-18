@@ -18,6 +18,8 @@ import jsPDF from "jspdf";
 import PageHeader from "../../components/layout/PageHeader";
 import ResizableLayout from "../../components/layout/ResizableLayout";
 import { apiClient } from "../../api/client";
+import { uploadErrorMessage, uploadsApi } from "../../api/uploads.api";
+import UploadedFilePreview from "../../components/ui/UploadedFilePreview";
 
 // ─────────────────────────────────────────────────────────
 // Types
@@ -942,8 +944,9 @@ function ReportEditor({
       </div>
 
       {/* Body: 2-column */}
-      <div className="h-[calc(100vh-10rem)] flex">
+      <div className="min-h-0 flex-1">
         <ResizableLayout 
+          className="h-full"
           leftPanelDefaultSize={40} rightPanelDefaultSize={60}
           leftPanel={
             <div
@@ -1029,6 +1032,7 @@ function DraggableSectionItem({
   onChange: (r: ModelDsrReport) => void;
 }) {
   const [isDragging, setIsDragging] = useState(false);
+  const { projectId = "default" } = useParams();
 
   const isChecked = checkedSet.has(section.id);
   const subsChecked = section.hasSubsections
@@ -1040,7 +1044,7 @@ function DraggableSectionItem({
     (section.subsections?.length ?? 0) > 0;
   const someSubsChecked = subsChecked.length > 0 && !allSubsChecked;
 
-  const handleFrontMatterUpload = (
+  const handleFrontMatterUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     _subId: string,
     uploadKey: string
@@ -1051,11 +1055,16 @@ function DraggableSectionItem({
       toast.error("Please upload a PDF file");
       return;
     }
-    const url = URL.createObjectURL(file);
-    const newFM = { ...report.frontMatterPdfs, [uploadKey]: [url] };
-    onChange({ ...report, frontMatterPdfs: newFM });
-    toast.success("Front matter PDF uploaded!");
-    e.target.value = "";
+    try {
+      const result = await uploadsApi.upload(file, projectId, "model-dsr-front-matter");
+      const newFM = { ...report.frontMatterPdfs, [uploadKey]: [result.url] };
+      onChange({ ...report, frontMatterPdfs: newFM });
+      toast.success("Front matter PDF uploaded!");
+    } catch (error) {
+      toast.error(uploadErrorMessage(error));
+    } finally {
+      e.target.value = "";
+    }
   };
 
   const removeFrontMatterPdf = (uploadKey: string) => {
@@ -1066,18 +1075,23 @@ function DraggableSectionItem({
     toast.success("Front matter PDF removed");
   };
 
-  const handleCustomPdfUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCustomPdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.type !== "application/pdf") {
       toast.error("Please upload a PDF file");
       return;
     }
-    const url = URL.createObjectURL(file);
-    const newCustomPdfs = { ...report.customPdfs, [section.id]: [url] };
-    onChange({ ...report, customPdfs: newCustomPdfs });
-    toast.success("PDF uploaded!");
-    e.target.value = "";
+    try {
+      const result = await uploadsApi.upload(file, projectId, "model-dsr-custom");
+      const newCustomPdfs = { ...report.customPdfs, [section.id]: [result.url] };
+      onChange({ ...report, customPdfs: newCustomPdfs });
+      toast.success("PDF uploaded!");
+    } catch (error) {
+      toast.error(uploadErrorMessage(error));
+    } finally {
+      e.target.value = "";
+    }
   };
 
   const removeCustomPdf = () => {
@@ -1262,6 +1276,21 @@ function PreviewPanel({
       checkedSet.has(s.id) ||
       (s.hasSubsections && s.subsections?.some((sub) => checkedSet.has(sub.id)))
   );
+  const uploadedPreviews: { id: string; title: string; url: string }[] = [];
+  const frontMatter = sections.find((section) => section.id === "front-matter");
+  frontMatter?.subsections?.forEach((subsection) => {
+    if (!checkedSet.has(subsection.id)) return;
+    const uploadKey = subsection.uploadKey || FRONT_MATTER_KEY[subsection.id] || subsection.id;
+    (report.frontMatterPdfs?.[uploadKey] || []).forEach((url, index) => {
+      uploadedPreviews.push({ id: `${subsection.id}-${index}`, title: subsection.name, url });
+    });
+  });
+  report.customSections.forEach((section) => {
+    if (!checkedSet.has(section.id)) return;
+    (report.customPdfs?.[section.id] || []).forEach((url, index) => {
+      uploadedPreviews.push({ id: `${section.id}-${index}`, title: section.name, url });
+    });
+  });
 
   const district = "Punjab";
   const year = "2025-26";
@@ -1324,20 +1353,33 @@ function PreviewPanel({
 </html>`;
 
   return (
-    <div className="flex flex-col overflow-hidden bg-slate-100">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-slate-100">
       <div className="flex items-center justify-between border-b border-slate-200 bg-slate-200 px-4 py-2.5">
         <span className="text-xs font-bold text-slate-600">Model DSR Preview</span>
         <span className="rounded-full bg-slate-600 px-2.5 py-0.5 text-[10px] font-bold text-white">
           {selectedCount} selected
         </span>
       </div>
-      <div className="flex-1 overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-y-auto p-4">
         <iframe
           key={report.sections.join(",")}
           srcDoc={previewHtml}
-          className="h-full w-full border-none bg-white"
+          className="block h-[940px] w-full border-none bg-white shadow-sm"
           title="Model DSR Live Preview"
         />
+        {uploadedPreviews.map((upload) => (
+          <section key={upload.id} className="mt-5">
+            <p className="mb-2 text-xs font-bold uppercase text-slate-600">{upload.title}</p>
+            <div className="relative aspect-[1/1.414] w-full overflow-hidden border border-slate-200 bg-white shadow-sm">
+              <UploadedFilePreview
+                src={upload.url}
+                title={`${upload.title} preview`}
+                alt={upload.title}
+                imageStyle={{ objectFit: "contain" }}
+              />
+            </div>
+          </section>
+        ))}
       </div>
     </div>
   );
