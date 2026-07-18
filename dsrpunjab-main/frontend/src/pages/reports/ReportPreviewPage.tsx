@@ -5,7 +5,8 @@ import { useState } from "react";
 import PageHeader from "../../components/layout/PageHeader";
 import { downloadHtmlAsPdf } from "../../utils/reportExport";
 import UploadedFilePreview from "../../components/ui/UploadedFilePreview";
-import { projectsApi } from "../../api/projects.api";
+import { projectsApi, type ProjectFile } from "../../api/projects.api";
+import { uploadsApi } from "../../api/uploads.api";
 import { toast } from "sonner";
 
 type UploadRecord = { name: string; url?: string } | null;
@@ -44,6 +45,17 @@ function UploadedSection({ file, title }: { file: UploadRecord | undefined; titl
   );
 }
 
+function uploadSectionLabel(file: ProjectFile) {
+  const key = file.objectKey.toLowerCase();
+  if (key.includes("/front-matter/")) return "Front Matter";
+  if (key.includes("/chapters/")) return "Chapter Upload";
+  if (key.includes("/plates/")) return "Plate / Map";
+  if (key.includes("/cross-sections/")) return "Cross Section";
+  const annexure = key.match(/\/annexure-([^/]+)\//)?.[1];
+  if (annexure) return `Annexure ${annexure.toUpperCase()}`;
+  return "Project Upload";
+}
+
 export default function ReportPreviewPage() {
   const { projectId = "default" } = useParams();
   const [downloading, setDownloading] = useState(false);
@@ -64,12 +76,24 @@ export default function ReportPreviewPage() {
   const chapters = Array.isArray(chaptersState) ? chaptersState : chaptersState?.chapters || [];
   const plates = Array.isArray(platesState) ? platesState : platesState?.plates || [];
   const graphs = Array.isArray(crossSectionsState) ? crossSectionsState : crossSectionsState?.graphs || [];
+  const referencedUrls = [
+    frontMatter?.coverFile?.url,
+    frontMatter?.certFile?.url,
+    frontMatter?.contentFile?.url,
+    frontMatter?.prefaceFile?.url,
+    ...chapters.map((chapter) => chapter.file?.url),
+    ...plates.map((plate) => plate.url),
+  ].filter((url): url is string => Boolean(url));
+  const uploadedProjectFiles = (project?.files || []).filter(
+    (file) => !referencedUrls.some((url) => url.includes(encodeURIComponent(file.annexureId)) || url.includes(file.annexureId)),
+  );
 
   const hasContent = Boolean(
     frontMatter ||
     chapters.length ||
     plates.length ||
-    graphs.length
+    graphs.length ||
+    uploadedProjectFiles.length
   );
 
   const downloadFinalPdf = async () => {
@@ -198,6 +222,31 @@ export default function ReportPreviewPage() {
                   </div>
                 </section>
               )}
+
+              {uploadedProjectFiles.length > 0 && (
+                <section className="pdf-page w-full max-w-[794px] border border-slate-200 bg-white p-12 shadow">
+                  <h2 className="mb-8 text-center text-xl font-bold uppercase">Uploaded Project Documents</h2>
+                  <div className="space-y-3">
+                    {uploadedProjectFiles.map((file, index) => (
+                      <div key={String(file.id)} className="flex items-start gap-3 border-b border-slate-200 pb-3">
+                        <span className="text-sm text-slate-400">{index + 1}.</span>
+                        <div>
+                          <p className="font-semibold">{file.fileName}</p>
+                          <p className="text-xs text-slate-500">{uploadSectionLabel(file)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {uploadedProjectFiles.map((file) => (
+                <UploadedSection
+                  key={`project-upload-${String(file.id)}`}
+                  file={{ name: file.fileName, url: uploadsApi.getDownloadUrl(file.annexureId) }}
+                  title={`${uploadSectionLabel(file)} - ${file.fileName}`}
+                />
+              ))}
 
               <div className="w-full border-t-2 border-dashed border-slate-300 pt-12 text-center text-slate-400">
                 <p>End of Report Document</p>
