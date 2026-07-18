@@ -714,7 +714,10 @@ export default function ReplenishmentBuilderPage() {
           uploadedAt: new Date().toISOString(),
         });
       }
-      setWorkflow((current) => ({ ...current, evidenceFiles: [...current.evidenceFiles, ...uploaded] }));
+      const nextEvidenceFiles = [...workflow.evidenceFiles, ...uploaded];
+      const nextWorkflow = { ...workflow, evidenceFiles: nextEvidenceFiles, importSummary: summary, lastSavedAt: new Date().toISOString() };
+      setWorkflow(nextWorkflow);
+      await replenishmentApi.update(study.id, { reportState: nextWorkflow, surveyData: survey });
       toast.success(`${uploaded.length} evidence file(s) uploaded`);
     } catch {
       toast.error("Evidence upload failed");
@@ -734,7 +737,10 @@ export default function ReplenishmentBuilderPage() {
     setCopyingItemId(item.id);
     try {
       await replenishmentApi.fetchFinalDsr(study.id);
-      updateItem(item.id, { status: "Imported", action: "Copy" });
+      const nextItems = workflow.contentItems.map((contentItem) => contentItem.id === item.id ? { ...contentItem, status: "Imported" as const, action: "Copy" as const } : contentItem);
+      const nextWorkflow = { ...workflow, contentItems: nextItems, lastSavedAt: new Date().toISOString() };
+      setWorkflow(nextWorkflow);
+      await replenishmentApi.update(study.id, { reportState: nextWorkflow, surveyData: survey });
       toast.success(`${item.group} Final DSR se working report me copy ho gaya`);
     } catch {
       toast.error(`${item.group} copy nahi ho paya`);
