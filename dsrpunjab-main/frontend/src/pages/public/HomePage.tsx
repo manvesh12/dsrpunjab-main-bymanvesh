@@ -129,17 +129,16 @@ export default function HomePage() {
 
       <main id="main-content">
         {/* ===== HERO SECTION ===== */}
-        <section className="relative bg-gradient-to-br from-[#0f2455] via-[#1a3a6b] to-[#0d1f45] overflow-hidden">
-          {/* Background patterns */}
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute inset-0" style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-            }}></div>
-          </div>
-
-          {/* Animated blobs */}
-          <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-400/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 animate-[pulse_8s_ease-in-out_infinite]"></div>
-          <div className="absolute bottom-0 left-1/4 w-[400px] h-[400px] bg-amber-400/10 rounded-full blur-3xl translate-y-1/2 animate-[pulse_6s_ease-in-out_infinite_2s]"></div>
+        <section className="relative overflow-hidden bg-slate-950">
+          <img
+            src="/assets/sand_mining_scenery.png"
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-[#0f2455]/90 to-[#1a3a6b]/60"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/75 via-transparent to-slate-950/35"></div>
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(0deg,rgba(255,255,255,0.06)_1px,transparent_1px)] [background-size:72px_72px] opacity-20"></div>
 
           <div className="max-w-7xl mx-auto px-4 md:px-8 relative z-10 py-20 md:py-28">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">

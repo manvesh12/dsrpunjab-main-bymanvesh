@@ -55,18 +55,17 @@ export default function LoginPage() {
     <div className="min-h-screen flex relative overflow-hidden font-sans">
       {/* ===== LEFT BRANDING PANEL ===== */}
       <div className="hidden lg:flex flex-col lg:w-[55%] relative overflow-hidden">
-        {/* Deep government blue background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0f2455] via-[#1a3a6b] to-[#0d2a5c]"></div>
+        <img
+          src="/assets/sand_mining_scenery.png"
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-950/95 via-[#0f2455]/88 to-[#1a3a6b]/62"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-slate-950/30"></div>
 
         {/* Pattern overlay */}
-        <div className="absolute inset-0 opacity-[0.07]" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-        }}></div>
-
-        {/* Animated glow orbs */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-400/15 rounded-full -translate-y-1/3 translate-x-1/3 blur-3xl animate-[pulse_7s_ease-in-out_infinite]"></div>
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-amber-400/10 rounded-full translate-y-1/3 -translate-x-1/3 blur-3xl animate-[pulse_5s_ease-in-out_infinite_2s]"></div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-400/10 rounded-full blur-3xl animate-[pulse_9s_ease-in-out_infinite_1s]"></div>
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(0deg,rgba(255,255,255,0.06)_1px,transparent_1px)] [background-size:68px_68px] opacity-20"></div>
 
         {/* Back to Home */}
         <div className="absolute top-6 left-6 z-20">
@@ -165,10 +164,14 @@ export default function LoginPage() {
 
       {/* ===== RIGHT LOGIN PANEL ===== */}
       <div className="w-full lg:w-[45%] flex items-center justify-center bg-slate-50 dark:bg-slate-950 relative transition-colors">
-        {/* Dot grid bg */}
-        <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] dark:bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:22px_22px] opacity-60"></div>
-        {/* Gradient fade */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-amber-50/30 dark:from-slate-950/80 dark:to-blue-950/30"></div>
+        <img
+          src="/assets/sand_mining_scenery.png"
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full object-cover opacity-10 dark:opacity-16 lg:hidden"
+        />
+        <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] dark:bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:22px_22px] opacity-55"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-white/90 via-blue-50/85 to-amber-50/75 dark:from-slate-950/92 dark:via-slate-950/86 dark:to-blue-950/72"></div>
 
         {/* Mobile back link */}
         <div className="lg:hidden absolute top-5 left-5 z-20">
