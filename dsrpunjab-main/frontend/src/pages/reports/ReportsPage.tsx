@@ -1,6 +1,7 @@
 import { Download, Eye, FileText, Search, Filter, GripVertical } from "lucide-react";
 import { useState, useRef } from "react";
 import PageHeader from "../../components/layout/PageHeader";
+import { downloadHtmlAsPdf } from "../../utils/reportExport";
 
 const initialReports = [
   {
@@ -227,6 +228,11 @@ export default function ReportsPage() {
                           <Eye size={16} />
                         </button>
                         <button
+                          onClick={() => {
+                            if (report.status === "Approved") {
+                              downloadHtmlAsPdf(`<div><h1>${report.title}</h1><p>Status: ${report.status}</p></div>`, `${report.title}.pdf`);
+                            }
+                          }}
                           className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-all ${
                             report.status === "Approved"
                               ? "bg-blue-600 border-blue-600 text-white hover:bg-blue-700 hover:border-blue-700 shadow-sm"

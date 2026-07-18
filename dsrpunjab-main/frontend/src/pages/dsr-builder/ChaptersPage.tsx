@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, Plus, Trash2, Upload, Download } from "lucide-react";
-import html2pdf from "html2pdf.js";
+import { downloadHtmlAsPdf } from "../../utils/reportExport";
 import PageHeader from "../../components/layout/PageHeader";
 import ResizableLayout from "../../components/layout/ResizableLayout";
 import { useLocalDraft } from "../../hooks/useLocalDraft";
@@ -48,10 +48,14 @@ export default function ChaptersPage() {
           <div className="flex gap-2">
             <button
               className="module-btn"
-              onClick={() => {
+              onClick={async () => {
                 const element = document.getElementById("chapters-pdf-preview");
                 if (element) {
-                  html2pdf().set({ margin: 0.5, filename: "Chapters.pdf" }).from(element).save();
+                  try {
+                    await downloadHtmlAsPdf(element, "Chapters.pdf");
+                  } catch (e) {
+                    console.error("Failed to generate PDF", e);
+                  }
                 }
               }}
             >

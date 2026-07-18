@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
+import { downloadHtmlAsPdf } from "../../utils/reportExport";
 import {
   CheckCircle2,
   Circle,
@@ -567,7 +568,13 @@ export default function ReviewerPage() {
               <button className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-5 py-2.5 text-sm font-bold text-blue-700 hover:bg-blue-100">
                 <Send size={15} /> Submit to Authority
               </button>
-              <button className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50">
+              <button 
+                onClick={() => {
+                  const content = `<div><h2>Review Report</h2><pre>${summary?.reviewerNotes.map(n => n.section + ': ' + n.note).join('\\n\\n')}</pre></div>`;
+                  downloadHtmlAsPdf(content, `Review-Report-${projectId}.pdf`);
+                }}
+                className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50"
+              >
                 <Download size={15} /> Download Review Report
               </button>
             </div>

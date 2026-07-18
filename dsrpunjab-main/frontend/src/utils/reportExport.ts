@@ -53,6 +53,48 @@ export function openPrintableDocument(html: string, title: string) {
   window.setTimeout(() => printWindow.print(), 300);
 }
 
+// Adding a robust html2pdf generator function
+export async function downloadHtmlAsPdf(elementOrHtml: HTMLElement | string, filename: string, isLandscape: boolean = false) {
+  try {
+    // Dynamic import to avoid SSR or Vite build issues with html2pdf
+    const html2pdfModule = await import("html2pdf.js");
+    const html2pdf = html2pdfModule.default || html2pdfModule;
+    
+    let container = elementOrHtml;
+    let cleanup = false;
+    
+    if (typeof elementOrHtml === 'string') {
+      container = document.createElement('div');
+      container.innerHTML = elementOrHtml;
+      // We append it to body but hide it, because html2pdf sometimes needs it in DOM to resolve styles
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      container.style.top = '0';
+      document.body.appendChild(container);
+      cleanup = true;
+    }
+    
+    const opt = {
+      margin: typeof elementOrHtml === 'string' ? 0 : 5, // No margin for raw HTML which might have its own @page margins
+      filename: filename.endsWith('.pdf') ? filename : `${filename}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, letterRendering: false },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: isLandscape ? 'landscape' : 'portrait' },
+      pagebreak: typeof elementOrHtml === 'string' ? { mode: ['css', 'legacy'] } : undefined
+    };
+
+    await html2pdf().set(opt).from(container).save();
+    
+    if (cleanup && typeof container !== 'string') {
+      document.body.removeChild(container);
+    }
+    return true;
+  } catch (error) {
+    console.error("PDF generation failed:", error);
+    throw error;
+  }
+}
+
 export function exportDraftJson(state: unknown, fileName: string) {
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json;charset=utf-8" });
   downloadBlob(blob, fileName);

@@ -38,6 +38,7 @@ import {
   exportWordDocument,
   loadDownloadHistory,
   openPrintableDocument,
+  downloadHtmlAsPdf,
   recordDownloadHistory,
   replenishmentFileName,
   type DownloadFormat,
@@ -344,12 +345,17 @@ export default function ReplenishmentBuilderPage() {
 
   const exportHtml = () => buildReplenishmentPreviewHtml(study, { ...workflow, importSummary: summary }, survey);
 
-  const handleDownloadGeneratedPdf = () => {
+  const handleDownloadGeneratedPdf = async () => {
     if (!study) return;
     const fileName = fileNameFor(workflow, "pdf");
-    openPrintableDocument(exportHtml(), fileName);
-    recordHistory(study.id, workflow, fileName, 0, "generated-pdf");
-    toast.success("Generated PDF live preview se open ho gaya");
+    toast.info("Generating PDF, please wait...");
+    try {
+      await downloadHtmlAsPdf(exportHtml(), fileName, false);
+      recordHistory(study.id, workflow, fileName, 0, "generated-pdf");
+      toast.success("Generated PDF downloaded");
+    } catch (e) {
+      toast.error("Failed to generate PDF");
+    }
   };
 
   const handleDownloadDraft = () => {

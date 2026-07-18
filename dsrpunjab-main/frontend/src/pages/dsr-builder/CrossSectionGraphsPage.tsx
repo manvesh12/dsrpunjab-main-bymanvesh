@@ -5,7 +5,7 @@ import ResizableLayout from "../../components/layout/ResizableLayout";
 import { useLocalDraft } from "../../hooks/useLocalDraft";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
-import html2pdf from "html2pdf.js";
+import { downloadHtmlAsPdf } from "../../utils/reportExport";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -373,25 +373,11 @@ function GraphBlock({ graph: g, updateG, onDelete }: { graph: Graph; updateG: (k
     const imgPre = g.hasSubGraph ? getPdfChartDataURL(g, o, 'pre') : '';
     const templateHTML = buildGraphPdfPageHTML(g, o, imgPost, imgPre, g.hasSubGraph ? 159 : 170);
 
-    const container = document.createElement('div');
-    container.style.position = 'absolute'; container.style.left = '-9999px'; container.style.top = '0';
-    container.innerHTML = templateHTML;
-    document.body.appendChild(container);
-
-    const opt = {
-      margin: 0,
-      filename: `${(g.hasSubGraph ? g.subName : g.name).replace(/\s+/g, '_')}_Report.pdf`,
-      image: { type: 'png', quality: 1.0 },
-      html2canvas: { scale: 2, useCORS: true, letterRendering: false },
-      jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
-    };
-    
-    html2pdf().set(opt).from(container.querySelector('#pdf-container')).save().then(() => {
-      container.remove();
+    const filename = `${(g.hasSubGraph ? g.subName : g.name).replace(/\s+/g, '_')}_Report.pdf`;
+    downloadHtmlAsPdf(templateHTML, filename, true).then(() => {
       toast.success('PDF downloaded successfully!');
     }).catch((err: any) => {
       console.error(err);
-      container.remove();
       toast.error('Failed to export PDF.');
     });
   };
@@ -678,28 +664,10 @@ export default function CrossSectionGraphsPage() {
 
     const templateHTML = `<div id="all-pdf-container" style="background:#fff; width: 1040px;">${pagesSanitized.join('\n<div class="html2pdf__page-break"></div>\n')}</div>`;
     
-    const container = document.createElement('div');
-    container.style.position = 'absolute';
-    container.style.left = '-9999px';
-    container.style.top = '0';
-    container.innerHTML = templateHTML;
-    document.body.appendChild(container);
-
-    const opt = {
-      margin: 0,
-      filename: 'All_Cross_Sections_Consolidated_Report.pdf',
-      image: { type: 'png', quality: 1.0 },
-      html2canvas: { scale: 2, useCORS: true, letterRendering: false },
-      jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' },
-      pagebreak: { mode: ['css', 'legacy'] }
-    };
-
-    html2pdf().set(opt).from(container.querySelector('#all-pdf-container')).save().then(() => {
-      container.remove();
+    downloadHtmlAsPdf(templateHTML, 'All_Cross_Sections_Consolidated_Report.pdf', true).then(() => {
       toast.success('Unified booklet generated successfully!');
     }).catch((err: any) => {
       console.error(err);
-      container.remove();
       toast.error('Failed to compile consolidated PDF.');
     });
   };

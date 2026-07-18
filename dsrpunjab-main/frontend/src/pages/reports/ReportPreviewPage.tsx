@@ -1,7 +1,7 @@
 import { Download, Printer } from "lucide-react";
 import { useParams } from "react-router-dom";
 import PageHeader from "../../components/layout/PageHeader";
-import jsPDF from "jspdf";
+import { downloadHtmlAsPdf } from "../../utils/reportExport";
 import { useLocalDraft } from "../../hooks/useLocalDraft";
 
 type UploadRecord = { name: string; preview?: string };
@@ -39,16 +39,14 @@ export default function ReportPreviewPage() {
   const [preface] = useLocalDraft<UploadRecord | null>(`project-${projectId}:preface`, null);
   const [chapters] = useLocalDraft<Chapter[]>("chapters-exact", []);
 
-  const downloadFinalPdf = () => {
-    // Basic placeholder for now, since generating a combined PDF from base64 files requires heavy PDF merging logic
-    const pdf = new jsPDF();
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(18);
-    pdf.text("DISTRICT SURVEY REPORT", 105, 25, { align: "center" });
-    pdf.setFontSize(10);
-    pdf.text("Government of Punjab • 2025-26", 105, 33, { align: "center" });
-    pdf.text("Note: PDF combination of uploaded files is a backend feature.", 105, 50, { align: "center" });
-    pdf.save(`DSR-Final-Report-${projectId}.pdf`);
+  const downloadFinalPdf = async () => {
+    const element = document.getElementById("report-preview-article");
+    if (!element) return;
+    try {
+      await downloadHtmlAsPdf(element, `DSR-Final-Report-${projectId}.pdf`);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const hasContent = cover?.preview || certificate?.preview || contents?.preview || preface?.preview || chapters.some(c => c.file?.preview);
@@ -74,7 +72,7 @@ export default function ReportPreviewPage() {
       />
       
       <main className="rounded-2xl border border-slate-200 bg-slate-100 p-4 md:p-8 overflow-y-auto">
-        <article className="mx-auto max-w-[1200px] w-full bg-white shadow-xl min-h-screen py-16 px-4 md:px-12 flex flex-col items-center">
+        <article id="report-preview-article" className="mx-auto max-w-[1200px] w-full bg-white shadow-xl min-h-screen py-16 px-4 md:px-12 flex flex-col items-center">
           {!hasContent ? (
             <div className="flex min-h-[500px] flex-col items-center justify-center text-center">
               <p className="text-slate-500 max-w-md text-lg">

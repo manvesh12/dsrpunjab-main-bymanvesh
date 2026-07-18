@@ -64,9 +64,9 @@ export default function FrontMatterPage(){
         <div id="front-matter-pdf-preview" className="flex flex-col gap-6 items-center">
           
           {/* Cover Page */}
-          <div className="bg-white min-h-[1050px] w-full max-w-[794px] p-10 text-center shadow shrink-0 flex flex-col relative overflow-hidden">
+          <div className={`bg-white min-h-[1050px] w-full max-w-[794px] text-center shadow shrink-0 flex flex-col relative overflow-hidden ${coverFile?.preview ? 'p-0' : 'p-10'}`}>
             {coverFile?.preview ? (
-              <UploadedPreview src={coverFile.preview} className="w-full flex-1 object-contain" />
+              <UploadedPreview src={coverFile.preview} className="w-full h-full flex-1 object-fill" />
             ) : (
               <div className="flex-1 flex flex-col pt-10">
                 <p className="text-xs font-bold uppercase tracking-[.2em]">Government of {data.state}</p>
@@ -82,9 +82,9 @@ export default function FrontMatterPage(){
           </div>
 
           {/* Certificate Page */}
-          <div className="bg-white min-h-[1050px] w-full max-w-[794px] p-10 text-center shadow shrink-0 flex flex-col relative overflow-hidden">
+          <div className={`bg-white min-h-[1050px] w-full max-w-[794px] text-center shadow shrink-0 flex flex-col relative overflow-hidden ${certFile?.preview ? 'p-0' : 'p-10'}`}>
             {certFile?.preview ? (
-              <UploadedPreview src={certFile.preview} className="w-full flex-1 object-contain" />
+              <UploadedPreview src={certFile.preview} className="w-full h-full flex-1 object-fill" />
             ) : (
               <div className="flex-1 flex items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 m-10">
                 Certificate of Compliance Not Uploaded
@@ -93,9 +93,9 @@ export default function FrontMatterPage(){
           </div>
 
           {/* Preface Page */}
-          <div className="bg-white min-h-[1050px] w-full max-w-[794px] p-10 text-left shadow shrink-0 flex flex-col relative overflow-hidden">
+          <div className={`bg-white min-h-[1050px] w-full max-w-[794px] text-left shadow shrink-0 flex flex-col relative overflow-hidden ${prefaceFile?.preview ? 'p-0' : 'p-10'}`}>
             {prefaceFile?.preview ? (
-              <UploadedPreview src={prefaceFile.preview} className="w-full flex-1 object-contain" />
+              <UploadedPreview src={prefaceFile.preview} className="w-full h-full flex-1 object-fill" />
             ) : (
               <div className="flex-1 flex flex-col">
                 <h2 className="text-xl font-bold uppercase text-center mb-10">Preface</h2>
@@ -111,9 +111,9 @@ export default function FrontMatterPage(){
           </div>
 
           {/* Content Page */}
-          <div className="bg-white min-h-[1050px] w-full max-w-[794px] p-10 text-left shadow shrink-0 flex flex-col relative overflow-hidden">
+          <div className={`bg-white min-h-[1050px] w-full max-w-[794px] text-left shadow shrink-0 flex flex-col relative overflow-hidden ${contentFile?.preview ? 'p-0' : 'p-10'}`}>
             {contentFile?.preview ? (
-              <UploadedPreview src={contentFile.preview} className="w-full flex-1 object-contain" />
+              <UploadedPreview src={contentFile.preview} className="w-full h-full flex-1 object-fill" />
             ) : (
               <div className="flex-1 flex flex-col">
                 <h2 className="text-xl font-bold uppercase text-center mb-10">Contents</h2>
@@ -176,10 +176,13 @@ function Upload({file,onChange,label,hint,accept}:{file:UploadRecord|null;onChan
 }
 
 function UploadedPreview({src, className}:{src:string, className?:string}){
+  const isPdf = src.startsWith("data:application/pdf");
+  const pdfSrc = isPdf && !src.includes("#") ? `${src}#toolbar=0&navpanes=0&scrollbar=0&view=FitH` : src;
+  
   return src.startsWith("data:image") ? (
     <img src={src} alt="Uploaded preview" className={className || "mt-3 max-h-72 w-full rounded-lg object-contain"}/>
   ) : (
-    <iframe title="Uploaded PDF preview" src={src} className={className || "mt-3 h-64 w-full rounded-lg border bg-white"}/>
+    <iframe title="Uploaded PDF preview" src={pdfSrc} className={className || "mt-3 h-64 w-full rounded-lg border bg-white"} style={{ border: 'none' }}/>
   )
 }
 
