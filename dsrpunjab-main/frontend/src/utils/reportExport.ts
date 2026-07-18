@@ -74,6 +74,32 @@ export function openPrintableDocument(html: string, title: string) {
   window.setTimeout(() => printWindow.print(), 300);
 }
 
+function freezePdfDocumentStyles(frame: HTMLIFrameElement, previewDocument: Document) {
+  const view = frame.contentWindow;
+  if (!view) return;
+
+  const properties = [
+    "color",
+    "background-color",
+    "border-top-color",
+    "border-right-color",
+    "border-bottom-color",
+    "border-left-color",
+    "outline-color",
+    "text-decoration-color",
+    "box-shadow",
+  ];
+
+  const elements = [previewDocument.body, ...Array.from(previewDocument.body.querySelectorAll<HTMLElement>("*"))];
+  elements.forEach((element) => {
+    const computed = view.getComputedStyle(element);
+    properties.forEach((property) => {
+      const value = computed.getPropertyValue(property);
+      if (value) element.style.setProperty(property, value);
+    });
+  });
+}
+
 // Adding a robust html2pdf generator function
 export async function downloadHtmlAsPdf(elementOrHtml: HTMLElement | string, filename: string, isLandscape: boolean = false) {
   let previewFrame: HTMLIFrameElement | null = null;
@@ -104,6 +130,7 @@ export async function downloadHtmlAsPdf(elementOrHtml: HTMLElement | string, fil
           image.addEventListener('error', () => resolve(), { once: true });
         });
       }));
+      freezePdfDocumentStyles(previewFrame, previewDocument);
       container = previewDocument.body;
     }
     
