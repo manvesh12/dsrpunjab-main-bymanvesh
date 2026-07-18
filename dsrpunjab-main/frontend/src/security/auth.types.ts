@@ -19,6 +19,7 @@ export interface User {
   permissions: string[];
   scope: UserScope;
   accessLabel: string;
+  profilePhoto?: string;
 }
 
 export interface AuthState {

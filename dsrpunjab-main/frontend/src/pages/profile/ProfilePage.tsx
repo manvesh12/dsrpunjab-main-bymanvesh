@@ -33,7 +33,7 @@ const activityLog = [
 ];
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [editing, setEditing] = useState(false);
   const [profilePhotoPreview, setProfilePhotoPreview] = useState<string | null>(null);
@@ -61,6 +61,9 @@ export default function ProfilePage() {
 
   const handleSave = () => {
     setEditing(false);
+    if (profilePhotoPreview) {
+      updateUser({ profilePhoto: profilePhotoPreview });
+    }
     toast.success("Profile updated successfully!");
   };
 

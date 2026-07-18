@@ -55,8 +55,12 @@ export default function Header({ onMenuClick }: HeaderProps) {
           onClick={() => navigate('/profile')}
           className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 transition-colors"
         >
-          <span className="flex size-8 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 transition-colors">
-            <User size={18} />
+          <span className="flex size-8 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 transition-colors overflow-hidden">
+            {user?.profilePhoto ? (
+              <img src={user.profilePhoto} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              <User size={18} />
+            )}
           </span>
 
           <span className="hidden text-left sm:block">

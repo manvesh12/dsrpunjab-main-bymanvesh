@@ -64,7 +64,7 @@ export default function FrontMatterPage(){
         <div id="front-matter-pdf-preview" className="flex flex-col gap-6 items-center">
           
           {/* Cover Page */}
-          <div className={`bg-white min-h-[1050px] w-full max-w-[794px] text-center shadow shrink-0 flex flex-col relative overflow-hidden ${coverFile?.preview ? 'p-0' : 'p-10'}`}>
+          <div className={`bg-white aspect-[1/1.414] w-full max-w-[794px] text-center shadow shrink-0 flex flex-col relative overflow-hidden ${coverFile?.preview ? 'p-0' : 'p-10'}`}>
             {coverFile?.preview ? (
               <UploadedPreview src={coverFile.preview} className="w-full h-full flex-1 object-fill" />
             ) : (
@@ -82,7 +82,7 @@ export default function FrontMatterPage(){
           </div>
 
           {/* Certificate Page */}
-          <div className={`bg-white min-h-[1050px] w-full max-w-[794px] text-center shadow shrink-0 flex flex-col relative overflow-hidden ${certFile?.preview ? 'p-0' : 'p-10'}`}>
+          <div className={`bg-white aspect-[1/1.414] w-full max-w-[794px] text-center shadow shrink-0 flex flex-col relative overflow-hidden ${certFile?.preview ? 'p-0' : 'p-10'}`}>
             {certFile?.preview ? (
               <UploadedPreview src={certFile.preview} className="w-full h-full flex-1 object-fill" />
             ) : (
@@ -93,7 +93,7 @@ export default function FrontMatterPage(){
           </div>
 
           {/* Preface Page */}
-          <div className={`bg-white min-h-[1050px] w-full max-w-[794px] text-left shadow shrink-0 flex flex-col relative overflow-hidden ${prefaceFile?.preview ? 'p-0' : 'p-10'}`}>
+          <div className={`bg-white aspect-[1/1.414] w-full max-w-[794px] text-left shadow shrink-0 flex flex-col relative overflow-hidden ${prefaceFile?.preview ? 'p-0' : 'p-10'}`}>
             {prefaceFile?.preview ? (
               <UploadedPreview src={prefaceFile.preview} className="w-full h-full flex-1 object-fill" />
             ) : (
@@ -105,13 +105,13 @@ export default function FrontMatterPage(){
           </div>
 
           {/* Acknowledgement Page */}
-          <div className="bg-white min-h-[1050px] w-full max-w-[794px] p-10 text-left shadow shrink-0 flex flex-col relative overflow-hidden">
+          <div className="bg-white aspect-[1/1.414] w-full max-w-[794px] p-10 text-left shadow shrink-0 flex flex-col relative overflow-hidden">
             <h2 className="text-xl font-bold uppercase text-center mb-10">Acknowledgement</h2>
             <div className="whitespace-pre-wrap flex-1">{data.acknowledgement}</div>
           </div>
 
           {/* Content Page */}
-          <div className={`bg-white min-h-[1050px] w-full max-w-[794px] text-left shadow shrink-0 flex flex-col relative overflow-hidden ${contentFile?.preview ? 'p-0' : 'p-10'}`}>
+          <div className={`bg-white aspect-[1/1.414] w-full max-w-[794px] text-left shadow shrink-0 flex flex-col relative overflow-hidden ${contentFile?.preview ? 'p-0' : 'p-10'}`}>
             {contentFile?.preview ? (
               <UploadedPreview src={contentFile.preview} className="w-full h-full flex-1 object-fill" />
             ) : (
@@ -177,7 +177,7 @@ function Upload({file,onChange,label,hint,accept}:{file:UploadRecord|null;onChan
 
 function UploadedPreview({src, className}:{src:string, className?:string}){
   const isPdf = src.startsWith("data:application/pdf");
-  const pdfSrc = isPdf && !src.includes("#") ? `${src}#toolbar=0&navpanes=0&scrollbar=0&view=FitH` : src;
+  const pdfSrc = isPdf && !src.includes("#") ? `${src}#toolbar=0&navpanes=0&scrollbar=0&view=Fit` : src;
   
   return src.startsWith("data:image") ? (
     <img src={src} alt="Uploaded preview" className={className || "mt-3 max-h-72 w-full rounded-lg object-contain"}/>
