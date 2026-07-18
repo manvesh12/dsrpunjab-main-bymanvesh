@@ -7,12 +7,11 @@ import { useLocalDraft } from "../../hooks/useLocalDraft";
 import { useAuth } from "../../security/auth.context";
 import { hasPermission, Permission } from "../../security/access";
 import { useParams } from "react-router-dom";
-import { resolveUploadUrl, uploadErrorMessage, uploadsApi } from "../../api/uploads.api";
+import { uploadErrorMessage, uploadsApi } from "../../api/uploads.api";
+import UploadedFilePreview from "../../components/ui/UploadedFilePreview";
 import { toast } from "sonner";
 
 type Chapter = { name: string; summary: string; file?: { name: string; url: string } };
-
-const isPdfUrl = (url: string) => !url.match(/\.(jpe?g|png|gif|webp|bmp)$/i);
 
 const initial: Chapter[] = [
   ["CHAPTER 1 - INTRODUCTION", "Overview of the district and purpose of the DSR under EMGSM 2020 guidelines."],
@@ -98,16 +97,13 @@ export default function ChaptersPage() {
                 </label>
                 {chapter.file && (
                   <div className="mt-2 rounded-lg overflow-hidden border" style={{ height: 80 }}>
-                    {!isPdfUrl(resolveUploadUrl(chapter.file.url)) ? (
-                      <img src={resolveUploadUrl(chapter.file.url)} alt="preview" className="w-full h-full object-contain" />
-                    ) : (
-                      <iframe
-                        src={`${resolveUploadUrl(chapter.file.url)}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
-                        className="w-full h-full"
-                        style={{ border: "none" }}
-                        title="chapter preview"
-                      />
-                    )}
+                    <UploadedFilePreview
+                      src={chapter.file.url}
+                      title="chapter preview"
+                      alt="preview"
+                      className="h-full w-full"
+                      imageClassName="h-full w-full object-contain"
+                    />
                   </div>
                 )}
               </div>
@@ -165,16 +161,12 @@ export default function ChaptersPage() {
           <div key={index} className="mb-4">
             <p className="mb-1 text-xs font-semibold text-slate-500 uppercase">{chapter.name}</p>
             <div className="bg-white aspect-[1/1.414] w-full border border-slate-200 relative overflow-hidden">
-              {!isPdfUrl(resolveUploadUrl(chapter.file!.url)) ? (
-                <img src={resolveUploadUrl(chapter.file!.url)} alt={chapter.name} className="absolute inset-0 w-full h-full" style={{ objectFit: "fill" }} />
-              ) : (
-                <iframe
-                  title={chapter.name}
-                  src={`${resolveUploadUrl(chapter.file!.url)}#toolbar=0&navpanes=0&scrollbar=0&view=Fit&zoom=page-fit`}
-                  className="absolute inset-0 w-full h-full"
-                  style={{ border: "none", display: "block" }}
-                />
-              )}
+              <UploadedFilePreview
+                src={chapter.file!.url}
+                title={chapter.name}
+                alt={chapter.name}
+                imageStyle={{ objectFit: "fill" }}
+              />
             </div>
           </div>
         ))}

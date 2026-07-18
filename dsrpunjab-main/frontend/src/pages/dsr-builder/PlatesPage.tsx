@@ -4,7 +4,8 @@ import PageHeader from "../../components/layout/PageHeader";
 import ResizableLayout from "../../components/layout/ResizableLayout";
 import { useLocalDraft } from "../../hooks/useLocalDraft";
 import { useParams } from "react-router-dom";
-import { resolveUploadUrl, uploadErrorMessage, uploadsApi } from "../../api/uploads.api";
+import { uploadErrorMessage, uploadsApi } from "../../api/uploads.api";
+import UploadedFilePreview from "../../components/ui/UploadedFilePreview";
 import { toast } from "sonner";
 
 type Plate = { name: string; summary: string; fileName?: string; url?: string };
@@ -117,10 +118,13 @@ export default function PlatesPage() {
               </label>
               {plate.url && (
                 <div className="mt-2 rounded-lg overflow-hidden border" style={{ height: 80 }}>
-                  {!isPdfUrl(resolveUploadUrl(plate.url))
-                    ? <img src={resolveUploadUrl(plate.url)} alt="preview" className="w-full h-full object-contain" />
-                    : <iframe src={`${resolveUploadUrl(plate.url)}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`} className="w-full h-full" style={{ border: 'none' }} title="plate preview" />
-                  }
+                  <UploadedFilePreview
+                    src={plate.url}
+                    title="plate preview"
+                    alt="preview"
+                    className="h-full w-full"
+                    imageClassName="h-full w-full object-contain"
+                  />
                 </div>
               )}
             </div>
@@ -159,16 +163,12 @@ export default function PlatesPage() {
           <div key={i} className="mb-4">
             <p className="mb-1 text-xs font-semibold text-slate-500 uppercase">{p.name}</p>
             <div className="bg-white aspect-[1/1.414] w-full border border-slate-200 relative overflow-hidden">
-              {!isPdfUrl(resolveUploadUrl(p.url)) ? (
-                <img src={resolveUploadUrl(p.url)} alt={p.name} className="absolute inset-0 w-full h-full" style={{ objectFit: 'fill' }} />
-              ) : (
-                <iframe
-                  title={p.name}
-                  src={`${resolveUploadUrl(p.url)}#toolbar=0&navpanes=0&scrollbar=0&view=Fit&zoom=page-fit`}
-                  className="absolute inset-0 w-full h-full"
-                  style={{ border: 'none', display: 'block' }}
-                />
-              )}
+              <UploadedFilePreview
+                src={p.url!}
+                title={p.name}
+                alt={p.name}
+                imageStyle={{ objectFit: 'fill' }}
+              />
             </div>
           </div>
         ))}
