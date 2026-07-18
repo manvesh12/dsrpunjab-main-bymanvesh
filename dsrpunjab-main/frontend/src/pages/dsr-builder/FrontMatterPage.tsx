@@ -9,17 +9,96 @@ import { projectsApi } from "../../api/projects.api";
 import UploadedFilePreview from "../../components/ui/UploadedFilePreview";
 import { toast } from "sonner";
 import html2pdf from "html2pdf.js";
+import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import { apiClient } from "../../api/client";
+import { downloadBlob } from "../../utils/reportExport";
 
 const defaults = { title:"District Survey Report for Sand Mining", district:"Jalandhar", state:"Punjab", year:"2025-26", version:"Final Draft", preparedBy:"Sub-Divisional Committee, Jalandhar District", assistedBy:"RSP Green Development and Laboratories Pvt. Ltd.", preface:"This District Survey Report has been prepared in compliance with EMGSM 2020 and records sand mining activity, river morphology, mineral deposits and replenishment studies.", acknowledgement:"The Sub-Divisional Committee acknowledges the support of the Government of Punjab, Department of Geology and Mining, and field surveyors." };
 type UploadRecord={name:string;url?:string};
 
-const isPdfUrl = (file: UploadRecord | null) => Boolean(file?.url && !file.url.match(/\.(jpe?g|png|gif|webp|bmp)$/i));
-
-function downloadUploadedPdfs(_files: Array<{ label: string; file: UploadRecord | null }>) {
-  return 0; // PDFs now served from backend URL; not base64
+function pdfSafeText(value: string) {
+  return value.replace(/[^\x20-\x7E\xA0-\xFF]/g, "-");
 }
 
-async function downloadPdf(
+function centeredPdfText(page: PDFPage, font: PDFFont, text: string, y: number, size: number, color = rgb(0.06, 0.09, 0.16)) {
+  const safe = pdfSafeText(text);
+  page.drawText(safe, { x: (page.getWidth() - font.widthOfTextAtSize(safe, size)) / 2, y, size, font, color });
+}
+
+function wrappedPdfText(page: PDFPage, font: PDFFont, text: string, y: number) {
+  let line = "";
+  pdfSafeText(text).split(/\s+/).forEach((word) => {
+    const candidate = line ? `${line} ${word}` : word;
+    if (font.widthOfTextAtSize(candidate, 12) > 485 && line) {
+      page.drawText(line, { x: 55, y, size: 12, font, color: rgb(0.12, 0.16, 0.23) });
+      y -= 19;
+      line = word;
+    } else line = candidate;
+  });
+  if (line) page.drawText(line, { x: 55, y, size: 12, font, color: rgb(0.12, 0.16, 0.23) });
+}
+
+async function appendFrontMatterUpload(target: PDFDocument, file: UploadRecord | null) {
+  if (!file?.url) return false;
+  const response = await apiClient.get<ArrayBuffer>(file.url, { responseType: "arraybuffer" });
+  const contentType = String(response.headers["content-type"] || "").toLowerCase();
+  if (contentType.includes("pdf") || file.name.toLowerCase().endsWith(".pdf")) {
+    const source = await PDFDocument.load(response.data);
+    const pages = await target.copyPages(source, source.getPageIndices());
+    pages.forEach((page) => target.addPage(page));
+    return true;
+  }
+  const image = contentType.includes("png") || file.name.toLowerCase().endsWith(".png")
+    ? await target.embedPng(response.data)
+    : await target.embedJpg(response.data);
+  const page = target.addPage([595.28, 841.89]);
+  const scale = Math.min(page.getWidth() / image.width, page.getHeight() / image.height);
+  const width = image.width * scale;
+  const height = image.height * scale;
+  page.drawImage(image, { x: (page.getWidth() - width) / 2, y: (page.getHeight() - height) / 2, width, height });
+  return true;
+}
+
+async function downloadMergedFrontMatter(coverFile: UploadRecord | null, certFile: UploadRecord | null, contentFile: UploadRecord | null, prefaceFile: UploadRecord | null, data: typeof defaults) {
+  const pdf = await PDFDocument.create();
+  const regular = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  if (!(await appendFrontMatterUpload(pdf, coverFile))) {
+    const page = pdf.addPage([595.28, 841.89]);
+    centeredPdfText(page, bold, `GOVERNMENT OF ${data.state.toUpperCase()}`, 785, 11);
+    centeredPdfText(page, bold, data.title.toUpperCase(), 620, 22);
+    centeredPdfText(page, regular, `District ${data.district}`, 575, 17);
+    centeredPdfText(page, regular, `${data.year} - ${data.version}`, 550, 12, rgb(0.39, 0.45, 0.55));
+    page.drawRectangle({ x: 250, y: 475, width: 95, height: 3, color: rgb(0.11, 0.31, 0.85) });
+    centeredPdfText(page, bold, "Prepared By", 365, 12);
+    centeredPdfText(page, regular, data.preparedBy, 340, 11);
+    centeredPdfText(page, regular, "Assisted By", 265, 10, rgb(0.39, 0.45, 0.55));
+    centeredPdfText(page, regular, data.assistedBy, 245, 10, rgb(0.39, 0.45, 0.55));
+  }
+  if (!(await appendFrontMatterUpload(pdf, certFile))) {
+    const page = pdf.addPage([595.28, 841.89]);
+    centeredPdfText(page, bold, "CERTIFICATE OF COMPLIANCE", 760, 17);
+    centeredPdfText(page, regular, "Certificate of Compliance Not Uploaded", 420, 13, rgb(0.58, 0.64, 0.72));
+  }
+  if (!(await appendFrontMatterUpload(pdf, prefaceFile))) {
+    const page = pdf.addPage([595.28, 841.89]);
+    centeredPdfText(page, bold, "PREFACE", 760, 17);
+    wrappedPdfText(page, regular, data.preface, 700);
+  }
+  const acknowledgement = pdf.addPage([595.28, 841.89]);
+  centeredPdfText(acknowledgement, bold, "ACKNOWLEDGEMENT", 760, 17);
+  wrappedPdfText(acknowledgement, regular, data.acknowledgement, 700);
+  if (!(await appendFrontMatterUpload(pdf, contentFile))) {
+    const page = pdf.addPage([595.28, 841.89]);
+    centeredPdfText(page, bold, "CONTENTS", 760, 17);
+    const entries = ["Cover Page", "Certificate of Compliance", "Preface", "Acknowledgement", ...Array.from({ length: 10 }, (_, index) => `Chapter ${index + 1}`), "Plates and Maps", "Cross Section Graphs", "Annexures I-VII"];
+    entries.forEach((entry, index) => page.drawText(`${index + 1}. ${entry}`, { x: 65, y: 710 - index * 28, size: 11, font: regular, color: rgb(0.12, 0.16, 0.23) }));
+  }
+  const bytes = await pdf.save();
+  downloadBlob(new Blob([new Uint8Array(bytes)], { type: "application/pdf" }), "Front_Matter.pdf");
+}
+
+export async function downloadPdf(
   coverFile: UploadRecord | null,
   certFile: UploadRecord | null,
   contentFile: UploadRecord | null,
@@ -283,24 +362,13 @@ export default function FrontMatterPage(){
               onClick={async () => {
                 setDownloading(true);
                 try {
-                  const downloadedUploads = downloadUploadedPdfs([
-                    { label: "Cover_Page.pdf", file: coverFile },
-                    { label: "Certificate.pdf", file: certFile },
-                    { label: "Content_Page.pdf", file: contentFile },
-                    { label: "Preface.pdf", file: prefaceFile },
-                  ]);
-                  const hasGeneratedContent = [coverFile, certFile, contentFile, prefaceFile].some((file) => !isPdfUrl(file));
-                  if (hasGeneratedContent || downloadedUploads === 0) {
-                    await downloadPdf(
-                      isPdfUrl(coverFile) ? null : coverFile,
-                      isPdfUrl(certFile) ? null : certFile,
-                      isPdfUrl(contentFile) ? null : contentFile,
-                      isPdfUrl(prefaceFile) ? null : prefaceFile,
-                      data
-                    );
-                  }
+                  await downloadMergedFrontMatter(coverFile, certFile, contentFile, prefaceFile, data);
+                  toast.success("Front Matter PDF downloaded");
                 }
-                catch(e) { console.error("PDF generation failed:", e); }
+                catch(e) {
+                  console.error("Front Matter PDF generation failed:", e);
+                  toast.error("PDF download failed. Missing uploaded file ko re-upload karke try karein.");
+                }
                 finally { setDownloading(false); }
               }}
             >
