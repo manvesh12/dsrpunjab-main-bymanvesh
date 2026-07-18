@@ -27,6 +27,7 @@ import ProfilePage from "../pages/profile/ProfilePage";
 import AuditPage from "../pages/audit/AuditPage";
 import UsersPage from "../pages/users/UsersPage";
 import ReportsPage from "../pages/reports/ReportsPage";
+import DistrictsPage from "../pages/districts/DistrictsPage";
 import AnalyticsPage from "../pages/analytics/AnalyticsPage";
 import ImportDsrPage from "../pages/import-dsr/ImportDsrPage";
 import { Permission } from "../security/access";
@@ -108,7 +109,7 @@ export default function AppRoutes() {
 
         <Route
           path="/districts"
-          element={<ModuleEditor storageKey="districts" {...portalModules.districts} />}
+          element={<DistrictsPage />}
         />
 
         <Route
