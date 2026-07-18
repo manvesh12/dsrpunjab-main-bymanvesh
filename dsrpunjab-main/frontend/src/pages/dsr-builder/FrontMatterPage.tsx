@@ -64,59 +64,59 @@ export default function FrontMatterPage(){
         <div id="front-matter-pdf-preview" className="flex flex-col gap-6 items-center">
           
           {/* Cover Page */}
-          <div className={`bg-white aspect-[1/1.414] w-full max-w-[794px] text-center shadow shrink-0 flex flex-col relative overflow-hidden ${coverFile?.preview ? 'p-0' : 'p-10'}`}>
+          <div className={`bg-[#ffffff] aspect-[1/1.414] w-full max-w-[794px] text-center border border-[#e2e8f0] shrink-0 flex flex-col relative overflow-hidden ${coverFile?.preview ? 'p-0' : 'p-10'}`}>
             {coverFile?.preview ? (
               <UploadedPreview src={coverFile.preview} className="w-full h-full flex-1 object-fill" />
             ) : (
               <div className="flex-1 flex flex-col pt-10">
                 <p className="text-xs font-bold uppercase tracking-[.2em]">Government of {data.state}</p>
                 <h1 className="mt-24 text-3xl font-bold uppercase leading-tight">{data.title}</h1>
-                <p className="mt-8 text-xl">District {data.district}</p>
-                <p className="mt-2 text-slate-500">{data.year} • {data.version}</p>
-                <div className="mx-auto mt-16 h-1 w-32 bg-blue-700"/>
-                <p className="mt-20 text-sm font-semibold">Prepared By</p>
-                <p className="mt-2 text-sm">{data.preparedBy}</p>
-                <p className="mt-12 text-xs text-slate-500">Assisted By<br/>{data.assistedBy}</p>
+                <p className="mt-8 text-xl text-[#0f172a]">District {data.district}</p>
+                <p className="mt-2 text-[#64748b]">{data.year} • {data.version}</p>
+                <div className="mx-auto mt-16 h-1 w-32 bg-[#1d4ed8]"/>
+                <p className="mt-20 text-sm font-semibold text-[#0f172a]">Prepared By</p>
+                <p className="mt-2 text-sm text-[#0f172a]">{data.preparedBy}</p>
+                <p className="mt-12 text-xs text-[#64748b]">Assisted By<br/>{data.assistedBy}</p>
               </div>
             )}
           </div>
 
           {/* Certificate Page */}
-          <div className={`bg-white aspect-[1/1.414] w-full max-w-[794px] text-center shadow shrink-0 flex flex-col relative overflow-hidden ${certFile?.preview ? 'p-0' : 'p-10'}`}>
+          <div className={`bg-[#ffffff] aspect-[1/1.414] w-full max-w-[794px] text-center border border-[#e2e8f0] shrink-0 flex flex-col relative overflow-hidden ${certFile?.preview ? 'p-0' : 'p-10'}`}>
             {certFile?.preview ? (
               <UploadedPreview src={certFile.preview} className="w-full h-full flex-1 object-fill" />
             ) : (
-              <div className="flex-1 flex items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 m-10">
+              <div className="flex-1 flex items-center justify-center text-[#94a3b8] border-2 border-dashed border-[#e2e8f0] m-10">
                 Certificate of Compliance Not Uploaded
               </div>
             )}
           </div>
 
           {/* Preface Page */}
-          <div className={`bg-white aspect-[1/1.414] w-full max-w-[794px] text-left shadow shrink-0 flex flex-col relative overflow-hidden ${prefaceFile?.preview ? 'p-0' : 'p-10'}`}>
+          <div className={`bg-[#ffffff] aspect-[1/1.414] w-full max-w-[794px] text-left border border-[#e2e8f0] shrink-0 flex flex-col relative overflow-hidden ${prefaceFile?.preview ? 'p-0' : 'p-10'}`}>
             {prefaceFile?.preview ? (
               <UploadedPreview src={prefaceFile.preview} className="w-full h-full flex-1 object-fill" />
             ) : (
               <div className="flex-1 flex flex-col">
-                <h2 className="text-xl font-bold uppercase text-center mb-10">Preface</h2>
-                <div className="whitespace-pre-wrap flex-1">{data.preface}</div>
+                <h2 className="text-xl font-bold uppercase text-center mb-10 text-[#0f172a]">Preface</h2>
+                <div className="whitespace-pre-wrap flex-1 text-[#0f172a]">{data.preface}</div>
               </div>
             )}
           </div>
 
           {/* Acknowledgement Page */}
-          <div className="bg-white aspect-[1/1.414] w-full max-w-[794px] p-10 text-left shadow shrink-0 flex flex-col relative overflow-hidden">
-            <h2 className="text-xl font-bold uppercase text-center mb-10">Acknowledgement</h2>
-            <div className="whitespace-pre-wrap flex-1">{data.acknowledgement}</div>
+          <div className="bg-[#ffffff] aspect-[1/1.414] w-full max-w-[794px] p-10 text-left border border-[#e2e8f0] shrink-0 flex flex-col relative overflow-hidden">
+            <h2 className="text-xl font-bold uppercase text-center mb-10 text-[#0f172a]">Acknowledgement</h2>
+            <div className="whitespace-pre-wrap flex-1 text-[#0f172a]">{data.acknowledgement}</div>
           </div>
 
           {/* Content Page */}
-          <div className={`bg-white aspect-[1/1.414] w-full max-w-[794px] text-left shadow shrink-0 flex flex-col relative overflow-hidden ${contentFile?.preview ? 'p-0' : 'p-10'}`}>
+          <div className={`bg-[#ffffff] aspect-[1/1.414] w-full max-w-[794px] text-left border border-[#e2e8f0] shrink-0 flex flex-col relative overflow-hidden ${contentFile?.preview ? 'p-0' : 'p-10'}`}>
             {contentFile?.preview ? (
               <UploadedPreview src={contentFile.preview} className="w-full h-full flex-1 object-fill" />
             ) : (
               <div className="flex-1 flex flex-col">
-                <h2 className="text-xl font-bold uppercase text-center mb-10">Contents</h2>
+                <h2 className="text-xl font-bold uppercase text-center mb-10 text-[#0f172a]">Contents</h2>
                 <div className="flex-1">
                   <AutoContents/>
                 </div>
@@ -182,12 +182,12 @@ function UploadedPreview({src, className}:{src:string, className?:string}){
   return src.startsWith("data:image") ? (
     <img src={src} alt="Uploaded preview" className={className || "mt-3 max-h-72 w-full rounded-lg object-contain"}/>
   ) : (
-    <iframe title="Uploaded PDF preview" src={pdfSrc} className={className || "mt-3 h-64 w-full rounded-lg border bg-white"} style={{ border: 'none' }}/>
+    <iframe title="Uploaded PDF preview" src={pdfSrc} className={className || "mt-3 h-64 w-full rounded-lg border bg-[#ffffff]"} style={{ border: 'none' }}/>
   )
 }
 
 function TextArea({label,value,onChange}:{label:string;value:string;onChange:(value:string)=>void}){return <label className="mt-4 block text-sm font-semibold">{label}<textarea rows={6} value={value} onChange={e=>onChange(e.target.value)} className="mt-2 w-full rounded-xl border border-slate-200 p-3 font-normal leading-6 outline-none focus:border-blue-500"/></label>}
 
-function AutoContents(){const entries=["Cover Page","Certificate of Compliance","Preface","Acknowledgement",...Array.from({length:10},(_,i)=>`Chapter ${i+1}`),"Plates and Maps","Cross Section Graphs","Annexures I–VII","Additional Annexures B–K","Replenishment Report / Model DSR"];return <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4"><div className="flex items-center justify-between"><p className="font-semibold text-slate-800">Auto-generated Contents</p><span className="text-xs text-emerald-700">Live</span></div><ol className="mt-3 space-y-1 text-xs text-slate-600">{entries.map((entry,index)=><li key={entry} className="flex gap-2"><span className="w-5 text-slate-400">{index+1}</span><span>{entry}</span></li>)}</ol></div>}
+function AutoContents(){const entries=["Cover Page","Certificate of Compliance","Preface","Acknowledgement",...Array.from({length:10},(_,i)=>`Chapter ${i+1}`),"Plates and Maps","Cross Section Graphs","Annexures I–VII","Additional Annexures B–K","Replenishment Report / Model DSR"];return <div className="mt-4 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] p-4"><div className="flex items-center justify-between"><p className="font-semibold text-[#1e293b]">Auto-generated Contents</p><span className="text-xs text-[#047857]">Live</span></div><ol className="mt-3 space-y-1 text-xs text-[#475569]">{entries.map((entry,index)=><li key={entry} className="flex gap-2"><span className="w-5 text-[#94a3b8]">{index+1}</span><span>{entry}</span></li>)}</ol></div>}
 
 function readFile(file:File):Promise<string>{return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=reject;reader.readAsDataURL(file)})}
