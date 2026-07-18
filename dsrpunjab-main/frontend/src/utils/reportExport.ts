@@ -41,6 +41,25 @@ export function downloadBlob(blob: Blob, fileName: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+export function dataUrlToBlob(dataUrl: string) {
+  const [meta, payload] = dataUrl.split(",");
+  const contentType = meta.match(/data:([^;]+)/)?.[1] || "application/octet-stream";
+  const binary = atob(payload || "");
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return new Blob([bytes], { type: contentType });
+}
+
+export function downloadDataUrlFile(dataUrl: string, fileName: string) {
+  downloadBlob(dataUrlToBlob(dataUrl), fileName);
+}
+
+export function ensurePdfFileName(fileName: string) {
+  return fileName.toLowerCase().endsWith(".pdf") ? fileName : `${fileName}.pdf`;
+}
+
 export function openPrintableDocument(html: string, title: string) {
   const printWindow = window.open("", "_blank", "noopener,noreferrer,width=960,height=1200");
   if (!printWindow) {

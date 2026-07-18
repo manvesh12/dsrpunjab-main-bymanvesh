@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, Plus, Trash2, Upload, Download } from "lucide-react";
-import { downloadHtmlAsPdf } from "../../utils/reportExport";
+import { downloadDataUrlFile, downloadHtmlAsPdf, ensurePdfFileName } from "../../utils/reportExport";
 import PageHeader from "../../components/layout/PageHeader";
 import ResizableLayout from "../../components/layout/ResizableLayout";
 import { useLocalDraft } from "../../hooks/useLocalDraft";
@@ -8,6 +8,18 @@ import { hasPermission, Permission } from "../../security/access";
 import { useParams } from "react-router-dom";
 
 type Chapter = { name: string; summary: string; file?: { name: string; preview?: string } };
+
+const isPdfUpload = (file?: Chapter["file"]) => Boolean(file?.preview?.startsWith("data:application/pdf"));
+
+function downloadChapterUploads(chapters: Chapter[]) {
+  const pdfs = chapters.filter((chapter) => isPdfUpload(chapter.file));
+  pdfs.forEach((chapter, index) => {
+    window.setTimeout(() => {
+      downloadDataUrlFile(chapter.file!.preview!, ensurePdfFileName(chapter.file!.name || chapter.name));
+    }, index * 250);
+  });
+  return pdfs.length;
+}
 
 const initial: Chapter[] = [
   ["CHAPTER 1 - INTRODUCTION", "Overview of the district and purpose of the DSR under EMGSM 2020 guidelines."],
@@ -49,8 +61,10 @@ export default function ChaptersPage() {
             <button
               className="module-btn"
               onClick={async () => {
+                const downloadedUploads = downloadChapterUploads(chapters);
+                const shouldDownloadIndex = downloadedUploads === 0 || chapters.some((chapter) => !isPdfUpload(chapter.file));
                 const element = document.getElementById("chapters-pdf-preview");
-                if (element) {
+                if (element && shouldDownloadIndex) {
                   try {
                     await downloadHtmlAsPdf(element, "Chapters.pdf");
                   } catch (e) {

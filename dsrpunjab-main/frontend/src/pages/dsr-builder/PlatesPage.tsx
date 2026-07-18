@@ -4,8 +4,21 @@ import PageHeader from "../../components/layout/PageHeader";
 import ResizableLayout from "../../components/layout/ResizableLayout";
 import { useLocalDraft } from "../../hooks/useLocalDraft";
 import { useParams } from "react-router-dom";
+import { downloadDataUrlFile, ensurePdfFileName } from "../../utils/reportExport";
 
 type Plate = { name: string; summary: string; fileName?: string; preview?: string };
+
+const isPdfUpload = (plate: Plate) => Boolean(plate.preview?.startsWith("data:application/pdf"));
+
+function downloadPlateUploads(plates: Plate[]) {
+  const pdfs = plates.filter(isPdfUpload);
+  pdfs.forEach((plate, index) => {
+    window.setTimeout(() => {
+      downloadDataUrlFile(plate.preview!, ensurePdfFileName(plate.fileName || plate.name));
+    }, index * 250);
+  });
+  return pdfs.length;
+}
 
 const initial: Plate[] = [
   { name: "Plate 1 - Pre/Post Monsoon Cross Section", summary: "Auto-generated elevation chart for sand volume calculation." },
@@ -39,11 +52,9 @@ async function downloadPlatesPdf(plates: Plate[]) {
 
   const platePages = plates.filter(p => p.preview).map(p => {
     const isImage = p.preview!.startsWith("data:image");
+    if (!isImage) return "";
     return `<div class="plate-page">
-      ${isImage
-        ? `<img src="${p.preview}" />`
-        : `<img src="${p.preview}" style="width:794px;height:1123px;object-fit:fill;display:block;" />`
-      }
+      <img src="${p.preview}" />
     </div>`;
   }).join("");
 
@@ -187,7 +198,11 @@ export default function PlatesPage() {
               disabled={downloading}
               onClick={async () => {
                 setDownloading(true);
-                try { await downloadPlatesPdf(plates); }
+                try {
+                  const downloadedUploads = downloadPlateUploads(plates);
+                  const hasGeneratedOrImageContent = downloadedUploads === 0 || plates.some((plate) => !isPdfUpload(plate));
+                  if (hasGeneratedOrImageContent) await downloadPlatesPdf(plates);
+                }
                 catch (e) { console.error("PDF generation failed:", e); }
                 finally { setDownloading(false); }
               }}

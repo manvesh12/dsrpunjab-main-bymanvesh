@@ -4,9 +4,22 @@ import { useParams } from "react-router-dom";
 import PageHeader from "../../components/layout/PageHeader";
 import ResizableLayout from "../../components/layout/ResizableLayout";
 import { useLocalDraft } from "../../hooks/useLocalDraft";
+import { downloadDataUrlFile, ensurePdfFileName } from "../../utils/reportExport";
 
 const defaults = { title:"District Survey Report for Sand Mining", district:"Jalandhar", state:"Punjab", year:"2025-26", version:"Final Draft", preparedBy:"Sub-Divisional Committee, Jalandhar District", assistedBy:"RSP Green Development and Laboratories Pvt. Ltd.", preface:"This District Survey Report has been prepared in compliance with EMGSM 2020 and records sand mining activity, river morphology, mineral deposits and replenishment studies.", acknowledgement:"The Sub-Divisional Committee acknowledges the support of the Government of Punjab, Department of Geology and Mining, and field surveyors." };
 type UploadRecord={name:string;preview?:string};
+
+const isPdfUpload = (file: UploadRecord | null) => Boolean(file?.preview?.startsWith("data:application/pdf"));
+
+function downloadUploadedPdfs(files: Array<{ label: string; file: UploadRecord | null }>) {
+  const pdfs = files.filter((item) => isPdfUpload(item.file));
+  pdfs.forEach((item, index) => {
+    window.setTimeout(() => {
+      downloadDataUrlFile(item.file!.preview!, ensurePdfFileName(item.file!.name || item.label));
+    }, index * 250);
+  });
+  return pdfs.length;
+}
 
 async function downloadPdf(
   coverFile: UploadRecord | null,
@@ -213,7 +226,24 @@ export default function FrontMatterPage(){
               disabled={downloading}
               onClick={async () => {
                 setDownloading(true);
-                try { await downloadPdf(coverFile, certFile, contentFile, prefaceFile, data); }
+                try {
+                  const downloadedUploads = downloadUploadedPdfs([
+                    { label: "Cover_Page.pdf", file: coverFile },
+                    { label: "Certificate.pdf", file: certFile },
+                    { label: "Content_Page.pdf", file: contentFile },
+                    { label: "Preface.pdf", file: prefaceFile },
+                  ]);
+                  const hasGeneratedContent = [coverFile, certFile, contentFile, prefaceFile].some((file) => !isPdfUpload(file));
+                  if (hasGeneratedContent || downloadedUploads === 0) {
+                    await downloadPdf(
+                      isPdfUpload(coverFile) ? null : coverFile,
+                      isPdfUpload(certFile) ? null : certFile,
+                      isPdfUpload(contentFile) ? null : contentFile,
+                      isPdfUpload(prefaceFile) ? null : prefaceFile,
+                      data
+                    );
+                  }
+                }
                 catch(e) { console.error("PDF generation failed:", e); }
                 finally { setDownloading(false); }
               }}
