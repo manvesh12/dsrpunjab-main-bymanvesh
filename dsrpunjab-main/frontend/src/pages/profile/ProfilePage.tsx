@@ -15,6 +15,7 @@ import {
   Activity,
   Building2,
   BadgeCheck,
+  Camera,
 } from "lucide-react";
 import PageHeader from "../../components/layout/PageHeader";
 import { useAuth } from "../../security/auth.context";
@@ -35,6 +36,20 @@ export default function ProfilePage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [editing, setEditing] = useState(false);
+  const [profilePhotoPreview, setProfilePhotoPreview] = useState<string | null>(null);
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfilePhotoPreview(reader.result as string);
+        toast.success("Profile photo updated! Click save to apply changes.");
+        setEditing(true);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
   const [form, setForm] = useState({
     fullName: user?.fullName || user?.username || "",
     email: user?.email || "",
@@ -51,6 +66,7 @@ export default function ProfilePage() {
 
   const handleCancel = () => {
     setEditing(false);
+    setProfilePhotoPreview(null);
     setForm({
       fullName: user?.fullName || user?.username || "",
       email: user?.email || "",
@@ -87,8 +103,27 @@ export default function ProfilePage() {
         <div className="px-6 pb-6 -mt-10 flex items-end justify-between">
           <div className="flex items-end gap-5">
             {/* Avatar */}
-            <div className="flex size-20 items-center justify-center rounded-2xl border-4 border-white bg-blue-600 text-white text-2xl font-black shadow-md">
-              {initials}
+            <div className="relative group">
+              <div className="flex size-20 items-center justify-center rounded-2xl border-4 border-white bg-blue-600 text-white text-2xl font-black shadow-md overflow-hidden">
+                {profilePhotoPreview || (user as any)?.profilePhoto ? (
+                  <img 
+                    src={profilePhotoPreview || (user as any)?.profilePhoto} 
+                    alt="Profile" 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  initials
+                )}
+              </div>
+              <label title="Upload Profile Photo" className="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-2xl border-4 border-transparent backdrop-blur-sm">
+                <Camera size={20} />
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={handlePhotoUpload}
+                />
+              </label>
             </div>
             <div className="mb-1">
               <h2 className="text-xl font-black text-slate-900 leading-tight">
