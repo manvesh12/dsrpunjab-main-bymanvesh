@@ -6,7 +6,7 @@ import PageHeader from "../../components/layout/PageHeader";
 import UploadedFilePreview from "../../components/ui/UploadedFilePreview";
 import { projectsApi, type ProjectFile } from "../../api/projects.api";
 import { uploadsApi } from "../../api/uploads.api";
-import { appendUploadedDocument, createSectionPdf, saveSectionPdf } from "../../utils/sectionPdf";
+import { appendUploadedDocument, applyDsrReportFrame, createSectionPdf, saveSectionPdf } from "../../utils/sectionPdf";
 import { toast } from "sonner";
 
 type UploadRecord = { name: string; url?: string } | null;
@@ -31,13 +31,22 @@ function uploadSectionLabel(file: ProjectFile) {
   return "Project Upload";
 }
 
-function UploadedSection({ upload }: { upload: PreviewUpload }) {
+function UploadedSection({ upload, pageNumber, district }: { upload: PreviewUpload; pageNumber: number; district: string }) {
   return (
-    <section className="pdf-page flex w-full max-w-[794px] flex-col items-center gap-4">
-      <h2 className="text-xl font-bold uppercase">{upload.title}</h2>
-      <div className="relative aspect-[1/1.414] w-full overflow-hidden border border-slate-200 bg-white shadow">
-        <UploadedFilePreview src={upload.url} title={upload.title} alt={upload.title} imageStyle={{ objectFit: "contain" }} />
+    <section className="dsr-preview-page relative flex aspect-[1/1.414] w-full max-w-[794px] flex-col overflow-hidden bg-white text-black shadow-xl">
+      <div className="pointer-events-none absolute inset-4 border border-black" />
+      <header className="mx-16 mt-7 border-b border-black pb-2 font-serif leading-tight">
+        <p className="text-[15px] italic">District Survey Report</p>
+        <p className="max-w-[520px] text-[12px] italic">{district} District, Punjab</p>
+        <p className="mt-1 text-[10px]">{upload.title}</p>
+      </header>
+      <div className="relative mx-14 mb-12 mt-3 flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+        <UploadedFilePreview src={upload.url} title={upload.title} alt={upload.title} className="h-full w-full bg-white" imageStyle={{ objectFit: "contain" }} />
       </div>
+      <footer className="absolute bottom-7 left-16 right-16 flex items-center justify-between border-t border-slate-300 pt-2 font-serif text-[9px]">
+        <span className="font-bold uppercase">Prepared by: District Survey Report Committee</span>
+        <span>Page {pageNumber}</span>
+      </footer>
     </section>
   );
 }
@@ -87,15 +96,19 @@ export default function ReportPreviewPage() {
     try {
       const { document } = await createSectionPdf();
       const skipped: string[] = [];
+      const sections: Array<{ title: string; startPage: number }> = [];
       for (const upload of uniqueUploads) {
         try {
+          const startPage = document.getPageCount();
           await appendUploadedDocument(document, upload);
+          if (document.getPageCount() > startPage) sections.push({ title: upload.title, startPage });
         } catch (error) {
           console.warn(`Skipping unreadable final-report upload: ${upload.name}`, error);
           skipped.push(upload.name);
         }
       }
       if (document.getPageCount() === 0) throw new Error("No readable uploaded documents found");
+      await applyDsrReportFrame(document, sections, project?.district || "Punjab");
       await saveSectionPdf(document, `DSR-Final-Report-${projectId}.pdf`);
       if (skipped.length) toast.warning(`PDF downloaded; ${skipped.length} unreadable upload(s) skipped`);
       else toast.success("Final PDF downloaded with all uploaded annexures");
@@ -112,7 +125,7 @@ export default function ReportPreviewPage() {
       <PageHeader
         backLink={`/projects/${projectId}`}
         title="Live Report Preview"
-        description="Uploaded project documents and annexures only"
+        description="A4 DSR-format preview with section headers, borders, footers and page numbering"
         action={<div className="flex gap-2">
           <button className="module-btn" onClick={() => window.print()}><Printer size={17} />Print</button>
           <button className="module-btn-primary" disabled={downloading || isLoading || !uniqueUploads.length} onClick={downloadFinalPdf}>
@@ -126,7 +139,7 @@ export default function ReportPreviewPage() {
             <div className="flex min-h-[500px] items-center justify-center text-center text-lg text-slate-500">
               {isLoading ? "Loading uploaded documents..." : "No uploaded documents found. Upload section or annexure files to build the final PDF."}
             </div>
-          ) : uniqueUploads.map((upload) => <UploadedSection key={upload.id} upload={upload} />)}
+          ) : uniqueUploads.map((upload, index) => <UploadedSection key={upload.id} upload={upload} pageNumber={index + 1} district={project?.district || "Punjab"} />)}
         </article>
       </main>
     </>
