@@ -351,12 +351,11 @@ export default function ReplenishmentBuilderPage() {
   const exportHtml = () => livePreviewHtml;
 
   const handleDownloadGeneratedPdf = async () => {
-    if (!study) return;
     const fileName = fileNameFor(workflow, "pdf");
     toast.info("Generating PDF, please wait...");
     try {
       await downloadHtmlAsPdf(exportHtml(), fileName, false);
-      recordHistory(study.id, workflow, fileName, 0, "generated-pdf");
+      if (study) recordHistory(study.id, workflow, fileName, 0, "generated-pdf");
       toast.success("Generated PDF downloaded");
     } catch (e) {
       toast.error("Failed to generate PDF");
@@ -740,7 +739,7 @@ export default function ReplenishmentBuilderPage() {
       <div className="mt-5">
         <Panel title="Live Replenishment Preview" icon={Eye} description="Database draft ka current printable report preview. Har form change yahan turant update hota hai.">
           <div className="mb-3 flex justify-end">
-            <button className="module-btn-primary" onClick={handleDownloadGeneratedPdf} disabled={!study}>
+            <button className="module-btn-primary" onClick={handleDownloadGeneratedPdf}>
               <Download size={17}/>Download This Preview PDF
             </button>
           </div>
