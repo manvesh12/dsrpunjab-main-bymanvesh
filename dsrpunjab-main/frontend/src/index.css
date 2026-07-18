@@ -10,6 +10,69 @@
 body { @apply m-0 bg-gradient-to-br from-slate-50 via-blue-50/40 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-slate-900 dark:text-slate-100 antialiased min-h-screen bg-fixed transition-colors duration-300; }
 button, input, select, textarea { font: inherit; }
 
+:root { color-scheme: light; }
+.dark { color-scheme: dark; }
+
+@layer utilities {
+  .dark .bg-white:not([class*="dark:"]) { background-color: rgb(15 23 42); }
+  .dark .bg-white\/95:not([class*="dark:"]) { background-color: rgb(15 23 42 / 0.95); }
+  .dark .bg-white\/90:not([class*="dark:"]) { background-color: rgb(15 23 42 / 0.9); }
+  .dark .bg-white\/80:not([class*="dark:"]) { background-color: rgb(15 23 42 / 0.8); }
+  .dark .bg-white\/70:not([class*="dark:"]) { background-color: rgb(15 23 42 / 0.7); }
+  .dark .bg-slate-50:not([class*="dark:"]) { background-color: rgb(15 23 42); }
+  .dark .bg-slate-100:not([class*="dark:"]) { background-color: rgb(30 41 59); }
+  .dark .bg-slate-200:not([class*="dark:"]) { background-color: rgb(51 65 85); }
+  .dark .bg-slate-50\/50:not([class*="dark:"]) { background-color: rgb(15 23 42 / 0.5); }
+  .dark .bg-slate-50\/80:not([class*="dark:"]) { background-color: rgb(15 23 42 / 0.8); }
+
+  .dark .text-slate-950:not([class*="dark:"]),
+  .dark .text-slate-900:not([class*="dark:"]),
+  .dark .text-slate-800:not([class*="dark:"]) { color: rgb(248 250 252); }
+  .dark .text-slate-700:not([class*="dark:"]) { color: rgb(226 232 240); }
+  .dark .text-slate-600:not([class*="dark:"]) { color: rgb(203 213 225); }
+  .dark .text-slate-500:not([class*="dark:"]) { color: rgb(148 163 184); }
+  .dark .text-slate-400:not([class*="dark:"]) { color: rgb(148 163 184); }
+
+  .dark .border-slate-100:not([class*="dark:"]),
+  .dark .border-slate-200:not([class*="dark:"]),
+  .dark .border-slate-300:not([class*="dark:"]) { border-color: rgb(51 65 85); }
+
+  .dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+  .dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+    border-color: rgb(51 65 85);
+  }
+
+  .dark .shadow-sm,
+  .dark .shadow,
+  .dark .shadow-lg,
+  .dark .shadow-xl,
+  .dark .shadow-2xl {
+    --tw-shadow-color: rgb(2 6 23 / 0.45);
+    --tw-shadow: var(--tw-shadow-colored);
+  }
+
+  .dark input,
+  .dark select,
+  .dark textarea {
+    background-color: rgb(15 23 42);
+    border-color: rgb(51 65 85);
+    color: rgb(226 232 240);
+  }
+
+  .dark input::placeholder,
+  .dark textarea::placeholder { color: rgb(100 116 139); }
+
+  .dark table { color: rgb(226 232 240); }
+  .dark thead { background-color: rgb(15 23 42); }
+  .dark tbody tr { border-color: rgb(51 65 85); }
+  .dark tbody tr:hover { background-color: rgb(30 41 59 / 0.65); }
+
+  .dark ::selection {
+    background-color: rgb(59 130 246 / 0.35);
+    color: rgb(255 255 255);
+  }
+}
+
 @keyframes marquee-vertical {
   from { transform: translateY(100%); }
   to { transform: translateY(-100%); }
