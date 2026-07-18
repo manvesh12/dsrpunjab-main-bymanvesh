@@ -102,4 +102,16 @@ export const usersApi = {
   downloadRoster: (): string => {
     return `${apiClient.defaults.baseURL}/users/export`;
   },
+
+  /** Request OTP to update own profile */
+  requestProfileUpdateOtp: async (payload: { fullName: string; email: string; mobileNumber?: string }): Promise<{ message: string }> => {
+    const { data } = await apiClient.post("/users/me/update-request", payload);
+    return data;
+  },
+
+  /** Verify OTP to finalize profile update */
+  verifyProfileUpdateOtp: async (payload: { otp: string; fullName: string; email: string; mobileNumber?: string }): Promise<{ message: string }> => {
+    const { data } = await apiClient.post("/users/me/update-verify", payload);
+    return data;
+  },
 };

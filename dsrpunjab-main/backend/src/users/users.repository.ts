@@ -25,11 +25,26 @@ export class UsersRepository {
   findDistrictByName(name: string) {
     return this.database.district.findFirst({ where: { name } });
   }
+
+  createOtpVerification(data: Prisma.OtpVerificationUncheckedCreateInput) {
+    return this.database.otpVerification.create({ data });
+  }
+
+  findLatestValidOtp(identifier: string, purpose: string) {
+    return this.database.otpVerification.findFirst({
+      where: { identifier, purpose, used: false, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  markOtpUsed(id: bigint) {
+    return this.database.otpVerification.update({ where: { id }, data: { used: true } });
+  }
 }
 
 export type UsersRepositoryContract = Pick<
   UsersRepository,
-  "list" | "exportUsers" | "pendingInvitations" | "create" | "find" | "findByEmail" | "findByMobile" | "update" | "delete" | "findInvitation" | "upsertInvitation" | "updateInvitation" | "findDistrictByName"
+  "list" | "exportUsers" | "pendingInvitations" | "create" | "find" | "findByEmail" | "findByMobile" | "update" | "delete" | "findInvitation" | "upsertInvitation" | "updateInvitation" | "findDistrictByName" | "createOtpVerification" | "findLatestValidOtp" | "markOtpUsed"
 >;
 
 export const usersRepository = new UsersRepository(prisma);

@@ -57,6 +57,16 @@ export class UsersController {
     }
   };
 
+  requestProfileUpdateOtp = async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) { next(new ApiError(401, "UNAUTHORIZED", "Not logged in")); return; }
+    this.respond(res, next, () => this.users.requestProfileUpdateOtp(req.user!.id, req.body));
+  };
+
+  verifyProfileUpdateOtp = async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) { next(new ApiError(401, "UNAUTHORIZED", "Not logged in")); return; }
+    this.respond(res, next, () => this.users.verifyProfileUpdateOtp(req.user!.id, req.body));
+  };
+
   private async respond(res: Response, next: NextFunction, action: () => unknown | Promise<unknown>, status = 200) {
     try { res.status(status).json(jsonSafe(await action())); }
     catch (error) { next(error); }

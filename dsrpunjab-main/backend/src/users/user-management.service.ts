@@ -1,5 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { passwordService, type PasswordService } from "../auth/security/password.service.js";
+import { otpService } from "../auth/otp.service.js";
+import { sendProfileUpdateOtpEmail } from "../email/email.service.js";
 import { ApiError } from "../common/exceptions/api-error.js";
 import { usersRepository, type UsersRepositoryContract } from "./users.repository.js";
 import { normalizeRole, requiresDistrict } from "./users.validator.js";
@@ -63,6 +65,54 @@ export class UserManagementService {
   async delete(id: bigint) {
     await this.repository.delete(id);
     return { success: true };
+  }
+
+  async requestProfileUpdateOtp(userId: bigint, body: { fullName: string; email: string; mobileNumber?: string }) {
+    const user = await this.repository.find(userId);
+    if (!user) throw new ApiError(404, "USER_NOT_FOUND", "User not found");
+
+    const otp = otpService.generate();
+    const otpHash = await otpService.hash(otp);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    await this.repository.createOtpVerification({
+      identifier: user.email,
+      purpose: "PROFILE_UPDATE",
+      otpHash,
+      expiresAt
+    });
+
+    await sendProfileUpdateOtpEmail(user.email, user.fullName, otp);
+
+    return { success: true, message: "OTP sent successfully" };
+  }
+
+  async verifyProfileUpdateOtp(userId: bigint, body: { otp: string; fullName: string; email: string; mobileNumber?: string }) {
+    const user = await this.repository.find(userId);
+    if (!user) throw new ApiError(404, "USER_NOT_FOUND", "User not found");
+
+    const latestOtp = await this.repository.findLatestValidOtp(user.email, "PROFILE_UPDATE");
+    if (!latestOtp) throw new ApiError(400, "INVALID_OTP", "Invalid or expired OTP");
+
+    if (!(await otpService.verify(body.otp, latestOtp.otpHash))) {
+      throw new ApiError(400, "INVALID_OTP", "Invalid OTP");
+    }
+
+    await this.repository.markOtpUsed(latestOtp.id);
+
+    const updateData: Prisma.UserUncheckedUpdateInput = {
+      fullName: body.fullName,
+      email: body.email,
+    };
+    
+    if (body.mobileNumber !== undefined) {
+      updateData.mobileNumber = body.mobileNumber;
+      updateData.username = body.mobileNumber || user.email; // Since frontend might send it for username as well based on my modal logic
+    }
+
+    await this.repository.update(userId, updateData);
+
+    return { success: true, message: "Profile updated successfully" };
   }
 }
 

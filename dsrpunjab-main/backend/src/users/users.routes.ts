@@ -6,6 +6,9 @@ import { usersController } from "./users.controller.js";
 const upload = multer({ storage: multer.memoryStorage() });
 export const usersRouter = Router();
 
+usersRouter.post("/me/update-request", usersController.requestProfileUpdateOtp);
+usersRouter.post("/me/update-verify", usersController.verifyProfileUpdateOtp);
+
 usersRouter.use(requireAnyPermission(['USER_VIEW', 'USER_CREATE', 'USER_EDIT', 'USER_DELETE']));
 usersRouter.get("/", requirePermissions(['USER_VIEW']), usersController.list);
 usersRouter.get("/export", requirePermissions(['USER_VIEW']), usersController.export);

@@ -104,3 +104,15 @@ export function welcomeTemplate(fullName: string): MessageContent {
         <p style="color: #4b5563; font-size: 16px; line-height: 1.5;">You may now sign in with your registered email address.</p>`, "#166534", false)
   };
 }
+
+export function profileUpdateOtpTemplate(fullName: string, otp: string): MessageContent {
+  return {
+    subject: "Profile Update Verification - Punjab DSR",
+    text: `Dear ${fullName},\n\nYour OTP to verify profile changes is: ${otp}\n\nThis OTP is valid for 10 minutes. If you did not request this, please ignore this email.\n\nGovernment of Punjab`,
+    html: shell("Profile Update Verification", `
+        <p style="color: #4b5563; font-size: 16px; line-height: 1.5;">Dear ${fullName}, please use the following One-Time Password (OTP) to confirm your profile update on the Smart DSR Portal:</p>
+        ${otpBlock(otp)}
+        <p style="color: #ef4444; font-size: 14px; font-weight: 500;">This OTP is valid for 10 minutes. Please do not share it with anyone.</p>
+        <p style="color: #4b5563; font-size: 14px; line-height: 1.5;">If you did not request these profile changes, please ignore this email and notify your portal administrator.</p>`)
+  };
+}

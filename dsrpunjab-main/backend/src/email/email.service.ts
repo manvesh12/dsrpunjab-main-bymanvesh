@@ -7,7 +7,8 @@ import {
   passwordChangedTemplate,
   passwordResetOtpTemplate,
   registrationOtpTemplate,
-  welcomeTemplate
+  welcomeTemplate,
+  profileUpdateOtpTemplate
 } from "./email.templates.js";
 import type { EmailDeliveryProvider, EmailMessage } from "./email.types.js";
 
@@ -37,6 +38,16 @@ export class EmailService {
       logger.info("email_sent", { kind: "password_reset_otp", to: toEmail, messageId: result.messageId });
     } catch (error) {
       logger.error("email_send_failed", { kind: "password_reset_otp", to: toEmail, error: error instanceof Error ? error.message : String(error) });
+      throw new Error("Failed to send email");
+    }
+  };
+
+  sendProfileUpdateOtpEmail = async (toEmail: string, fullName: string, otp: string) => {
+    try {
+      const result = await this.deliver(toEmail, profileUpdateOtpTemplate(fullName, otp));
+      logger.info("email_sent", { kind: "profile_update_otp", to: toEmail, messageId: result.messageId });
+    } catch (error) {
+      logger.error("email_send_failed", { kind: "profile_update_otp", to: toEmail, error: error instanceof Error ? error.message : String(error) });
       throw new Error("Failed to send email");
     }
   };
@@ -74,3 +85,4 @@ export const sendPasswordChangedEmail = emailService.sendPasswordChangedEmail;
 export const sendInvitationEmail = emailService.sendInvitationEmail;
 export const sendInvitationOtpEmail = emailService.sendInvitationOtpEmail;
 export const sendWelcomeEmail = emailService.sendWelcomeEmail;
+export const sendProfileUpdateOtpEmail = emailService.sendProfileUpdateOtpEmail;
