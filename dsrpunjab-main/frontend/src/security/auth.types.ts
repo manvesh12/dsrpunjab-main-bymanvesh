@@ -39,4 +39,5 @@ export interface LoginResponse {
   permissions: string[];
   scope: UserScope;
   accessLabel: string;
+  profilePhoto?: string | null;
 }

@@ -115,10 +115,11 @@ model User {
   blockName   String?
   sectionName String?
 
-  accessScope String?
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  accessScope  String?
+  profilePhoto String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   employee              Employee?
   refreshTokens         RefreshToken[]

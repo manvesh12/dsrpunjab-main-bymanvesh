@@ -114,6 +114,11 @@ export class UserManagementService {
 
     return { success: true, message: "Profile updated successfully" };
   }
+
+  async updateProfilePhoto(userId: bigint, profilePhoto: string) {
+    await this.repository.update(userId, { profilePhoto });
+    return { success: true };
+  }
 }
 
 export const userManagementService = new UserManagementService(usersRepository, passwordService);

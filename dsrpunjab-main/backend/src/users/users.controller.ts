@@ -67,6 +67,18 @@ export class UsersController {
     this.respond(res, next, () => this.users.verifyProfileUpdateOtp(req.user!.id, req.body));
   };
 
+  updateProfilePhoto = async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) { next(new ApiError(401, "UNAUTHORIZED", "Not logged in")); return; }
+    const { profilePhoto } = req.body;
+    if (typeof profilePhoto !== "string") {
+      next(new ApiError(400, "INVALID_PHOTO", "profilePhoto must be a base64 string")); return;
+    }
+    this.respond(res, next, async () => {
+      await this.users.updateProfilePhoto(req.user!.id, profilePhoto);
+      return { success: true };
+    });
+  };
+
   private async respond(res: Response, next: NextFunction, action: () => unknown | Promise<unknown>, status = 200) {
     try { res.status(status).json(jsonSafe(await action())); }
     catch (error) { next(error); }

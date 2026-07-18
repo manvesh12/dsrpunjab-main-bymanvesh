@@ -58,7 +58,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const login = useCallback((data: LoginResponse) => {
-    const savedPhoto = localStorage.getItem(`dsr:profile_photo_${data.username}`);
     // Normalise: build User from LoginResponse
     const user: User = {
       username: data.username,
@@ -69,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       permissions: data.permissions ?? [],
       scope: data.scope ?? { districtId: null, blockName: null, sectionName: null },
       accessLabel: data.accessLabel ?? data.uiRole,
-      ...(savedPhoto ? { profilePhoto: savedPhoto } : {}),
+      ...(data.profilePhoto ? { profilePhoto: data.profilePhoto } : {}),
     };
 
     localStorage.setItem(TOKEN_KEY, data.token);
@@ -103,12 +102,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const newUser = { ...prev.user, ...updates };
       localStorage.setItem(USER_KEY, JSON.stringify(newUser));
 
-      if (updates.profilePhoto !== undefined) {
-        if (updates.profilePhoto === null) {
-          localStorage.removeItem(`dsr:profile_photo_${prev.user.username}`);
-        } else {
-          localStorage.setItem(`dsr:profile_photo_${prev.user.username}`, updates.profilePhoto);
-        }
+      // Sync profile photo to backend so it persists across all devices
+      if (updates.profilePhoto !== undefined && updates.profilePhoto !== null) {
+        apiClient.patch("/users/me/profile-photo", { profilePhoto: updates.profilePhoto }).catch(() => {
+          // Silently fail – photo still saved locally in this session
+        });
       }
 
       return { ...prev, user: newUser };

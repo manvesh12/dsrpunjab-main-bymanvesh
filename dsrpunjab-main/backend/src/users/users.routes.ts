@@ -8,6 +8,7 @@ export const usersRouter = Router();
 
 usersRouter.post("/me/update-request", usersController.requestProfileUpdateOtp);
 usersRouter.post("/me/update-verify", usersController.verifyProfileUpdateOtp);
+usersRouter.patch("/me/profile-photo", usersController.updateProfilePhoto);
 
 usersRouter.use(requireAnyPermission(['USER_VIEW', 'USER_CREATE', 'USER_EDIT', 'USER_DELETE']));
 usersRouter.get("/", requirePermissions(['USER_VIEW']), usersController.list);

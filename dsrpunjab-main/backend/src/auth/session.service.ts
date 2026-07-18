@@ -60,7 +60,8 @@ export class SessionService {
       uiRole: roleToFrontend(user.role),
       permissions: Array.from(await (await import('../authorization/permissions.middleware.js')).getPermissionsForRole(user.role)),
       scope: { districtId: user.districtId, blockName: user.blockName, sectionName: user.sectionName },
-      accessLabel: user.accessScope || user.role.replaceAll("_", " ")
+      accessLabel: user.accessScope || user.role.replaceAll("_", " "),
+      profilePhoto: user.profilePhoto ?? null,
     };
   }
 }
