@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, LogOut, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import {
   adminNavigationItems,
@@ -29,7 +29,7 @@ type SidebarProps = {
 };
 
 export default function Sidebar({ open, onClose, collapsed, onCollapsedChange }: SidebarProps) {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
@@ -115,19 +115,6 @@ export default function Sidebar({ open, onClose, collapsed, onCollapsedChange }:
         </nav>
 
         <div className={`border-t border-slate-200 ${collapsed ? "p-2" : "p-4"}`}>
-          <div className={`mb-3 rounded-xl bg-slate-50 p-3 ${collapsed ? "hidden" : ""}`}>
-            <p className="font-semibold text-slate-900">{user?.fullName || "System Admin"}</p>
-            <p className="text-xs text-slate-500">{user?.role || "Administrator"}</p>
-          </div>
-
-          <button
-            type="button"
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50"
-            onClick={logout}
-          >
-            <LogOut size={19} />
-            {!collapsed && "Logout"}
-          </button>
         </div>
       </aside>
     </>

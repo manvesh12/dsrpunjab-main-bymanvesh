@@ -150,6 +150,7 @@ export default function AdditionalAnnexureEditorPage({
   return (
     <>
       <PageHeader
+        backLink={`/projects/${projectId}`}
         title={`Annexure ${letter}`}
         description={
           hasUploadSection.includes(letter)

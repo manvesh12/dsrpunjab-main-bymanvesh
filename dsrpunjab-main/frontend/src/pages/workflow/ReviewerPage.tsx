@@ -233,6 +233,7 @@ export default function ReviewerPage() {
   return (
     <>
       <PageHeader
+        backLink={`/projects/${projectId}`}
         title="Reviewer & Workflow"
         description="Section-by-section review notes · Approval workflow · Notification inbox"
         action={

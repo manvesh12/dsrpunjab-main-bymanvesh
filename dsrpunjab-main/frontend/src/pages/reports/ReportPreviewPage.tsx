@@ -56,6 +56,7 @@ export default function ReportPreviewPage() {
   return (
     <>
       <PageHeader
+        backLink={`/projects/${projectId}`}
         title="Live Report Preview"
         description={`Continuous compiled preview of all uploaded documents for project #${projectId}`}
         action={

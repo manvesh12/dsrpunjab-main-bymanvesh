@@ -375,6 +375,7 @@ export default function AnnexureEditorPage({ annexure }: { annexure: string }) {
   return (
     <>
       <PageHeader
+        backLink={`/projects/${projectId}`}
         title={data.title}
         description={data.description}
         action={

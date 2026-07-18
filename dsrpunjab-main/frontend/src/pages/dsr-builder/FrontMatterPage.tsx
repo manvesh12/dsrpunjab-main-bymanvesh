@@ -29,7 +29,7 @@ export default function FrontMatterPage(){
 
   return (
     <>
-      <PageHeader title="Front Matter" description="Cover page, preface, content page, certificate of compliance & acknowledgements" action={<div className="flex gap-2"><button className="module-btn" onClick={() => { const element = document.getElementById("front-matter-pdf-preview"); if (element) { html2pdf().set({ margin: 0.5, filename: "Front_Matter.pdf" }).from(element).save(); } }}><Download size={17}/>Download PDF</button><button className="module-btn-primary" onClick={()=>{}}><Save size={17}/>Save Draft</button></div>}/>
+      <PageHeader backLink={`/projects/${projectId}`} title="Front Matter" description="Cover page, preface, content page, certificate of compliance & acknowledgements" action={<div className="flex gap-2"><button className="module-btn" onClick={() => { const element = document.getElementById("front-matter-pdf-preview"); if (element) { html2pdf().set({ margin: 0.5, filename: "Front_Matter.pdf" }).from(element).save(); } }}><Download size={17}/>Download PDF</button><button className="module-btn-primary" onClick={()=>{}}><Save size={17}/>Save Draft</button></div>}/>
       <div className="h-[calc(100vh-12rem)] flex">
         <ResizableLayout leftPanel={leftPanel} rightPanel={rightPanel} leftPanelDefaultSize={60} rightPanelDefaultSize={40} />
       </div>

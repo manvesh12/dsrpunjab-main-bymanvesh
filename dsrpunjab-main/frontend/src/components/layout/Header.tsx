@@ -3,6 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../security/auth.context";
 import ThemeToggle from "../ui/ThemeToggle";
 
+import { useState } from "react";
+import ProfileModal from "../ui/ProfileModal";
+
 type HeaderProps = {
   onMenuClick: () => void;
 };
@@ -10,6 +13,7 @@ type HeaderProps = {
 export default function Header({ onMenuClick }: HeaderProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -52,6 +56,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
         <button
           type="button"
+          onClick={() => setIsProfileModalOpen(true)}
           className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 transition-colors"
         >
           <span className="flex size-8 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 transition-colors">
@@ -73,12 +78,18 @@ export default function Header({ onMenuClick }: HeaderProps) {
         <button
           type="button"
           onClick={handleLogout}
-          className="relative rounded-xl p-2.5 text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors dark:text-slate-400 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+          className="relative flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors dark:text-slate-400 dark:hover:bg-red-500/10 dark:hover:text-red-400"
           title="Logout"
         >
-          <LogOut size={21} />
+          <LogOut size={19} />
+          <span className="hidden sm:inline">Logout</span>
         </button>
       </div>
+
+      <ProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+      />
     </header>
   );
 }
