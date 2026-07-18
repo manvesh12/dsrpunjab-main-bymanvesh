@@ -2,9 +2,9 @@ import PageHeader from "../../components/layout/PageHeader";
 import ResizableLayout from "../../components/layout/ResizableLayout";
 import ModuleEditor from "../../components/ui/ModuleEditor";
 import type { EditorColumn } from "../../components/ui/ModuleEditor";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Download, FileSpreadsheet } from "lucide-react";
+import { Download, FileSpreadsheet, GripVertical } from "lucide-react";
 import {
   exportAnnexureExcel,
   exportAnnexurePdf,
@@ -105,12 +105,48 @@ export default function AdditionalAnnexureEditorPage({
 }) {
   const { projectId = "default" } = useParams();
   const items = definitions[letter] ?? [];
+
   const [snapshots, setSnapshots] = useState<
     Record<
       number,
       { title: string; columns: EditorColumn[]; rows: Record<string, string>[]; attachments?: string[] }
     >
   >({});
+
+  /* ── Drag-and-drop order ── */
+  const [order, setOrder] = useState<number[]>(() =>
+    Array.from({ length: items.length }, (_, i) => i),
+  );
+  const dragIndexRef = useRef<number | null>(null); // position in order array
+  const [dragOverPos, setDragOverPos] = useState<number | null>(null);
+
+  const handleDragStart = (pos: number) => {
+    dragIndexRef.current = pos;
+  };
+  const handleDragOver = (e: React.DragEvent, pos: number) => {
+    e.preventDefault();
+    setDragOverPos(pos);
+  };
+  const handleDrop = (toPos: number) => {
+    const fromPos = dragIndexRef.current;
+    if (fromPos === null || fromPos === toPos) {
+      setDragOverPos(null);
+      return;
+    }
+    setOrder((prev) => {
+      const arr = [...prev];
+      const [item] = arr.splice(fromPos, 1);
+      arr.splice(toPos, 0, item);
+      return arr;
+    });
+    dragIndexRef.current = null;
+    setDragOverPos(null);
+  };
+  const handleDragEnd = () => {
+    dragIndexRef.current = null;
+    setDragOverPos(null);
+  };
+
   return (
     <>
       <PageHeader
@@ -150,59 +186,102 @@ export default function AdditionalAnnexureEditorPage({
         }
       />
       <div className="h-[calc(100vh-14rem)] flex">
-        <ResizableLayout 
-          leftPanelDefaultSize={60} rightPanelDefaultSize={40}
+        <ResizableLayout
+          leftPanelDefaultSize={60}
+          rightPanelDefaultSize={40}
           leftPanel={
             <div className="min-w-0 pb-12">
               {hasUploadSection.includes(letter) && <UploadPanel letter={letter} />}{" "}
-              {items.map((item, index) => (
-                <ModuleEditor
-                  key={item.title}
-                  embedded
-                  editableStructure
-                  showLivePreview={false}
-                  storageKey={`project-${projectId}:annexure-${letter.toLowerCase()}-${index}`}
-                  title={item.title}
-                  description="Original IIT DSR table format"
-                  columns={item.columns.map((label) => ({
-                    key: key(label),
-                    label,
-                  }))}
-                  sampleRows={
-                    letter === "K" && index === 1
-                      ? [
-                          {
-                            source: "River Bed Sand",
-                            no_of_proposed_sites: "12",
-                            area_ha: "48.60",
-                            total_excavation_in_tonnes: "325000",
-                            total_excavation_in_tonnes_considering_60_as_per_emgsm_2020:
-                              "195000",
-                          },
-                        ]
-                      : letter === "F" && index === 0
-                      ? [
-                          {
-                            sl_no: "1",
-                            river_details: "Sutlej River",
-                            sand_bar_code: "SB-01",
-                            lease_details: "Ludhiana Lease",
-                            area_ha_: "12.5",
-                            latitude: "30.900965",
-                            longitude: "75.857277",
-                          },
-                        ]
-                      : []
-                  }
-                  onSnapshotChange={(snapshot) =>
-                    setSnapshots((current) =>
-                      JSON.stringify(current[index]) === JSON.stringify(snapshot)
-                        ? current
-                        : { ...current, [index]: snapshot },
-                    )
-                  }
-                />
-              ))}
+              {items.length > 0 &&
+                order.map((originalIndex, pos) => {
+                  const item = items[originalIndex];
+                  if (!item) return null;
+                  const isDragOver =
+                    dragOverPos === pos &&
+                    dragIndexRef.current !== null &&
+                    dragIndexRef.current !== pos;
+
+                  return (
+                    <div
+                      key={originalIndex}
+                      draggable
+                      onDragStart={() => handleDragStart(pos)}
+                      onDragOver={(e) => handleDragOver(e, pos)}
+                      onDrop={() => handleDrop(pos)}
+                      onDragEnd={handleDragEnd}
+                      className={`relative transition-all ${
+                        isDragOver
+                          ? "border-t-4 border-blue-500 pt-1"
+                          : "border-t-4 border-transparent"
+                      }`}
+                    >
+                      {/* Drag handle bar */}
+                      <div
+                        className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-b-0 border-slate-200 rounded-t-xl cursor-grab active:cursor-grabbing select-none group hover:bg-blue-50 hover:border-blue-200 transition-colors"
+                        title="Drag to reorder this table"
+                      >
+                        <GripVertical
+                          size={16}
+                          className="text-slate-400 group-hover:text-blue-500 transition-colors"
+                        />
+                        <span className="text-xs font-semibold text-slate-500 group-hover:text-blue-600 transition-colors truncate">
+                          {item.title}
+                        </span>
+                        <span className="ml-auto text-[10px] text-slate-400 font-mono shrink-0">
+                          #{pos + 1}
+                        </span>
+                      </div>
+
+                      <ModuleEditor
+                        key={originalIndex}
+                        embedded
+                        editableStructure
+                        showLivePreview={false}
+                        storageKey={`project-${projectId}:annexure-${letter.toLowerCase()}-${originalIndex}`}
+                        title={item.title}
+                        description="Original IIT DSR table format"
+                        columns={item.columns.map((label) => ({
+                          key: key(label),
+                          label,
+                        }))}
+                        sampleRows={
+                          letter === "K" && originalIndex === 1
+                            ? [
+                                {
+                                  source: "River Bed Sand",
+                                  no_of_proposed_sites: "12",
+                                  area_ha: "48.60",
+                                  total_excavation_in_tonnes: "325000",
+                                  total_excavation_in_tonnes_considering_60_as_per_emgsm_2020:
+                                    "195000",
+                                },
+                              ]
+                            : letter === "F" && originalIndex === 0
+                            ? [
+                                {
+                                  sl_no: "1",
+                                  river_details: "Sutlej River",
+                                  sand_bar_code: "SB-01",
+                                  lease_details: "Ludhiana Lease",
+                                  area_ha_: "12.5",
+                                  latitude: "30.900965",
+                                  longitude: "75.857277",
+                                },
+                              ]
+                            : []
+                        }
+                        onSnapshotChange={(snapshot) =>
+                          setSnapshots((current) =>
+                            JSON.stringify(current[originalIndex]) ===
+                            JSON.stringify(snapshot)
+                              ? current
+                              : { ...current, [originalIndex]: snapshot },
+                          )
+                        }
+                      />
+                    </div>
+                  );
+                })}
             </div>
           }
           rightPanel={
@@ -217,15 +296,22 @@ export default function AdditionalAnnexureEditorPage({
                 <h1 className="mt-3 border-b-2 pb-5 text-center text-xl font-bold uppercase">
                   Annexure {letter}
                 </h1>
+
+                {/* Preview respects drag-drop order */}
                 {items.length ? (
-                  items.map((item, index) => {
-                    const snap = snapshots[index];
+                  order.map((originalIndex, pos) => {
+                    const item = items[originalIndex];
+                    if (!item) return null;
+                    const snap = snapshots[originalIndex];
                     const columns =
                       snap?.columns ??
                       item.columns.map((label) => ({ key: key(label), label }));
                     return (
-                      <section className="mt-7" key={index}>
+                      <section className="mt-7" key={originalIndex}>
                         <h2 className="mb-3 text-sm font-bold">
+                          <span className="mr-1 text-slate-400 font-mono text-xs">
+                            {pos + 1}.
+                          </span>
                           {snap?.title ?? item.title}
                         </h2>
                         <table className="w-full border-collapse text-[8px]">

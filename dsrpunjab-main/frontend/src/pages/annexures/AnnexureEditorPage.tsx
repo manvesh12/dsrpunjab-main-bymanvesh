@@ -3,9 +3,9 @@ import ResizableLayout from "../../components/layout/ResizableLayout";
 import ModuleEditor, {
   type EditorColumn,
 } from "../../components/ui/ModuleEditor";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Download, FileSpreadsheet, Plus } from "lucide-react";
+import { Download, FileSpreadsheet, GripVertical, Plus } from "lucide-react";
 import { useLocalDraft } from "../../hooks/useLocalDraft";
 import {
   exportAnnexureExcel,
@@ -307,6 +307,7 @@ type Snapshot = {
   rows: Record<string, string>[];
   attachments?: string[];
 };
+
 export default function AnnexureEditorPage({ annexure }: { annexure: string }) {
   const { projectId = "default" } = useParams();
   const data = sections[annexure] ?? sections["1"];
@@ -315,6 +316,21 @@ export default function AnnexureEditorPage({ annexure }: { annexure: string }) {
     `project-${projectId}:annexure-${annexure}:custom-tables`,
     0,
   );
+
+  const total = data.items.length + customTables;
+
+  // order array: indices 0..total-1, can be reordered by drag-drop
+  const [order, setOrder] = useState<number[]>(() =>
+    Array.from({ length: total }, (_, i) => i),
+  );
+
+  // Keep order in sync when total changes (new table added)
+  const prevTotal = useRef(total);
+  if (total !== prevTotal.current) {
+    prevTotal.current = total;
+    setOrder(Array.from({ length: total }, (_, i) => i));
+  }
+
   const update = useCallback(
     (index: number, snapshot: Snapshot) =>
       setSnapshots((current) =>
@@ -324,7 +340,38 @@ export default function AnnexureEditorPage({ annexure }: { annexure: string }) {
       ),
     [],
   );
-  const total = data.items.length + customTables;
+
+  /* ── Drag-and-drop state ── */
+  const dragIndexRef = useRef<number | null>(null); // position in `order` array
+  const [dragOverPos, setDragOverPos] = useState<number | null>(null);
+
+  const handleDragStart = (pos: number) => {
+    dragIndexRef.current = pos;
+  };
+  const handleDragOver = (e: React.DragEvent, pos: number) => {
+    e.preventDefault();
+    setDragOverPos(pos);
+  };
+  const handleDrop = (toPos: number) => {
+    const fromPos = dragIndexRef.current;
+    if (fromPos === null || fromPos === toPos) {
+      setDragOverPos(null);
+      return;
+    }
+    setOrder((prev) => {
+      const arr = [...prev];
+      const [item] = arr.splice(fromPos, 1);
+      arr.splice(toPos, 0, item);
+      return arr;
+    });
+    dragIndexRef.current = null;
+    setDragOverPos(null);
+  };
+  const handleDragEnd = () => {
+    dragIndexRef.current = null;
+    setDragOverPos(null);
+  };
+
   return (
     <>
       <PageHeader
@@ -363,76 +410,120 @@ export default function AnnexureEditorPage({ annexure }: { annexure: string }) {
       <div className="mb-5 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
         Table names, column headers, rows and values are fully editable.
         Download a CSV template or upload a filled CSV to create entries
-        automatically.
+        automatically.{" "}
+        <span className="font-semibold">
+          Drag the ⠿ handle on each table to reorder — the live preview updates instantly.
+        </span>
       </div>
       <div className="h-[calc(100vh-14rem)] flex">
-        <ResizableLayout 
-          leftPanelDefaultSize={60} rightPanelDefaultSize={40}
+        <ResizableLayout
+          leftPanelDefaultSize={60}
+          rightPanelDefaultSize={40}
           leftPanel={
             <div className="min-w-0 pb-12">
-              {Array.from({ length: total }, (_, index) => {
-                const item = data.items[index] ?? {
-                  title: `New Table ${index - data.items.length + 1}`,
+              {order.map((originalIndex, pos) => {
+                const item = data.items[originalIndex] ?? {
+                  title: `New Table ${originalIndex - data.items.length + 1}`,
                   description: "Custom annexure table",
                   columns: ["Column 1", "Column 2"],
                 };
+                const isDragOver =
+                  dragOverPos === pos &&
+                  dragIndexRef.current !== null &&
+                  dragIndexRef.current !== pos;
+
                 return (
-                  <ModuleEditor
-                    key={index}
-                    embedded
-                    editableStructure
-                    showLivePreview={false}
-                    storageKey={`project-${projectId}:annexure-${annexure}-${index}`}
-                    title={item.title}
-                    description={item.description}
-                    columns={col(item.columns)}
-                    sampleRows={
-                      annexure === "1" && index === 0
-                        ? [
-                            {
-                              river_name_m_sand_plant: "Sutlej River",
-                              total_stretch_of_river_in_km: "45",
-                              type_of_river_perennial_or_non_perennial: "Perennial",
-                            },
-                          ]
-                        : annexure === "2" && index === 0
-                        ? [
-                            {
-                              sl_no: "1",
-                              river_details: "Sutlej River",
-                              sand_bar_code: "SB-01",
-                              lease_details: "Ludhiana Lease",
-                              area_ha: "12.5",
-                              latitude: "30.900965",
-                              longitude: "75.857277",
-                              distance_from_pa_wc_km: "10.5",
-                              within_500m_cluster_area: "No",
-                              bulk_density_gm_cc: "1.65",
-                              depth_of_deposit_m: "3.0",
-                              total_excavation_mt_yr: "618750",
-                              total_excavation_net_60: "371250",
-                              mineral: "Sand",
-                              existing_proposed: "Proposed",
-                              remarks: "Pending EC",
-                            }
-                          ]
-                        : annexure === "3" && index === 0
-                        ? [
-                            {
-                              river_name: "Sutlej",
-                              cluster_no: "CL-01",
-                              lease_no: "L-01, L-02",
-                              location_riverbed_patta_land: "Riverbed",
-                              village: "Phillaur",
-                              area_in_ha: "25.0",
-                              total_excavation_mt: "1237500",
-                              total_mineral_excavation_mt_considering_60_as_per_emgsm_2020: "742500",
-                            }
-                          ]
-                        : []
-                    }
-                    onSnapshotChange={(snapshot) => update(index, snapshot)}
-                  />
+                  <div
+                    key={originalIndex}
+                    draggable
+                    onDragStart={() => handleDragStart(pos)}
+                    onDragOver={(e) => handleDragOver(e, pos)}
+                    onDrop={() => handleDrop(pos)}
+                    onDragEnd={handleDragEnd}
+                    className={`relative mb-0 transition-all ${
+                      isDragOver
+                        ? "border-t-4 border-blue-500 pt-1"
+                        : "border-t-4 border-transparent"
+                    }`}
+                  >
+                    {/* Drag handle bar */}
+                    <div
+                      className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-b-0 border-slate-200 rounded-t-xl cursor-grab active:cursor-grabbing select-none group hover:bg-blue-50 hover:border-blue-200 transition-colors"
+                      title="Drag to reorder this table"
+                    >
+                      <GripVertical
+                        size={16}
+                        className="text-slate-400 group-hover:text-blue-500 transition-colors"
+                      />
+                      <span className="text-xs font-semibold text-slate-500 group-hover:text-blue-600 transition-colors truncate">
+                        {item.title}
+                      </span>
+                      <span className="ml-auto text-[10px] text-slate-400 font-mono shrink-0">
+                        #{pos + 1}
+                      </span>
+                    </div>
+
+                    <ModuleEditor
+                      key={originalIndex}
+                      embedded
+                      editableStructure
+                      showLivePreview={false}
+                      storageKey={`project-${projectId}:annexure-${annexure}-${originalIndex}`}
+                      title={item.title}
+                      description={item.description}
+                      columns={col(item.columns)}
+                      sampleRows={
+                        annexure === "1" && originalIndex === 0
+                          ? [
+                              {
+                                river_name_m_sand_plant: "Sutlej River",
+                                total_stretch_of_river_in_km: "45",
+                                type_of_river_perennial_or_non_perennial:
+                                  "Perennial",
+                              },
+                            ]
+                          : annexure === "2" && originalIndex === 0
+                          ? [
+                              {
+                                sl_no: "1",
+                                river_details: "Sutlej River",
+                                sand_bar_code: "SB-01",
+                                lease_details: "Ludhiana Lease",
+                                area_ha: "12.5",
+                                latitude: "30.900965",
+                                longitude: "75.857277",
+                                distance_from_pa_wc_km: "10.5",
+                                within_500m_cluster_area: "No",
+                                bulk_density_gm_cc: "1.65",
+                                depth_of_deposit_m: "3.0",
+                                total_excavation_mt_yr: "618750",
+                                total_excavation_net_60: "371250",
+                                mineral: "Sand",
+                                existing_proposed: "Proposed",
+                                remarks: "Pending EC",
+                              },
+                            ]
+                          : annexure === "3" && originalIndex === 0
+                          ? [
+                              {
+                                river_name: "Sutlej",
+                                cluster_no: "CL-01",
+                                lease_no: "L-01, L-02",
+                                location_riverbed_patta_land: "Riverbed",
+                                village: "Phillaur",
+                                area_in_ha: "25.0",
+                                total_excavation_mt: "1237500",
+                                total_mineral_excavation_mt_considering_60_as_per_emgsm_2020:
+                                  "742500",
+                              },
+                            ]
+                          : []
+                      }
+                      onSnapshotChange={(snapshot) =>
+                        update(originalIndex, snapshot)
+                      }
+                    />
+                  </div>
                 );
               })}
             </div>
@@ -447,20 +538,31 @@ export default function AnnexureEditorPage({ annexure }: { annexure: string }) {
                   <p className="text-xs font-bold uppercase tracking-[.2em]">
                     Government of Punjab
                   </p>
-                  <h1 className="mt-3 text-xl font-bold uppercase">{data.title}</h1>
+                  <h1 className="mt-3 text-xl font-bold uppercase">
+                    {data.title}
+                  </h1>
                   <p className="mt-1 text-xs text-slate-500">
                     District Survey Report
                   </p>
                 </div>
-                {Array.from({ length: total }, (_, index) => {
-                  const fallback = data.items[index];
-                  const snap = snapshots[index];
+
+                {/* Preview respects drag-drop order */}
+                {order.map((originalIndex, pos) => {
+                  const fallback = data.items[originalIndex];
+                  const snap = snapshots[originalIndex];
                   const labels =
-                    snap?.columns.map((c) => c.label) ?? fallback?.columns ?? [];
+                    snap?.columns.map((c) => c.label) ??
+                    fallback?.columns ??
+                    [];
                   return (
-                    <section key={index} className="mt-7">
+                    <section key={originalIndex} className="mt-7">
                       <h2 className="border-b pb-2 text-sm font-bold">
-                        {snap?.title ?? fallback?.title ?? `New Table ${index + 1}`}
+                        <span className="mr-2 text-slate-400 font-mono text-xs">
+                          {pos + 1}.
+                        </span>
+                        {snap?.title ??
+                          fallback?.title ??
+                          `New Table ${originalIndex + 1}`}
                       </h2>
                       <PreviewSection labels={labels} rows={snap?.rows ?? []} />
                     </section>
