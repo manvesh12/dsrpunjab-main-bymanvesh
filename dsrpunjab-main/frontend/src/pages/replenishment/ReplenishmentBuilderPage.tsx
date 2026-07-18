@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import {
   Archive,
@@ -17,6 +17,7 @@ import {
   Download,
   FileJson,
   FileText,
+  FileSpreadsheet,
   Printer,
   RefreshCw,
   Replace,
@@ -24,6 +25,10 @@ import {
   Upload,
   Sparkles,
   ArrowRight,
+  CloudUpload,
+  Database,
+  GripVertical,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -94,6 +99,15 @@ type CrossSectionRow = {
   action: "Copy previous" | "Replace graph" | "Upload updated" | "Overlay compare";
 };
 
+type EvidenceFile = {
+  id: string;
+  sectionId: string;
+  name: string;
+  size: number;
+  objectKey: string;
+  uploadedAt: string;
+};
+
 type WorkflowState = {
   type: "replenishment_enterprise_workflow";
   importMode: ImportMode;
@@ -104,6 +118,7 @@ type WorkflowState = {
   suggestions: { title: string; detail: string; kind: "static" | "dynamic" | "pending" }[];
   dynamicRegeneration: string[];
   previewNotes: string[];
+  evidenceFiles: EvidenceFile[];
   lastSavedAt?: string;
   district?: string;
   river?: string;
@@ -121,6 +136,24 @@ const resourceOptions = [
   "Graphs",
   "Annexures",
   "References",
+];
+
+const excelTemplates = [
+  {
+    name: "Survey Grid",
+    description: "100 grid rows with auto elevation difference, volume and replenished quantity formulas.",
+    href: "/templates/Replenishment-Survey-Grid-Template.xlsx",
+  },
+  {
+    name: "Cross Sections",
+    description: "Chainage-wise pre/post RL comparison with verification status dropdowns.",
+    href: "/templates/Replenishment-Cross-Section-Template.xlsx",
+  },
+  {
+    name: "Evidence Register",
+    description: "Annexure, approval, survey output and laboratory evidence tracker.",
+    href: "/templates/Replenishment-Evidence-Register-Template.xlsx",
+  },
 ];
 
 const dynamicOutputs = [
@@ -195,6 +228,7 @@ const defaultWorkflow: WorkflowState = {
     "Imported Replenishment Report starts from reusable approved DSR content.",
     "Updated Replenishment Report highlights modified survey-dependent sections.",
   ],
+  evidenceFiles: [],
   district: "Punjab",
   river: "River",
   year: String(new Date().getFullYear()),
@@ -481,6 +515,13 @@ function buildReplenishmentPreviewHtml(study: ReplenishmentStudy | null, workflo
   <div class="running"><span>Annexures</span><span>Evidence Register</span></div>
   <h2>5. Annexure and Evidence Checklist</h2>
   <table><tr><th>Reference</th><th>Document / Evidence</th><th>Status</th></tr>${annexures}</table>
+  <h3>Uploaded Evidence Register</h3>
+  <table>
+    <tr><th>Section</th><th>Uploaded File</th><th>Size</th><th>Upload Date</th></tr>
+    ${workflow.evidenceFiles.length
+      ? workflow.evidenceFiles.map((file) => `<tr><td>${safe(file.sectionId)}</td><td>${safe(file.name)}</td><td>${formattedNumber(file.size / 1024, 1)} KB</td><td>${safe(new Date(file.uploadedAt).toLocaleDateString("en-IN"))}</td></tr>`).join("")
+      : '<tr><td colspan="4">No evidence files uploaded yet.</td></tr>'}
+  </table>
   <h3>Dynamic Outputs Selected for Regeneration</h3>
   <table>${workflow.dynamicRegeneration.map((item, index) => `<tr><td>${index + 1}</td><td>${safe(item)}</td><td>Regenerate from current survey</td></tr>`).join("")}</table>
   <h3>Final Submission Checklist</h3>
@@ -502,6 +543,9 @@ export default function ReplenishmentBuilderPage() {
   const [saving, setSaving] = useState(false);
   const [generatingAi, setGeneratingAi] = useState(false);
   const [importingDsr, setImportingDsr] = useState(false);
+  const [copyingItemId, setCopyingItemId] = useState<string | null>(null);
+  const [uploadingEvidence, setUploadingEvidence] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
 
   const loadStudy = useCallback(async () => {
     if (!projectId) return;
@@ -647,6 +691,63 @@ export default function ReplenishmentBuilderPage() {
     } catch {
       toast.error("Upload failed");
     }
+  };
+
+  const handleEvidenceFiles = async (files: FileList | File[], sectionId = "evidence") => {
+    if (!study || files.length === 0) return;
+    const accepted = Array.from(files).filter((file) => /\.(pdf|xlsx?|csv|png|jpe?g|webp|zip)$/i.test(file.name));
+    if (accepted.length === 0) {
+      toast.error("PDF, Excel, CSV, image ya ZIP file upload karo");
+      return;
+    }
+    setUploadingEvidence(true);
+    try {
+      const uploaded: EvidenceFile[] = [];
+      for (const file of accepted) {
+        const result = await replenishmentApi.uploadFile(study.id, sectionId, file);
+        uploaded.push({
+          id: result.id,
+          sectionId,
+          name: file.name,
+          size: file.size,
+          objectKey: result.objectKey,
+          uploadedAt: new Date().toISOString(),
+        });
+      }
+      setWorkflow((current) => ({ ...current, evidenceFiles: [...current.evidenceFiles, ...uploaded] }));
+      toast.success(`${uploaded.length} evidence file(s) uploaded`);
+    } catch {
+      toast.error("Evidence upload failed");
+    } finally {
+      setUploadingEvidence(false);
+      setDragActive(false);
+    }
+  };
+
+  const handleEvidenceDrop = (event: DragEvent<HTMLLabelElement>) => {
+    event.preventDefault();
+    handleEvidenceFiles(event.dataTransfer.files);
+  };
+
+  const handleCopyFromDsr = async (item: ContentItem) => {
+    if (!study) return;
+    setCopyingItemId(item.id);
+    try {
+      await replenishmentApi.fetchFinalDsr(study.id);
+      updateItem(item.id, { status: "Imported", action: "Copy" });
+      toast.success(`${item.group} Final DSR se working report me copy ho gaya`);
+    } catch {
+      toast.error(`${item.group} copy nahi ho paya`);
+    } finally {
+      setCopyingItemId(null);
+    }
+  };
+
+  const removeEvidenceFile = (fileId: string) => {
+    setWorkflow((current) => ({
+      ...current,
+      evidenceFiles: current.evidenceFiles.filter((file) => file.id !== fileId),
+    }));
   };
 
   const handleExecuteImport = async () => {
@@ -827,6 +928,105 @@ export default function ReplenishmentBuilderPage() {
               <p className="mt-1 text-base font-bold text-slate-900">{value}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="mb-5 border border-slate-300 bg-slate-100 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-300 bg-slate-900 px-5 py-4 text-white">
+          <div>
+            <h2 className="text-base font-bold">Replenishment Report Workspace</h2>
+            <p className="mt-0.5 text-xs text-slate-300">Copy approved DSR content, complete Excel survey templates, upload evidence and review the final report together.</p>
+          </div>
+          <div className="flex items-center gap-2 text-xs font-semibold">
+            <span className="rounded bg-emerald-500/20 px-2.5 py-1 text-emerald-200">Live</span>
+            <span>{workflow.evidenceFiles.length} files</span>
+            <span>{summary.imported} DSR sections</span>
+          </div>
+        </div>
+
+        <div className="grid min-h-[980px] xl:grid-cols-[minmax(0,1.05fr)_minmax(520px,0.95fr)]">
+          <div className="space-y-5 border-r border-slate-300 p-5">
+            <section className="bg-white p-4 shadow-sm ring-1 ring-slate-200">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Database size={18} className="text-blue-700" />
+                  <div><h3 className="text-sm font-bold">Approved DSR Source Library</h3><p className="text-xs text-slate-500">Reusable written content can be copied; dynamic survey content can be replaced by uploads.</p></div>
+                </div>
+                <button className="module-btn" onClick={handleExecuteImport} disabled={importingDsr}>{importingDsr ? "Importing..." : "Copy Selected DSR"}</button>
+              </div>
+              <div className="divide-y divide-slate-200 border border-slate-200">
+                {workflow.contentItems.map((item) => (
+                  <div key={item.id} className="grid gap-3 p-3 md:grid-cols-[24px_minmax(0,1fr)_auto] md:items-center">
+                    <GripVertical size={17} className="hidden text-slate-400 md:block" />
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2"><p className="text-sm font-bold text-slate-800">{item.group}</p><StatusBadge status={item.status} /></div>
+                      <p className="mt-1 text-xs text-slate-500">{item.name}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button className="module-btn" onClick={() => handleCopyFromDsr(item)} disabled={copyingItemId === item.id}>
+                        <Copy size={15}/>{copyingItemId === item.id ? "Copying..." : "Copy from DSR"}
+                      </button>
+                      <label className="module-btn cursor-pointer">
+                        <Upload size={15}/>Upload replacement
+                        <input type="file" hidden multiple accept=".pdf,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.webp,.zip" onChange={(event) => event.target.files && handleEvidenceFiles(event.target.files, item.id)} />
+                      </label>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="bg-white p-4 shadow-sm ring-1 ring-slate-200">
+              <div className="mb-3 flex items-center gap-2"><FileSpreadsheet size={18} className="text-emerald-700"/><div><h3 className="text-sm font-bold">Official Excel Working Templates</h3><p className="text-xs text-slate-500">Download, fill formulas/observations in Excel, then upload the completed file below.</p></div></div>
+              <div className="grid gap-3 md:grid-cols-3">
+                {excelTemplates.map((template) => (
+                  <article key={template.name} className="border border-slate-200 p-3">
+                    <FileSpreadsheet size={22} className="text-emerald-700" />
+                    <h4 className="mt-2 text-sm font-bold">{template.name}</h4>
+                    <p className="mt-1 min-h-12 text-xs leading-5 text-slate-500">{template.description}</p>
+                    <a href={template.href} download className="module-btn mt-3 w-full justify-center"><Download size={15}/>Download .xlsx</a>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="bg-white p-4 shadow-sm ring-1 ring-slate-200">
+              <div className="mb-3 flex items-center gap-2"><CloudUpload size={18} className="text-blue-700"/><div><h3 className="text-sm font-bold">Evidence and Completed Excel Uploads</h3><p className="text-xs text-slate-500">Files are stored against this replenishment study and listed in the generated report.</p></div></div>
+              <label
+                onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }}
+                onDragOver={(event) => event.preventDefault()}
+                onDragLeave={() => setDragActive(false)}
+                onDrop={handleEvidenceDrop}
+                className={`flex min-h-44 cursor-pointer flex-col items-center justify-center border-2 border-dashed px-5 py-8 text-center transition ${dragActive ? "border-blue-500 bg-blue-50" : "border-slate-300 bg-slate-50 hover:border-blue-400"}`}
+              >
+                <CloudUpload size={34} className="text-blue-600" />
+                <p className="mt-3 text-sm font-bold">{uploadingEvidence ? "Uploading files..." : "Drag and drop completed Excel, PDF, maps or photographs"}</p>
+                <p className="mt-1 text-xs text-slate-500">or click to browse | PDF, XLSX, XLS, CSV, PNG, JPG, WEBP, ZIP</p>
+                <input type="file" hidden multiple accept=".pdf,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.webp,.zip" onChange={(event) => event.target.files && handleEvidenceFiles(event.target.files)} />
+              </label>
+              {workflow.evidenceFiles.length > 0 && (
+                <div className="mt-3 divide-y divide-slate-200 border border-slate-200">
+                  {workflow.evidenceFiles.map((file) => (
+                    <div key={file.id} className="flex items-center gap-3 px-3 py-2.5">
+                      <FileText size={17} className="shrink-0 text-slate-500" />
+                      <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{file.name}</p><p className="text-xs text-slate-500">{file.sectionId} | {Math.ceil(file.size / 1024)} KB</p></div>
+                      <button title="Remove from report register" onClick={() => removeEvidenceFile(file.id)} className="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-red-600"><X size={16}/></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+
+          <aside className="min-h-0 bg-slate-300 p-4">
+            <div className="sticky top-4 overflow-hidden border border-slate-400 bg-slate-200 shadow-lg">
+              <div className="flex items-center justify-between gap-3 border-b border-slate-400 bg-white px-4 py-3">
+                <div><p className="text-xs font-bold uppercase text-slate-700">Live Government Report Preview</p><p className="text-[11px] text-slate-500">All written content, calculations and uploaded evidence register</p></div>
+                <button className="module-btn-primary" onClick={handleDownloadGeneratedPdf}><Download size={16}/>Download PDF</button>
+              </div>
+              <iframe title="Live replenishment report preview" srcDoc={livePreviewHtml} className="block h-[calc(100vh-150px)] min-h-[900px] w-full bg-white" />
+            </div>
+          </aside>
         </div>
       </section>
 
@@ -1028,22 +1228,6 @@ export default function ReplenishmentBuilderPage() {
         </div>
       </Panel>
 
-      <div className="mt-5">
-        <Panel title="Live Replenishment Preview" icon={Eye} description="Database draft ka current printable report preview. Har form change yahan turant update hota hai.">
-          <div className="mb-3 flex justify-end">
-            <button className="module-btn-primary" onClick={handleDownloadGeneratedPdf}>
-              <Download size={17}/>Download This Preview PDF
-            </button>
-          </div>
-          <div className="overflow-hidden rounded-xl border border-slate-300 bg-slate-200">
-            <iframe
-              title="Live replenishment report preview"
-              srcDoc={livePreviewHtml}
-              className="block h-[calc(100vh-120px)] min-h-[920px] w-full bg-white"
-            />
-          </div>
-        </Panel>
-      </div>
     </>
   );
 }
