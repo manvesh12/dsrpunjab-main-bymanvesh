@@ -40,6 +40,7 @@ export const uploadsApi = {
     if (moduleName) formData.append("module", moduleName);
     const { data } = await apiClient.post<FileMetadata>("/files/upload", formData, {
       params: { projectId, module: moduleName },
+      headers: { "Content-Type": "multipart/form-data" },
     });
     return {
       ...data,

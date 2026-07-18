@@ -39,7 +39,7 @@ export function createApp() {
         "object-src": ["'none'"]
       }
     },
-    crossOriginResourcePolicy: { policy: "same-site" }
+    crossOriginResourcePolicy: { policy: "cross-origin" }
   }));
   app.use(cors({ origin: environment.webOrigin, credentials: true }));
   app.use(apiLimiter);
