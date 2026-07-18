@@ -56,7 +56,8 @@ export interface CreateProjectPayload {
 }
 
 export interface UpdateProjectStatePayload {
-  projectState?: Record<string, unknown>;
+  state?: Record<string, unknown>;
+  progress?: number;
 }
 
 export interface ProjectListParams {
@@ -100,8 +101,8 @@ export const projectsApi = {
 
   /** Update a project's state (autosave) */
   updateState: async (id: string | number, payload: UpdateProjectStatePayload): Promise<ProjectDetail> => {
-    const { data } = await apiClient.put<ProjectDetail>(`/projects/${id}/state`, payload);
-    return data;
+    const { data } = await apiClient.put<ProjectDetail | { success: boolean; project: ProjectDetail }>(`/projects/${id}/state`, payload);
+    return "project" in data ? data.project : data;
   },
 
   /** Update a specific project section */

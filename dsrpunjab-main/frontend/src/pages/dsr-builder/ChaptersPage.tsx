@@ -1,5 +1,5 @@
-import { ArrowDown, ArrowUp, Plus, Trash2, Upload, Download } from "lucide-react";
-import { useState } from "react";
+import { ArrowDown, ArrowUp, Plus, Trash2, Upload, Download, Save } from "lucide-react";
+import { useEffect, useState } from "react";
 import { downloadHtmlAsPdf } from "../../utils/reportExport";
 import PageHeader from "../../components/layout/PageHeader";
 import ResizableLayout from "../../components/layout/ResizableLayout";
@@ -8,6 +8,7 @@ import { useAuth } from "../../security/auth.context";
 import { hasPermission, Permission } from "../../security/access";
 import { useParams } from "react-router-dom";
 import { uploadErrorMessage, uploadsApi } from "../../api/uploads.api";
+import { projectsApi } from "../../api/projects.api";
 import UploadedFilePreview from "../../components/ui/UploadedFilePreview";
 import { toast } from "sonner";
 
@@ -31,6 +32,7 @@ export default function ChaptersPage() {
   const { user } = useAuth();
   const [chapters, setChapters] = useLocalDraft<Chapter[]>("chapters-exact", initial);
   const [uploading, setUploading] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
   const canEditFirstHalf = hasPermission(user, Permission.SectionChaptersFirstHalf);
   const canEditSecondHalf = hasPermission(user, Permission.SectionChaptersSecondHalf);
   const canEditAnyChapter = canEditFirstHalf || canEditSecondHalf;
@@ -45,6 +47,49 @@ export default function ChaptersPage() {
       [next[index], next[index + direction]] = [next[index + direction], next[index]];
       return next;
     });
+
+  useEffect(() => {
+    if (!/^\d+$/.test(projectId)) return;
+
+    let active = true;
+    projectsApi.get(projectId).then((project) => {
+      if (!active) return;
+      const chaptersState = project.projectState?.chapters as { chapters?: Chapter[] } | Chapter[] | undefined;
+      if (Array.isArray(chaptersState)) setChapters(chaptersState);
+      else if (Array.isArray(chaptersState?.chapters)) setChapters(chaptersState.chapters);
+    }).catch((error) => {
+      console.error("Failed to load chapters draft:", error);
+    });
+
+    return () => { active = false; };
+  }, [projectId, setChapters]);
+
+  const saveDraft = async () => {
+    if (!/^\d+$/.test(projectId)) {
+      toast.error("Project ID missing");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const project = await projectsApi.get(projectId);
+      await projectsApi.updateState(projectId, {
+        state: {
+          ...(project.projectState || {}),
+          chapters: {
+            chapters,
+            savedAt: new Date().toISOString(),
+          },
+        },
+      });
+      toast.success("Chapters saved to database");
+    } catch (error) {
+      console.error("Failed to save chapters draft:", error);
+      toast.error("Draft save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const leftPanel = (
     <div className="space-y-4">
@@ -206,6 +251,10 @@ export default function ChaptersPage() {
             >
               <Plus size={17} />
               Add Chapter
+            </button>
+            <button className="module-btn-primary" disabled={saving} onClick={saveDraft}>
+              <Save size={17} />
+              {saving ? "Saving..." : "Save Draft"}
             </button>
           </div>
         }

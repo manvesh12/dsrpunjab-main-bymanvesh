@@ -1,10 +1,11 @@
-import { ArrowDown, ArrowUp, Image, Plus, Trash2, Upload, Download } from "lucide-react";
-import { useState } from "react";
+import { ArrowDown, ArrowUp, Image, Plus, Trash2, Upload, Download, Save } from "lucide-react";
+import { useEffect, useState } from "react";
 import PageHeader from "../../components/layout/PageHeader";
 import ResizableLayout from "../../components/layout/ResizableLayout";
 import { useLocalDraft } from "../../hooks/useLocalDraft";
 import { useParams } from "react-router-dom";
 import { uploadErrorMessage, uploadsApi } from "../../api/uploads.api";
+import { projectsApi } from "../../api/projects.api";
 import UploadedFilePreview from "../../components/ui/UploadedFilePreview";
 import { toast } from "sonner";
 
@@ -77,9 +78,53 @@ export default function PlatesPage() {
   const [plates, setPlates] = useLocalDraft<Plate[]>("plates-exact", initial);
   const [downloading, setDownloading] = useState(false);
   const [uploading, setUploading] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const update = (i: number, p: Partial<Plate>) => setPlates(c => c.map((x, j) => j === i ? { ...x, ...p } : x));
   const move = (i: number, d: number) => setPlates(c => { const n = [...c]; [n[i], n[i + d]] = [n[i + d], n[i]]; return n; });
+
+  useEffect(() => {
+    if (!/^\d+$/.test(projectId)) return;
+
+    let active = true;
+    projectsApi.get(projectId).then((project) => {
+      if (!active) return;
+      const platesState = project.projectState?.plates as { plates?: Plate[] } | Plate[] | undefined;
+      if (Array.isArray(platesState)) setPlates(platesState);
+      else if (Array.isArray(platesState?.plates)) setPlates(platesState.plates);
+    }).catch((error) => {
+      console.error("Failed to load plates draft:", error);
+    });
+
+    return () => { active = false; };
+  }, [projectId, setPlates]);
+
+  const saveDraft = async () => {
+    if (!/^\d+$/.test(projectId)) {
+      toast.error("Project ID missing");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const project = await projectsApi.get(projectId);
+      await projectsApi.updateState(projectId, {
+        state: {
+          ...(project.projectState || {}),
+          plates: {
+            plates,
+            savedAt: new Date().toISOString(),
+          },
+        },
+      });
+      toast.success("Plates saved to database");
+    } catch (error) {
+      console.error("Failed to save plates draft:", error);
+      toast.error("Draft save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const leftPanel = (
     <div className="space-y-4">
@@ -201,6 +246,10 @@ export default function PlatesPage() {
             </button>
             <button className="module-btn-primary" onClick={() => setPlates(c => [...c, { name: `Plate ${c.length + 1} - Enter Title`, summary: "Enter plate description" }])}>
               <Plus size={17} />Add Plate
+            </button>
+            <button className="module-btn-primary" disabled={saving} onClick={saveDraft}>
+              <Save size={17} />
+              {saving ? "Saving..." : "Save Draft"}
             </button>
           </div>
         }

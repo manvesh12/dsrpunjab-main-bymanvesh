@@ -1,10 +1,11 @@
 import { FileUp, Replace, Save, Trash2, Download } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import PageHeader from "../../components/layout/PageHeader";
 import ResizableLayout from "../../components/layout/ResizableLayout";
 import { useLocalDraft } from "../../hooks/useLocalDraft";
 import { uploadErrorMessage, uploadsApi } from "../../api/uploads.api";
+import { projectsApi } from "../../api/projects.api";
 import UploadedFilePreview from "../../components/ui/UploadedFilePreview";
 import { toast } from "sonner";
 
@@ -103,11 +104,72 @@ export default function FrontMatterPage(){
   const {projectId="default"}=useParams();
   const [data,setData]=useLocalDraft(`project-${projectId}:front-matter`,defaults);
   const [downloading, setDownloading] = useState(false);
+  const [saving, setSaving] = useState(false);
   
   const [coverFile,setCoverFile]=useLocalDraft<UploadRecord|null>(`project-${projectId}:cover`,null);
   const [certFile,setCertFile]=useLocalDraft<UploadRecord|null>(`project-${projectId}:certificate`,null);
   const [contentFile,setContentFile]=useLocalDraft<UploadRecord|null>(`project-${projectId}:contents`,null);
   const [prefaceFile,setPrefaceFile]=useLocalDraft<UploadRecord|null>(`project-${projectId}:preface`,null);
+
+  useEffect(() => {
+    if (!/^\d+$/.test(projectId)) return;
+
+    let active = true;
+    projectsApi.get(projectId).then((project) => {
+      if (!active) return;
+      const frontMatter = project.projectState?.["front-matter"] as
+        | {
+            data?: typeof defaults;
+            coverFile?: UploadRecord | null;
+            certFile?: UploadRecord | null;
+            contentFile?: UploadRecord | null;
+            prefaceFile?: UploadRecord | null;
+          }
+        | undefined;
+
+      if (!frontMatter) return;
+      if (frontMatter.data) setData({ ...defaults, ...frontMatter.data });
+      if ("coverFile" in frontMatter) setCoverFile(frontMatter.coverFile || null);
+      if ("certFile" in frontMatter) setCertFile(frontMatter.certFile || null);
+      if ("contentFile" in frontMatter) setContentFile(frontMatter.contentFile || null);
+      if ("prefaceFile" in frontMatter) setPrefaceFile(frontMatter.prefaceFile || null);
+    }).catch((error) => {
+      console.error("Failed to load front matter draft:", error);
+    });
+
+    return () => { active = false; };
+  }, [projectId, setCoverFile, setCertFile, setContentFile, setData, setPrefaceFile]);
+
+  const saveDraft = async () => {
+    if (!/^\d+$/.test(projectId)) {
+      toast.error("Project ID missing");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const project = await projectsApi.get(projectId);
+      await projectsApi.updateState(projectId, {
+        state: {
+          ...(project.projectState || {}),
+          "front-matter": {
+            data,
+            coverFile,
+            certFile,
+            contentFile,
+            prefaceFile,
+            savedAt: new Date().toISOString(),
+          },
+        },
+      });
+      toast.success("Draft saved to database");
+    } catch (error) {
+      console.error("Failed to save front matter draft:", error);
+      toast.error("Draft save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const field=(key:keyof typeof data,label:string)=><label className="block text-sm font-semibold text-slate-700">{label}<input value={data[key]} onChange={e=>setData(v=>({...v,[key]:e.target.value}))} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-blue-500"/></label>;
   
@@ -247,8 +309,8 @@ export default function FrontMatterPage(){
               <Download size={17}/>
               {downloading ? "Generating..." : "Download PDF"}
             </button>
-            <button className="module-btn-primary" onClick={()=>{}}>
-              <Save size={17}/>Save Draft
+            <button className="module-btn-primary" disabled={saving} onClick={saveDraft}>
+              <Save size={17}/>{saving ? "Saving..." : "Save Draft"}
             </button>
           </div>
         }
