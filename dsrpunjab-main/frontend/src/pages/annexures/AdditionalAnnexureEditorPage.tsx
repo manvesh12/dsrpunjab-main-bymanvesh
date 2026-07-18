@@ -15,7 +15,7 @@ const key = (label: string) =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_|_$/g, "");
-const uploadOnly = ["B", "C", "D", "E", "G", "H", "I"];
+const hasUploadSection = ["B", "C", "D", "E", "G", "H", "I", "J", "K"];
 const definitions: Record<string, { title: string; columns: string[] }[]> = {
   F: [
     {
@@ -116,8 +116,8 @@ export default function AdditionalAnnexureEditorPage({
       <PageHeader
         title={`Annexure ${letter}`}
         description={
-          uploadOnly.includes(letter)
-            ? `Upload and manage Annexure ${letter} PDFs and images`
+          hasUploadSection.includes(letter)
+            ? `Upload and manage Annexure ${letter} PDFs, images, and data`
             : "Original additional-annexure formats"
         }
         action={
@@ -154,7 +154,7 @@ export default function AdditionalAnnexureEditorPage({
           leftPanelDefaultSize={60} rightPanelDefaultSize={40}
           leftPanel={
             <div className="min-w-0 pb-12">
-              {uploadOnly.includes(letter) && <UploadPanel letter={letter} />}{" "}
+              {hasUploadSection.includes(letter) && <UploadPanel letter={letter} />}{" "}
               {items.map((item, index) => (
                 <ModuleEditor
                   key={item.title}
