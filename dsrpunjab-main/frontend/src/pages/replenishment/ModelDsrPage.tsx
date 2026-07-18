@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { useParams } from "react-router-dom";
 import jsPDF from "jspdf";
+import { get } from "idb-keyval";
 import PageHeader from "../../components/layout/PageHeader";
 import ResizableLayout from "../../components/layout/ResizableLayout";
 import { apiClient } from "../../api/client";
@@ -49,6 +50,16 @@ interface CustomSection {
 type ProjectChapter = { name: string; summary: string; file?: { name: string; url: string } };
 type ProjectPlate = { name: string; summary: string; fileName?: string; url?: string };
 type ProjectUpload = { title: string; name: string; url: string };
+
+async function loadBuilderDraft<T>(key: string): Promise<T | undefined> {
+  try {
+    const localValue = localStorage.getItem(`dsr:${key}`);
+    if (localValue) return JSON.parse(localValue) as T;
+    return await get<T>(`dsr:${key}`);
+  } catch {
+    return undefined;
+  }
+}
 
 function projectBuilderContent(project: ProjectDetail | null) {
   const state = project?.projectState || {};
@@ -442,7 +453,30 @@ export default function ModelDsrPage() {
 
   useEffect(() => {
     if (!/^\d+$/.test(projectId)) return;
-    projectsApi.get(projectId).then(setProject).catch((error) => console.error("Failed to load Model DSR project content:", error));
+    Promise.all([
+      projectsApi.get(projectId),
+      loadBuilderDraft<ProjectChapter[]>("chapters-exact"),
+      loadBuilderDraft<ProjectPlate[]>("plates-exact"),
+      loadBuilderDraft<Record<string, string>>(`project-${projectId}:front-matter`),
+      loadBuilderDraft<{ name: string; url?: string } | null>(`project-${projectId}:cover`),
+      loadBuilderDraft<{ name: string; url?: string } | null>(`project-${projectId}:certificate`),
+      loadBuilderDraft<{ name: string; url?: string } | null>(`project-${projectId}:contents`),
+      loadBuilderDraft<{ name: string; url?: string } | null>(`project-${projectId}:preface`),
+    ]).then(([remoteProject, chapters, plates, frontData, coverFile, certFile, contentFile, prefaceFile]) => {
+      const remoteState = remoteProject.projectState || {};
+      const localFrontMatter = frontData
+        ? { data: frontData, coverFile, certFile, contentFile, prefaceFile }
+        : undefined;
+      setProject({
+        ...remoteProject,
+        projectState: {
+          ...remoteState,
+          chapters: remoteState.chapters || (chapters ? { chapters } : undefined),
+          plates: remoteState.plates || (plates ? { plates } : undefined),
+          "front-matter": remoteState["front-matter"] || localFrontMatter,
+        },
+      });
+    }).catch((error) => console.error("Failed to load Model DSR project content:", error));
   }, [projectId]);
 
   // Persist reports to localStorage whenever they change
