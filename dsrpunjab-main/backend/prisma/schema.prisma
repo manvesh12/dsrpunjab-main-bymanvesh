@@ -569,6 +569,7 @@ model DsrFile {
   objectKey   String
   contentType String   @default("application/pdf")
   sizeBytes   Int
+  fileData    Bytes?
   createdAt   DateTime @default(now())
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 

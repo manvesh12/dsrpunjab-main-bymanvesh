@@ -76,19 +76,35 @@ export function openPrintableDocument(html: string, title: string) {
 
 // Adding a robust html2pdf generator function
 export async function downloadHtmlAsPdf(elementOrHtml: HTMLElement | string, filename: string, isLandscape: boolean = false) {
+  let previewFrame: HTMLIFrameElement | null = null;
   try {
-    let container = elementOrHtml;
-    let cleanup = false;
+    let container: HTMLElement = elementOrHtml as HTMLElement;
     
     if (typeof elementOrHtml === 'string') {
-      container = document.createElement('div');
-      container.innerHTML = elementOrHtml;
-      // We append it to body but hide it, because html2pdf sometimes needs it in DOM to resolve styles
-      container.style.position = 'absolute';
-      container.style.left = '-9999px';
-      container.style.top = '0';
-      document.body.appendChild(container);
-      cleanup = true;
+      previewFrame = document.createElement('iframe');
+      previewFrame.setAttribute('aria-hidden', 'true');
+      previewFrame.style.position = 'fixed';
+      previewFrame.style.left = '-10000px';
+      previewFrame.style.top = '0';
+      previewFrame.style.width = isLandscape ? '1123px' : '794px';
+      previewFrame.style.height = isLandscape ? '794px' : '1123px';
+      previewFrame.style.border = '0';
+      document.body.appendChild(previewFrame);
+
+      const previewDocument = previewFrame.contentDocument;
+      if (!previewDocument) throw new Error('Unable to create isolated PDF document');
+      previewDocument.open();
+      previewDocument.write(elementOrHtml);
+      previewDocument.close();
+      await previewDocument.fonts?.ready;
+      await Promise.all(Array.from(previewDocument.images).map((image) => {
+        if (image.complete) return Promise.resolve();
+        return new Promise<void>((resolve) => {
+          image.addEventListener('load', () => resolve(), { once: true });
+          image.addEventListener('error', () => resolve(), { once: true });
+        });
+      }));
+      container = previewDocument.body;
     }
     
     const opt = {
@@ -101,14 +117,12 @@ export async function downloadHtmlAsPdf(elementOrHtml: HTMLElement | string, fil
     };
 
     await html2pdf().set(opt).from(container).save();
-    
-    if (cleanup && typeof container !== 'string') {
-      document.body.removeChild(container);
-    }
     return true;
   } catch (error) {
     console.error("PDF generation failed:", error);
     throw error;
+  } finally {
+    previewFrame?.remove();
   }
 }
 

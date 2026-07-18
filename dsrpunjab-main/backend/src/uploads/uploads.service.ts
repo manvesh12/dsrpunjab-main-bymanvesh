@@ -47,7 +47,13 @@ export class UploadsService {
     await this.storage.putFile(objectKey, input.bytes, contentType);
     try {
       const file = await this.repository.create({
-        projectId, annexureId, fileName: originalName, objectKey, contentType, sizeBytes: input.bytes.byteLength
+        projectId,
+        annexureId,
+        fileName: originalName,
+        objectKey,
+        contentType,
+        sizeBytes: input.bytes.byteLength,
+        fileData: Uint8Array.from(input.bytes),
       });
       return {
         success: true,
@@ -74,7 +80,8 @@ export class UploadsService {
     if (!file) throw new ApiError(404, "FILE_NOT_FOUND", "File not found");
     const project = await this.repository.findProject(file.projectId);
     assertProjectDistrictAccess(project, user);
-    return { file, bytes: await this.storage.getFile(file.objectKey) };
+    const bytes = file.fileData ? Buffer.from(file.fileData) : await this.storage.getFile(file.objectKey);
+    return { file, bytes };
   }
 
   async delete(identifier: string, projectIdValue: string, user: AuthUser) {
