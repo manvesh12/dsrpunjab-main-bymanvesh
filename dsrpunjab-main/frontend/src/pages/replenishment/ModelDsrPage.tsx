@@ -406,10 +406,17 @@ async function downloadCompiledModelDsr(report: ModelDsrReport, sections: Sectio
     drawWrappedLines(page, regular, frontData.acknowledgement, { x: 55, y: 730, maxWidth: 485, size: 11, lineHeight: 18 });
   }
 
+  const skippedUploads: string[] = [];
   for (const upload of selectedModelUploads(report, project)) {
-    await appendUploadedDocument(document, { name: upload.name, url: upload.url });
+    try {
+      await appendUploadedDocument(document, { name: upload.name, url: upload.url });
+    } catch (error) {
+      console.warn(`Skipping unreadable Model DSR attachment: ${upload.name}`, error);
+      skippedUploads.push(upload.name);
+    }
   }
   await saveSectionPdf(document, `${report.name.replace(/[^a-z0-9]+/gi, "-") || "Model-DSR"}.pdf`);
+  return skippedUploads;
 }
 
 // ─────────────────────────────────────────────────────────
@@ -575,8 +582,9 @@ export default function ModelDsrPage() {
     }
     const allSections = buildSectionList(report);
     try {
-      await downloadCompiledModelDsr(report, allSections, project);
-      toast.success("Model DSR PDF downloaded");
+      const skipped = await downloadCompiledModelDsr(report, allSections, project);
+      if (skipped.length) toast.warning(`PDF downloaded; ${skipped.length} unreadable attachment(s) skipped`);
+      else toast.success("Model DSR PDF downloaded");
     } catch (error) {
       console.error("Model DSR compilation failed:", error);
       toast.error("Selected content PDF download failed");
@@ -1077,8 +1085,9 @@ function ReportEditor({
     }
     const allSecs = buildSectionList(report);
     try {
-      await downloadCompiledModelDsr(report, allSecs, project);
-      toast.success("Selected content PDF downloaded!");
+      const skipped = await downloadCompiledModelDsr(report, allSecs, project);
+      if (skipped.length) toast.warning(`PDF downloaded; ${skipped.length} unreadable attachment(s) skipped`);
+      else toast.success("Selected content PDF downloaded!");
     } catch (error) {
       console.error("Model DSR compilation failed:", error);
       toast.error("Selected content PDF download failed");

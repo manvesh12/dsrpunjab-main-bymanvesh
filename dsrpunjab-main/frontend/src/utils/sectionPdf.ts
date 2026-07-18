@@ -32,17 +32,31 @@ export function drawPdfHeading(page: PDFPage, font: PDFFont, text: string, y = 7
 
 export async function appendUploadedDocument(target: PDFDocument, upload: PdfUpload) {
   if (!upload?.url) return false;
-  const response = await apiClient.get<ArrayBuffer>(upload.url, { responseType: "arraybuffer" });
-  const contentType = String(response.headers["content-type"] || "").toLowerCase();
+  let data: ArrayBuffer;
+  let contentType = "";
+  if (/^(blob:|data:)/i.test(upload.url)) {
+    const response = await fetch(upload.url);
+    if (!response.ok) throw new Error(`Could not read ${upload.name}`);
+    data = await response.arrayBuffer();
+    contentType = String(response.headers.get("content-type") || "").toLowerCase();
+  } else {
+    const response = await apiClient.get<ArrayBuffer>(upload.url, {
+      responseType: "arraybuffer",
+      timeout: 60_000,
+    });
+    data = response.data;
+    contentType = String(response.headers["content-type"] || "").toLowerCase();
+  }
+  if (!data.byteLength) throw new Error(`${upload.name} is empty`);
   if (contentType.includes("pdf") || upload.name.toLowerCase().endsWith(".pdf")) {
-    const source = await PDFDocument.load(response.data);
+    const source = await PDFDocument.load(data);
     const pages = await target.copyPages(source, source.getPageIndices());
     pages.forEach((page) => target.addPage(page));
     return true;
   }
   const image = contentType.includes("png") || upload.name.toLowerCase().endsWith(".png")
-    ? await target.embedPng(response.data)
-    : await target.embedJpg(response.data);
+    ? await target.embedPng(data)
+    : await target.embedJpg(data);
   const page = target.addPage([595.28, 841.89]);
   const scale = Math.min(page.getWidth() / image.width, page.getHeight() / image.height);
   const width = image.width * scale;
