@@ -1543,36 +1543,10 @@ function PreviewPanel({
         </span>
       </div>
       <div ref={previewScrollRef} className="min-h-0 flex-1 overflow-y-auto p-4">
-        <iframe
-          key={`${report.id}-${report.sections.join(",")}-${uploadedPreviews.map((upload) => upload.url).join(",")}`}
-          srcDoc={previewHtml}
-          className="block h-[940px] w-full border-none bg-white shadow-sm"
-          title="Model DSR Live Preview"
-          scrolling="no"
-        />
-        {showGeneratedPreface && (
-          <PreviewTextPage title="Preface" text={frontData.preface} />
-        )}
-        {showAcknowledgement && (
-          <PreviewTextPage title="Acknowledgement" text={frontData.acknowledgement} />
-        )}
-        {checkedSet.has("chapters") && content.chapters.length > 0 && (
-          <PreviewContentPage
-            title="Chapters"
-            items={content.chapters.map((chapter) => ({
-              title: chapter.name,
-              text: chapter.summary,
-            }))}
-          />
-        )}
-        {checkedSet.has("plates") && content.plates.length > 0 && (
-          <PreviewContentPage
-            title="Plates and Maps"
-            items={content.plates.map((plate) => ({
-              title: plate.name,
-              text: plate.summary,
-            }))}
-          />
+        {uploadedPreviews.length === 0 && (
+          <div className="flex min-h-[500px] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm font-semibold text-slate-500">
+            No uploaded document is available for the selected sections. Upload a PDF or image to show it in the live preview.
+          </div>
         )}
         {uploadedPreviews.map((upload) => (
           <section key={upload.id} className="mt-5">
