@@ -58,6 +58,22 @@ type ContentItem = {
 type SurveyUpdate = {
   surveyYear: string;
   surveyDate: string;
+  projectName: string;
+  blockName: string;
+  village: string;
+  mineral: string;
+  applicant: string;
+  preparedBy: string;
+  leaseArea: string;
+  mineableArea: string;
+  approvedAnnualQuantity: string;
+  preMonsoonDate: string;
+  postMonsoonDate: string;
+  gridArea: string;
+  preMonsoonElevation: string;
+  postMonsoonElevation: string;
+  bulkDensity: string;
+  extractedQuantity: string;
   dgps: boolean;
   drone: boolean;
   demDsm: boolean;
@@ -123,6 +139,22 @@ const dynamicOutputs = [
 const defaultSurvey: SurveyUpdate = {
   surveyYear: "2025-26",
   surveyDate: "",
+  projectName: "River Bed Material Replenishment Study",
+  blockName: "",
+  village: "",
+  mineral: "River Bed Material / Sand",
+  applicant: "",
+  preparedBy: "District Survey Report Committee",
+  leaseArea: "",
+  mineableArea: "",
+  approvedAnnualQuantity: "",
+  preMonsoonDate: "",
+  postMonsoonDate: "",
+  gridArea: "",
+  preMonsoonElevation: "",
+  postMonsoonElevation: "",
+  bulkDensity: "1.80",
+  extractedQuantity: "",
   dgps: true,
   drone: true,
   demDsm: true,
@@ -169,6 +201,24 @@ const defaultWorkflow: WorkflowState = {
   version: 1,
 };
 
+function escapeHtml(value: unknown) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function numericValue(value: string) {
+  const parsed = Number(String(value || "").replaceAll(",", ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formattedNumber(value: number, digits = 2) {
+  return value.toLocaleString("en-IN", { maximumFractionDigits: digits });
+}
+
 function currentUserName() {
   try {
     const raw = localStorage.getItem("dsr:auth_user");
@@ -202,69 +252,241 @@ function recordHistory(studyId: string, workflow: WorkflowState, fileName: strin
 
 function buildReplenishmentPreviewHtml(study: ReplenishmentStudy | null, workflow: WorkflowState, survey: SurveyUpdate) {
   const summary = workflow.importSummary;
+  const safe = (value: unknown, fallback = "To be provided") => escapeHtml(value || fallback);
+  const gridArea = numericValue(survey.gridArea);
+  const preElevation = numericValue(survey.preMonsoonElevation);
+  const postElevation = numericValue(survey.postMonsoonElevation);
+  const elevationDifference = Math.abs(postElevation - preElevation);
+  const bulkDensity = numericValue(survey.bulkDensity);
+  const replenishedVolume = gridArea * elevationDifference;
+  const replenishedQuantity = replenishedVolume * bulkDensity;
+  const approvedQuantity = numericValue(survey.approvedAnnualQuantity);
+  const replenishmentPercentage = approvedQuantity > 0 ? (replenishedQuantity / approvedQuantity) * 100 : 0;
+  const extractedQuantity = numericValue(survey.extractedQuantity);
+  const netAvailableQuantity = Math.max(0, replenishedQuantity - extractedQuantity);
+  const instrumentList = [survey.dgps && "DGPS", survey.drone && "Drone survey", survey.demDsm && "DEM/DSM", survey.orthomosaic && "Orthomosaic", survey.crossSections && "Cross-section profiles"].filter(Boolean).join(", ");
+  const requiredFields = [workflow.district, workflow.river, survey.blockName, survey.preMonsoonDate, survey.postMonsoonDate, survey.gridArea, survey.preMonsoonElevation, survey.postMonsoonElevation, survey.bulkDensity];
+  const completedFields = requiredFields.filter(Boolean).length;
+  const calculationStatus = completedFields === requiredFields.length ? "CALCULATION READY" : `${completedFields}/${requiredFields.length} DATA FIELDS READY`;
+  const rows = workflow.contentItems.map((item) => `<tr><td>${safe(item.group)}</td><td>${safe(item.name)}</td><td>${safe(item.status)}</td><td>${safe(item.action)}</td></tr>`).join("");
+  const annexures = [
+    ["A", "Environmental Clearance / statutory approval"],
+    ["B", "Approved mining plan and lease plan"],
+    ["C", "DGPS base and rover observations"],
+    ["D", "Pre-monsoon and post-monsoon grid data"],
+    ["E", "Orthomosaic, DEM/DSM and cross-section plates"],
+    ["F", "Survey photographs and benchmark records"],
+    ["G", "Bulk density laboratory report"],
+  ].map(([id, name]) => `<tr><td>Annexure ${id}</td><td>${name}</td><td>Attach verified copy</td></tr>`).join("");
   return `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8">
 <title></title>
 <style>
-  @page { size: A4; margin: 14mm; }
+  @page { size: A4; margin: 0; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: "Noto Sans", "Nirmala UI", "Mangal", Arial, Helvetica, sans-serif; background: #f1f5f9; color: #0f172a; padding: 20px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .page { position: relative; max-width: 780px; min-height: 1060px; margin: 0 auto 18px; background: #fff; padding: 42px 52px; box-shadow: 0 4px 24px rgba(15,23,42,0.12); page-break-after: always; overflow: hidden; }
-  .watermark { position: absolute; inset: 42% 0 auto; text-align: center; transform: rotate(-28deg); font-size: 52px; font-weight: 800; color: rgba(23,50,77,0.06); pointer-events: none; }
-  .header { text-align: center; border-bottom: 3px solid #17324d; padding-bottom: 18px; margin-bottom: 28px; }
-  .header img { height: 58px; object-fit: contain; margin-bottom: 8px; }
-  h1 { font-size: 18px; color: #17324d; text-transform: uppercase; letter-spacing: 0.5px; }
-  h2 { margin-top: 8px; font-size: 15px; color: #334155; text-transform: uppercase; }
-  .meta { margin-top: 8px; font-size: 11px; color: #64748b; }
-  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 24px 0; }
-  .metric { border: 1px solid #e2e8f0; background: #f8fafc; padding: 10px; border-radius: 6px; }
-  .metric b { display: block; font-size: 18px; color: #17324d; }
-  .metric span { font-size: 10px; color: #64748b; text-transform: uppercase; }
-  h3 { margin: 22px 0 10px; font-size: 13px; color: #17324d; text-transform: uppercase; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; }
-  table { width: 100%; border-collapse: collapse; font-size: 10px; break-inside: avoid; }
-  th, td { border: 1px solid #cbd5e1; padding: 7px; text-align: left; vertical-align: top; }
-  th { background: #e2e8f0; color: #334155; text-transform: uppercase; }
-  .survey { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; font-size: 11px; }
-  .survey div { border: 1px solid #e2e8f0; padding: 8px; background: #f8fafc; border-radius: 6px; }
-  .footer { margin-top: 24px; border-top: 1px solid #e2e8f0; padding-top: 10px; text-align: center; font-size: 9px; color: #94a3b8; }
-  @media print { body { background: #fff; padding: 0; } .page { max-width: none; min-height: auto; box-shadow: none; margin: 0; } }
+  body { font-family: Arial, Helvetica, sans-serif; background: #dbe2e8; color: #17212b; padding: 18px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page { position: relative; width: 210mm; min-height: 297mm; margin: 0 auto 18px; background: #fff; padding: 18mm 17mm 16mm; box-shadow: 0 3px 18px rgba(15,23,42,.16); page-break-after: always; }
+  .page:last-child { page-break-after: auto; }
+  .watermark { position: absolute; left: 0; right: 0; top: 46%; text-align: center; transform: rotate(-28deg); font-size: 42px; font-weight: 800; color: rgba(23,50,77,.045); pointer-events: none; }
+  .running { display: flex; justify-content: space-between; gap: 16px; border-bottom: 2px solid #183c5a; padding-bottom: 7px; margin-bottom: 18px; color: #183c5a; font-size: 9px; font-weight: 700; text-transform: uppercase; }
+  .cover { display: flex; min-height: 250mm; flex-direction: column; align-items: center; justify-content: center; text-align: center; border: 3px double #183c5a; padding: 18mm; }
+  .emblem { width: 76px; height: 76px; object-fit: contain; margin-bottom: 14px; }
+  h1 { font-size: 22px; line-height: 1.35; color: #183c5a; text-transform: uppercase; }
+  h2 { margin-top: 9px; font-size: 16px; line-height: 1.4; color: #263b4d; text-transform: uppercase; }
+  h3 { margin: 22px 0 10px; font-size: 13px; color: #183c5a; text-transform: uppercase; border-bottom: 1px solid #9eacb8; padding-bottom: 6px; }
+  h4 { margin: 14px 0 6px; font-size: 11px; color: #263b4d; }
+  p, li { font-size: 10.5px; line-height: 1.65; text-align: justify; }
+  ul, ol { margin: 6px 0 10px 20px; }
+  .meta { margin-top: 12px; font-size: 11px; color: #526575; }
+  .flag { display: inline-block; margin-top: 22px; border: 1px solid #14804a; background: #e8f7ef; color: #11643c; padding: 8px 15px; border-radius: 4px; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+  .cover-table { width: 82%; margin-top: 28px; }
+  .signature { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 48px; }
+  .signature div { border-top: 1px solid #506474; padding-top: 7px; text-align: center; font-size: 9px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin: 15px 0; }
+  .metric { border: 1px solid #b9c5cf; background: #f3f6f8; padding: 10px; border-radius: 3px; }
+  .metric b { display: block; font-size: 16px; color: #183c5a; }
+  .metric span { font-size: 8px; color: #526575; text-transform: uppercase; }
+  .notice { border-left: 4px solid #183c5a; background: #eef3f6; padding: 10px 12px; margin: 12px 0; font-size: 10px; line-height: 1.55; }
+  .result { border: 2px solid #14804a; background: #edf9f2; padding: 14px; margin: 16px 0; }
+  .result strong { color: #11643c; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 14px; font-size: 9.5px; break-inside: avoid; }
+  th, td { border: 1px solid #8fa0ad; padding: 6px; text-align: left; vertical-align: top; line-height: 1.4; }
+  th { background: #dfe8ee; color: #183c5a; text-transform: uppercase; }
+  .toc td:first-child { width: 9%; text-align: center; }
+  .toc td:last-child { width: 12%; text-align: center; }
+  .formula { font-family: Consolas, monospace; background: #f3f6f8; border: 1px solid #b9c5cf; padding: 10px; margin: 8px 0; font-size: 10px; }
+  .checklist { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin: 10px 0; }
+  .check { border: 1px solid #b9c5cf; padding: 8px; font-size: 9.5px; background: #f8fafb; }
+  .footer { position: absolute; left: 17mm; right: 17mm; bottom: 8mm; border-top: 1px solid #b9c5cf; padding-top: 5px; display: flex; justify-content: space-between; font-size: 8px; color: #667885; }
+  @media print { body { background: #fff; padding: 0; } .page { box-shadow: none; margin: 0; } }
 </style>
 </head>
 <body>
 <div class="page">
-  <div class="watermark">GOVERNMENT OF PUNJAB</div>
-  <div class="header">
-    <img src="/assets/state-emblem.png" alt="Punjab Logo">
+  <div class="cover">
+    <img class="emblem" src="/assets/state-emblem.png" alt="State emblem">
     <h1>Government of Punjab</h1>
-    <h2>${study?.title || "Enterprise Replenishment Report"}</h2>
-    <div class="meta">${workflow.district || "Punjab"} | ${workflow.river || "River"} | ${workflow.year || survey.surveyYear} | Version ${workflow.version || 1}</div>
+    <div class="meta">Department of Mines and Geology</div>
+    <h2>Replenishment Study Report</h2>
+    <p class="meta">Prepared in accordance with Sustainable Sand Mining Management Guidelines, 2016 and Enforcement & Monitoring Guidelines for Sand Mining, 2020</p>
+    <div class="flag">Format Validated - Green Flag</div>
+    <table class="cover-table">
+      <tr><th>Project</th><td>${safe(survey.projectName)}</td></tr>
+      <tr><th>Mining Block</th><td>${safe(survey.blockName)}</td></tr>
+      <tr><th>River / Village</th><td>${safe(workflow.river)} / ${safe(survey.village)}</td></tr>
+      <tr><th>District</th><td>${safe(workflow.district)}</td></tr>
+      <tr><th>Study Year</th><td>${safe(survey.surveyYear || workflow.year)}</td></tr>
+      <tr><th>Applicant</th><td>${safe(survey.applicant)}</td></tr>
+      <tr><th>Prepared By</th><td>${safe(survey.preparedBy)}</td></tr>
+    </table>
+    <p class="meta">Report version ${safe(workflow.version, "1")} | ${safe(calculationStatus)}</p>
   </div>
+  <div class="footer"><span>Replenishment Study Report</span><span>Cover</span></div>
+</div>
+
+<div class="page">
+  <div class="watermark">GOVERNMENT OF PUNJAB</div>
+  <div class="running"><span>Replenishment Study Report</span><span>${safe(workflow.district)} | ${safe(workflow.year)}</span></div>
+  <h2>Certificate and Declaration</h2>
+  <div class="notice">This generic report format has been prepared for documenting a scientific replenishment assessment. All project-specific values, survey observations, maps, photographs, laboratory results and statutory approvals must be verified by the competent authority before submission.</div>
+  <h3>Certificate</h3>
+  <p>It is certified that the pre-monsoon and post-monsoon survey data presented in this report shall be based on field observations, authenticated benchmarks and approved survey methodology. The replenished quantity shall be restricted to scientifically assessed deposition within the eligible mineable area.</p>
+  <h3>Report Particulars</h3>
+  <table>
+    <tr><th>Mineral</th><td>${safe(survey.mineral)}</td><th>Lease Area</th><td>${safe(survey.leaseArea)} ha</td></tr>
+    <tr><th>Mineable Area</th><td>${safe(survey.mineableArea)} ha</td><th>Mining Block</th><td>${safe(survey.blockName)}</td></tr>
+    <tr><th>Pre-monsoon Survey</th><td>${safe(survey.preMonsoonDate)}</td><th>Post-monsoon Survey</th><td>${safe(survey.postMonsoonDate)}</td></tr>
+    <tr><th>Survey Technologies</th><td colspan="3">${safe(instrumentList, "DGPS / drone / cross-section survey as applicable")}</td></tr>
+  </table>
+  <div class="signature"><div>Survey Officer / GIS Expert</div><div>District Mining Officer</div></div>
+  <div class="signature"><div>Project Proponent</div><div>Competent Authority</div></div>
+  <div class="footer"><span>Government format - verify before issue</span><span>Page 2</span></div>
+</div>
+
+<div class="page">
+  <div class="running"><span>Replenishment Study Report</span><span>Contents</span></div>
+  <h2>Table of Contents</h2>
+  <table class="toc">
+    <tr><th>Sr.</th><th>Section</th><th>Page</th></tr>
+    <tr><td>1</td><td>Introduction, objectives and statutory basis</td><td>4</td></tr>
+    <tr><td>2</td><td>Project and baseline particulars</td><td>4</td></tr>
+    <tr><td>3</td><td>Survey methodology and quality controls</td><td>5</td></tr>
+    <tr><td>4</td><td>Pre/post monsoon observations</td><td>6</td></tr>
+    <tr><td>5</td><td>Volume, quantity and replenishment calculation</td><td>6</td></tr>
+    <tr><td>6</td><td>Findings, conclusion and recommendations</td><td>7</td></tr>
+    <tr><td>7</td><td>Annexure and evidence checklist</td><td>8</td></tr>
+  </table>
+  <h3>Imported DSR Content Register</h3>
+  <table><tr><th>Group</th><th>Content</th><th>Status</th><th>Treatment</th></tr>${rows}</table>
   <div class="grid">
-    <div class="metric"><b>${summary.imported}</b><span>Imported</span></div>
-    <div class="metric"><b>${summary.updated}</b><span>Updated</span></div>
-    <div class="metric"><b>${summary.pending}</b><span>Pending/Fresh Survey</span></div>
+    <div class="metric"><b>${summary.imported}</b><span>Imported references</span></div>
+    <div class="metric"><b>${summary.updated}</b><span>Updated sections</span></div>
+    <div class="metric"><b>${summary.pending}</b><span>Pending evidence</span></div>
   </div>
-  <h3>DSR Content Manager</h3>
+  <div class="footer"><span>${safe(study?.title, "Replenishment Study")}</span><span>Page 3</span></div>
+</div>
+
+<div class="page">
+  <div class="running"><span>Chapter 1</span><span>Introduction and Project Profile</span></div>
+  <h2>1. Introduction</h2>
+  <p>Natural replenishment is the deposition of river-borne sediment within a river reach during the hydrological cycle. A replenishment study establishes the quantity of minor mineral deposited between scientifically comparable survey periods and supports a sustainable extraction limit.</p>
+  <p>The study shall compare authenticated pre-monsoon and post-monsoon terrain surfaces using common benchmarks, eligible grid areas and consistent survey controls. Static district information may be referenced from the approved District Survey Report, while survey-dependent data must be refreshed for the current study year.</p>
+  <h3>1.1 Objectives</h3>
+  <ol><li>Measure changes in river-bed elevation between the selected survey periods.</li><li>Estimate deposited volume and convert it to mass using verified bulk density.</li><li>Compare replenishment with approved annual quantity and recorded extraction.</li><li>Recommend a sustainable quantity subject to statutory safety restrictions.</li></ol>
+  <h3>1.2 Project Details</h3>
   <table>
-    <thead><tr><th>Group</th><th>Name</th><th>Status</th><th>Action</th></tr></thead>
-    <tbody>${workflow.contentItems.map((item) => `<tr><td>${item.group}</td><td>${item.name}</td><td>${item.status}</td><td>${item.action}</td></tr>`).join("")}</tbody>
+    <tr><th>Project / Block</th><td>${safe(survey.projectName)} / ${safe(survey.blockName)}</td></tr>
+    <tr><th>Location</th><td>${safe(survey.village)}, ${safe(workflow.district)}, Punjab</td></tr>
+    <tr><th>River and Mineral</th><td>${safe(workflow.river)} | ${safe(survey.mineral)}</td></tr>
+    <tr><th>Lease / Mineable Area</th><td>${safe(survey.leaseArea)} ha / ${safe(survey.mineableArea)} ha</td></tr>
+    <tr><th>Approved Annual Quantity</th><td>${safe(survey.approvedAnnualQuantity)} metric tonnes</td></tr>
+    <tr><th>Rainfall / Water Level</th><td>${safe(survey.rainfall)} / ${safe(survey.waterLevel)}</td></tr>
+    <tr><th>River Width / Depth</th><td>${safe(survey.riverWidthDepth)}</td></tr>
+    <tr><th>Sediment Description</th><td>${safe(survey.sediment)}</td></tr>
   </table>
-  <h3>Survey Update Section</h3>
-  <div class="survey">
-    <div><b>Survey Year:</b> ${survey.surveyYear || "-"}</div>
-    <div><b>Survey Date:</b> ${survey.surveyDate || "-"}</div>
-    <div><b>Rainfall:</b> ${survey.rainfall || "-"}</div>
-    <div><b>Water Level:</b> ${survey.waterLevel || "-"}</div>
-    <div><b>River Width/Depth:</b> ${survey.riverWidthDepth || "-"}</div>
-    <div><b>Sediment:</b> ${survey.sediment || "-"}</div>
+  <h3>1.3 Statutory Basis</h3>
+  <p>The assessment framework follows the Sustainable Sand Mining Management Guidelines, 2016 and the Enforcement & Monitoring Guidelines for Sand Mining, 2020. Applicable Environmental Clearance conditions, approved mining plan provisions, bridge and embankment safety distances, active-channel exclusions and no-mining zones shall prevail.</p>
+  <div class="footer"><span>${safe(survey.blockName, "Mining block")}</span><span>Page 4</span></div>
+</div>
+
+<div class="page">
+  <div class="running"><span>Chapter 2</span><span>Survey Methodology</span></div>
+  <h2>2. Survey Methodology</h2>
+  <h3>2.1 Survey Design</h3>
+  <p>A common survey boundary and coordinate reference system shall be used for both survey epochs. Permanent benchmarks shall be fixed outside disturbance-prone areas and validated against an authenticated reduced level. Grid points and cross-sections must adequately represent the mineable river-bed surface.</p>
+  <h3>2.2 Field and Processing Workflow</h3>
+  <ol><li>Reconnaissance, boundary verification and benchmark establishment.</li><li>Pre-monsoon acquisition of DGPS/drone elevations and cross-sections.</li><li>Post-monsoon acquisition using the same control network and grid.</li><li>Generation of orthomosaic, DEM/DSM and cleaned terrain surfaces.</li><li>Grid-wise comparison, exclusion of ineligible areas and volume computation.</li><li>Independent quality review of coordinates, elevations and quantity tables.</li></ol>
+  <h3>2.3 Equipment and Deliverables</h3>
+  <div class="checklist">
+    <div class="check">${survey.dgps ? "[Included]" : "[Required]"} DGPS base/rover observations</div>
+    <div class="check">${survey.drone ? "[Included]" : "[Required]"} Geo-tagged drone imagery</div>
+    <div class="check">${survey.demDsm ? "[Included]" : "[Required]"} DEM/DSM terrain model</div>
+    <div class="check">${survey.orthomosaic ? "[Included]" : "[Required]"} Orthomosaic and grid map</div>
+    <div class="check">${survey.crossSections ? "[Included]" : "[Required]"} Pre/post cross-sections</div>
+    <div class="check">[Required] Bulk density laboratory report</div>
   </div>
-  <h3>Dynamic Regeneration Queue</h3>
+  <h3>2.4 Quality Assurance</h3>
+  <p>Outliers, water-covered cells, restricted zones and disturbed surfaces shall be identified before calculation. Survey accuracy, coordinate reference, instrument calibration and benchmark closure must be recorded. The final quantity table shall remain traceable to grid/cross-section source data.</p>
+  <div class="notice"><strong>Current survey record:</strong> Survey date ${safe(survey.surveyDate)}; pre-monsoon ${safe(survey.preMonsoonDate)}; post-monsoon ${safe(survey.postMonsoonDate)}; photographs ${safe(survey.photos)}.</div>
+  <div class="footer"><span>Scientific survey and QA/QC</span><span>Page 5</span></div>
+</div>
+
+<div class="page">
+  <div class="running"><span>Chapter 3</span><span>Calculation and Results</span></div>
+  <h2>3. Replenishment Calculation</h2>
+  <h3>3.1 Survey Observation Summary</h3>
   <table>
-    <tbody>${workflow.dynamicRegeneration.map((item, index) => `<tr><td>${index + 1}</td><td>${item}</td></tr>`).join("")}</tbody>
+    <tr><th>Parameter</th><th>Pre-monsoon</th><th>Post-monsoon</th><th>Difference / Basis</th></tr>
+    <tr><td>Survey date</td><td>${safe(survey.preMonsoonDate)}</td><td>${safe(survey.postMonsoonDate)}</td><td>Comparable survey epochs</td></tr>
+    <tr><td>Average eligible elevation (m)</td><td>${safe(survey.preMonsoonElevation)}</td><td>${safe(survey.postMonsoonElevation)}</td><td>${formattedNumber(elevationDifference, 3)} m</td></tr>
+    <tr><td>Eligible grid area</td><td colspan="2">${safe(survey.gridArea)} sq. m</td><td>After statutory exclusions</td></tr>
+    <tr><td>Bulk density</td><td colspan="2">${safe(survey.bulkDensity)} t/cu. m</td><td>Laboratory value required</td></tr>
   </table>
-  <div class="footer">Generated by DSR Portal | Live Preview source | Unicode-safe replenishment export</div>
+  <h3>3.2 Formula</h3>
+  <div class="formula">Replenished volume = Eligible grid area x Average positive elevation difference</div>
+  <div class="formula">Replenished quantity = Replenished volume x Verified bulk density</div>
+  <h3>3.3 Auto-calculated Result</h3>
+  <table>
+    <tr><th>Eligible grid area</th><td>${formattedNumber(gridArea)} sq. m</td></tr>
+    <tr><th>Average elevation difference</th><td>${formattedNumber(elevationDifference, 3)} m</td></tr>
+    <tr><th>Replenished volume</th><td>${formattedNumber(replenishedVolume)} cu. m</td></tr>
+    <tr><th>Bulk density</th><td>${formattedNumber(bulkDensity, 3)} t/cu. m</td></tr>
+    <tr><th>Replenished quantity</th><td><strong>${formattedNumber(replenishedQuantity)} metric tonnes</strong></td></tr>
+    <tr><th>Recorded extraction</th><td>${formattedNumber(extractedQuantity)} metric tonnes</td></tr>
+    <tr><th>Net available after recorded extraction</th><td>${formattedNumber(netAvailableQuantity)} metric tonnes</td></tr>
+    <tr><th>Replenishment against approved annual quantity</th><td>${formattedNumber(replenishmentPercentage)}%</td></tr>
+  </table>
+  <div class="result"><strong>${safe(calculationStatus)}</strong><br>Scientifically supportable quantity is subject to verified source data, statutory exclusions and competent-authority approval.</div>
+  <div class="footer"><span>Auto-calculation from entered survey values</span><span>Page 6</span></div>
+</div>
+
+<div class="page">
+  <div class="running"><span>Chapter 4</span><span>Findings and Recommendations</span></div>
+  <h2>4. Findings, Conclusion and Recommendations</h2>
+  <h3>4.1 Findings</h3>
+  <ul><li>The assessed eligible area is ${formattedNumber(gridArea)} sq. m with an average survey elevation difference of ${formattedNumber(elevationDifference, 3)} m.</li><li>The computed replenished volume is ${formattedNumber(replenishedVolume)} cu. m and the corresponding quantity is ${formattedNumber(replenishedQuantity)} metric tonnes at a bulk density of ${formattedNumber(bulkDensity, 3)} t/cu. m.</li><li>The computed replenishment is ${formattedNumber(replenishmentPercentage)}% of the entered approved annual quantity.</li></ul>
+  <h3>4.2 Conclusion</h3>
+  <p>Based on the entered pre-monsoon and post-monsoon survey parameters, the estimated replenished quantity is <strong>${formattedNumber(replenishedQuantity)} metric tonnes</strong>. This value is a calculation output and shall be adopted only after verification of survey grids, benchmarks, bulk density, restricted areas and the competent authority's approval.</p>
+  <h3>4.3 Recommendations</h3>
+  <ol><li>Permit extraction only up to the lower of verified replenished quantity, approved mineable quantity and statutory limit.</li><li>Exclude active water channels, safety barriers, bridge influence zones, embankments and ecologically sensitive areas.</li><li>Maintain benchmark pillars and repeat surveys using the same datum, grid and cross-sections.</li><li>Reconcile dispatch/extraction records with replenishment before the next mining cycle.</li><li>Continue annual pre-monsoon and post-monsoon monitoring to establish a reliable deposition trend.</li></ol>
+  <h3>4.4 Officer Review Note</h3>
+  <div class="notice">The green flag on this template confirms report-format completeness only. It does not constitute environmental clearance, mining permission or administrative approval.</div>
+  <div class="signature"><div>Technical Reviewer</div><div>District Level Committee</div></div>
+  <div class="footer"><span>Conclusion subject to verification</span><span>Page 7</span></div>
+</div>
+
+<div class="page">
+  <div class="running"><span>Annexures</span><span>Evidence Register</span></div>
+  <h2>5. Annexure and Evidence Checklist</h2>
+  <table><tr><th>Reference</th><th>Document / Evidence</th><th>Status</th></tr>${annexures}</table>
+  <h3>Dynamic Outputs Selected for Regeneration</h3>
+  <table>${workflow.dynamicRegeneration.map((item, index) => `<tr><td>${index + 1}</td><td>${safe(item)}</td><td>Regenerate from current survey</td></tr>`).join("")}</table>
+  <h3>Final Submission Checklist</h3>
+  <div class="checklist"><div class="check">[ ] Coordinates and lease boundary verified</div><div class="check">[ ] Benchmarks and datum authenticated</div><div class="check">[ ] Pre/post grids use identical extent</div><div class="check">[ ] Restricted zones excluded</div><div class="check">[ ] Bulk density report attached</div><div class="check">[ ] Quantity table independently checked</div><div class="check">[ ] Maps and cross-sections signed</div><div class="check">[ ] Competent authority approval recorded</div></div>
+  <div class="result"><strong>GENERIC REPLENISHMENT REPORT FORMAT READY</strong><br>Complete project-specific evidence and signatures before official issue.</div>
+  <div class="footer"><span>DSR Portal | Government of Punjab</span><span>Page 8</span></div>
 </div>
 </body>
 </html>`;
@@ -312,6 +534,15 @@ export default function ReplenishmentBuilderPage() {
     pending: workflow.contentItems.filter((item) => item.status === "Pending" || item.status === "Fresh Survey Required").length,
   }), [workflow.contentItems]);
 
+  const calculation = useMemo(() => {
+    const gridArea = numericValue(survey.gridArea);
+    const elevationDifference = Math.abs(numericValue(survey.postMonsoonElevation) - numericValue(survey.preMonsoonElevation));
+    const volume = gridArea * elevationDifference;
+    const quantity = volume * numericValue(survey.bulkDensity);
+    const approved = numericValue(survey.approvedAnnualQuantity);
+    return { elevationDifference, volume, quantity, percentage: approved > 0 ? quantity / approved * 100 : 0 };
+  }, [survey]);
+
   const persist = async () => {
     if (!study) return;
     setSaving(true);
@@ -341,6 +572,10 @@ export default function ReplenishmentBuilderPage() {
 
   const updateWorkflowMeta = (key: "district" | "river" | "year" | "version", value: string) => {
     setWorkflow((current) => ({ ...current, [key]: key === "version" ? Number(value) || 1 : value }));
+  };
+
+  const updateSurveyField = (key: keyof SurveyUpdate, value: string | boolean) => {
+    setSurvey((current) => ({ ...current, [key]: value }));
   };
 
   const livePreviewHtml = useMemo(
@@ -534,6 +769,63 @@ export default function ReplenishmentBuilderPage() {
             <span key={item.id} className="rounded-full bg-slate-100 px-3 py-1">
               {item.fileName} | v{item.version} | {Math.ceil(item.fileSize / 1024)} KB | {item.downloadCount}x | {item.generatedBy}
             </span>
+          ))}
+        </div>
+      </section>
+
+      <section className="mb-5 border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-4">
+          <div>
+            <h2 className="font-bold text-slate-900">Generic Report Particulars</h2>
+            <p className="text-sm text-slate-500">Project identity, survey epochs and scientific calculation values.</p>
+          </div>
+          <span className="rounded bg-emerald-50 px-3 py-1.5 text-xs font-bold uppercase text-emerald-700 ring-1 ring-emerald-200">
+            Format Validated - Green Flag
+          </span>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {([
+            ["projectName", "Project Name", "text"],
+            ["blockName", "Mining Block", "text"],
+            ["village", "Village / Site", "text"],
+            ["mineral", "Mineral", "text"],
+            ["applicant", "Applicant", "text"],
+            ["preparedBy", "Prepared By", "text"],
+            ["leaseArea", "Lease Area (ha)", "number"],
+            ["mineableArea", "Mineable Area (ha)", "number"],
+            ["approvedAnnualQuantity", "Approved Quantity (MT)", "number"],
+            ["preMonsoonDate", "Pre-monsoon Survey", "date"],
+            ["postMonsoonDate", "Post-monsoon Survey", "date"],
+            ["gridArea", "Eligible Grid Area (sq. m)", "number"],
+            ["preMonsoonElevation", "Pre-monsoon Avg. RL (m)", "number"],
+            ["postMonsoonElevation", "Post-monsoon Avg. RL (m)", "number"],
+            ["bulkDensity", "Bulk Density (t/cu. m)", "number"],
+            ["extractedQuantity", "Recorded Extraction (MT)", "number"],
+          ] as [keyof SurveyUpdate, string, string][]).map(([key, label, type]) => (
+            <label key={key} className="text-xs font-bold uppercase text-slate-500">
+              {label}
+              <input
+                value={String(survey[key] || "")}
+                type={type}
+                min={type === "number" ? "0" : undefined}
+                step={type === "number" ? "any" : undefined}
+                onChange={(event) => updateSurveyField(key, event.target.value)}
+                className="mt-1 w-full border border-slate-200 px-3 py-2 text-sm font-semibold normal-case text-slate-700 outline-none focus:border-blue-500"
+              />
+            </label>
+          ))}
+        </div>
+        <div className="mt-4 grid gap-px overflow-hidden border border-slate-200 bg-slate-200 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            ["Elevation Difference", `${formattedNumber(calculation.elevationDifference, 3)} m`],
+            ["Replenished Volume", `${formattedNumber(calculation.volume)} cu. m`],
+            ["Replenished Quantity", `${formattedNumber(calculation.quantity)} MT`],
+            ["Against Approved Qty.", `${formattedNumber(calculation.percentage)}%`],
+          ].map(([label, value]) => (
+            <div key={label} className="bg-slate-50 px-4 py-3">
+              <p className="text-[10px] font-bold uppercase text-slate-500">{label}</p>
+              <p className="mt-1 text-base font-bold text-slate-900">{value}</p>
+            </div>
           ))}
         </div>
       </section>
@@ -747,7 +1039,7 @@ export default function ReplenishmentBuilderPage() {
             <iframe
               title="Live replenishment report preview"
               srcDoc={livePreviewHtml}
-              className="block h-[760px] w-full bg-white lg:h-[920px]"
+              className="block h-[calc(100vh-120px)] min-h-[920px] w-full bg-white"
             />
           </div>
         </Panel>
