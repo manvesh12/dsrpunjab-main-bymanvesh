@@ -1,6 +1,7 @@
 import React, { useRef } from "react";
-import { Download, Plus, Trash2, Layers } from "lucide-react";
+import { Download, Plus, Layers } from "lucide-react";
 import PageHeader from "../../components/layout/PageHeader";
+import ResizableLayout from "../../components/layout/ResizableLayout";
 import { useLocalDraft } from "../../hooks/useLocalDraft";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -160,7 +161,7 @@ function buildGraphPdfPageHTML(g: Graph, o: any, imgPost: string, imgPre: string
         <div style="font-size:18px;font-weight:bold;margin:15px 0 10px 0;">Calculation</div>
         <div style="padding-left:18px;position:relative;"><span style="position:absolute;left:0;">➢</span><b>Total Area: ${g.area}Ha.(Source:Table no. 7.2)</b></div>
         <div style="padding-left:18px;position:relative;margin:8px 0;"><span style="position:absolute;left:0;">➢</span><b>No mining area: ${g.noMine} Ha.</b> &nbsp;&nbsp;&nbsp;&nbsp;(Source: Page No 84)</div>
-        <div style="padding-left:18px;font-size:14px;">Potential area(Ha.): Total area(Ha.)- No mining Area(Ha.)<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${g.area}-${g.noMine}=${o.pArea.toFixed(2)} Ha.</div>
+        <div style="padding-left:18px;font-size:14px;">Potential area(Ha.): Total area(Ha.)- No mining Area(Ha.)<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${g.area}-${g.noMine}=${o.pArea.toFixed(2)} Ha.</div>
         <div style="padding-left:18px;position:relative;margin-top:15px;"><span style="position:absolute;left:0;">➢</span>Potential Area(Ha.):${o.pArea.toFixed(2)}</div>
         <div style="padding-left:18px;position:relative;"><span style="position:absolute;left:0;">➢</span>Average Thickness:${o.activeCalcThick.toFixed(1)}</div>
         <div style="padding-left:18px;position:relative;"><span style="position:absolute;left:0;">➢</span>Bulk Density:${g.bulk}</div>
@@ -214,11 +215,11 @@ function buildGraphPdfPageHTML(g: Graph, o: any, imgPost: string, imgPre: string
         <div style="font-size:18px;font-weight:bold;margin:15px 0 10px 0;">Calculation</div>
         <div style="padding-left:18px;position:relative;"><span style="position:absolute;left:0;">➢</span><b>Total Area: ${g.area} Ha.</b>(Source: Table 7.2 )</div>
         <div style="padding-left:18px;position:relative;margin-bottom:8px;"><span style="position:absolute;left:0;">➢</span><b>No mining area: ${g.noMine}Ha.</b> (Source: Page No 88)</div>
-        <div style="padding-left:18px;">Potential area(Ha.): Total area(Ha.)- No mining Area(Ha.)<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${g.area}-${g.noMine}=${o.pArea.toFixed(2)} Ha.</div>
+        <div style="padding-left:18px;">Potential area(Ha.): Total area(Ha.)- No mining Area(Ha.)<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${g.area}-${g.noMine}=${o.pArea.toFixed(2)} Ha.</div>
         <div style="padding-left:18px;position:relative;margin-top:8px;"><span style="position:absolute;left:0;">➢</span>Potential Area(Ha.):${o.pArea.toFixed(2)}</div>
         <div style="padding-left:18px;position:relative;"><span style="position:absolute;left:0;">➢</span>Average Thickness:${o.activeCalcThick.toFixed(2)}</div>
         <div style="padding-left:18px;position:relative;"><span style="position:absolute;left:0;">➢</span>Bulk Density:${g.bulk}</div>
-        <div style="margin:4px 0;font-size:15px;">${mathStr.replace('Tonnes', 'Ton<br>nes')}</div>
+        <div style="margin:4px 0;font-size:15px;">${mathStr.replace('Tonnes', 'Ton<br>es')}</div>
         <div style="padding-left:18px;position:relative;"><span style="position:absolute;left:0;">➢</span>Total excavation in Tonnes<br>(Considering ${g.pct}% as per EMGSM,<br>2020)=${allowedStr}</div>
         <div style="margin-top:40px;">
           <div style="display:flex;align-items:center;margin-bottom:6px;"><span style="display:inline-block;width:35px;height:3px;background:#de3b3b;margin-right:8px;"></span> Red Line</div>
@@ -379,7 +380,7 @@ function GraphBlock({ graph: g, updateG, onDelete }: { graph: Graph; updateG: (k
 
     const opt = {
       margin: 0,
-      filename: `${(g.hasSubGraph ? g.subName : g.name).replace(/\\s+/g, '_')}_Report.pdf`,
+      filename: `${(g.hasSubGraph ? g.subName : g.name).replace(/\s+/g, '_')}_Report.pdf`,
       image: { type: 'png', quality: 1.0 },
       html2canvas: { scale: 2, useCORS: true, letterRendering: false },
       jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
@@ -516,6 +517,141 @@ function GraphBlock({ graph: g, updateG, onDelete }: { graph: Graph; updateG: (k
   );
 }
 
+// ------------- LIVE PREVIEW PANEL --------------
+function LivePreviewPanel({ graphs }: { graphs: Graph[] }) {
+  return (
+    <aside className="h-full rounded-2xl border bg-slate-200 p-4 shadow-sm">
+      <p className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+        <Layers size={13} /> Cross Section Live Preview
+      </p>
+      <div className="bg-white shadow min-h-[900px] p-6" style={{ fontFamily: "'Times New Roman', serif" }}>
+        {/* Document header */}
+        <div className="border-b-2 border-slate-900 pb-4 text-center mb-6">
+          <p className="text-[10px] font-bold uppercase tracking-[.2em]">Government of Punjab</p>
+          <h1 className="mt-2 text-base font-bold uppercase">Cross Section Sand Bar Report</h1>
+          <p className="mt-0.5 text-[9px] text-slate-500">District Survey Report</p>
+        </div>
+
+        {graphs.length === 0 && (
+          <p className="text-center text-sm text-slate-400 mt-16">No sections added yet.</p>
+        )}
+
+        {graphs.map((g, idx) => {
+          const o = calcGraph(g);
+          const postY = [...o.post, o.red, o.thal].filter((v: number) => !isNaN(v));
+          const { min: postYMin, max: postYMax } = getYBounds(postY);
+          const preY = [...(g.hasSubGraph ? o.subElev : []), o.subRed, o.subThal].filter((v: number) => !isNaN(v));
+          const { min: preYMin, max: preYMax } = getYBounds(preY);
+
+          const postData = {
+            labels: o.dist,
+            datasets: [
+              { label: 'Post monsoon Elevation', data: o.post, borderColor: '#da8b4e', backgroundColor: '#da8b4e', tension: 0.1, pointRadius: 2, borderWidth: 1.2, fill: false },
+              { label: 'Red Line', data: o.dist.map(() => o.red), borderColor: '#de3b3b', borderWidth: 1.2, pointRadius: 2, fill: false },
+              { label: 'Thalweg', data: o.dist.map(() => o.thal), borderColor: '#3b8bba', borderWidth: 1.2, pointRadius: 2, fill: false },
+            ],
+          };
+          const preData = {
+            labels: o.subDist,
+            datasets: [
+              { label: 'Pre monsoon Elevation', data: o.subElev, borderColor: '#eec34a', backgroundColor: '#eec34a', tension: 0.1, pointRadius: 2, borderWidth: 1.2, fill: false },
+              { label: 'Red Line', data: o.subDist.map(() => o.subRed), borderColor: '#de3b3b', borderWidth: 1.2, pointRadius: 2, fill: false },
+              { label: 'Thalweg', data: o.subDist.map(() => o.subThal), borderColor: '#3b8bba', borderWidth: 1.2, pointRadius: 2, fill: false },
+            ],
+          };
+          const chartOpts = (yMin: number, yMax: number) => ({
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false as const,
+            plugins: {
+              legend: { display: false },
+              tooltip: { enabled: false },
+            },
+            scales: {
+              x: { ticks: { color: '#374151', font: { size: 7 } }, grid: { color: '#f3f4f6' } },
+              y: { min: yMin, max: yMax, ticks: { color: '#374151', font: { size: 7 } }, grid: { color: '#f3f4f6' } },
+            },
+          });
+
+          return (
+            <section key={g.id} className="mb-8 border-b border-slate-200 pb-6 last:border-0">
+              {/* Section header */}
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mr-2">Section {idx + 1}</span>
+                  <span className="text-sm font-bold text-slate-800">{g.name || 'Untitled'}</span>
+                  {g.hasSubGraph && g.subName && (
+                    <span className="ml-2 text-[9px] text-amber-600 font-semibold">/ {g.subName}</span>
+                  )}
+                </div>
+                <div className="flex gap-2 text-[9px] text-slate-500">
+                  <span className="bg-slate-100 px-1.5 py-0.5 rounded font-mono">Area: {g.area} Ha</span>
+                  <span className="bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-mono font-bold">{new Intl.NumberFormat().format(Math.floor(o.allowed))} MT</span>
+                </div>
+              </div>
+
+              {/* Charts */}
+              <div className={`grid gap-3 mb-3 ${g.hasSubGraph ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                <div>
+                  <p className="text-[8px] font-bold text-blue-700 mb-1 uppercase">Post-Monsoon — {g.name}</p>
+                  <div className="h-[120px] bg-white border border-slate-100 rounded">
+                    <Line data={postData} options={chartOpts(postYMin, postYMax)} />
+                  </div>
+                </div>
+                {g.hasSubGraph && (
+                  <div>
+                    <p className="text-[8px] font-bold text-amber-700 mb-1 uppercase">Pre-Monsoon — {g.subName}</p>
+                    <div className="h-[120px] bg-white border border-slate-100 rounded">
+                      <Line data={preData} options={chartOpts(preYMin, preYMax)} />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Calculation summary */}
+              <div className="grid grid-cols-4 gap-2 text-[8px]">
+                <div className="bg-slate-50 rounded p-2">
+                  <p className="text-slate-400 mb-0.5">Potential Area</p>
+                  <p className="font-bold text-slate-800">{o.pArea.toFixed(2)} Ha</p>
+                </div>
+                <div className="bg-slate-50 rounded p-2">
+                  <p className="text-slate-400 mb-0.5">Post Avg Thick</p>
+                  <p className="font-bold text-slate-800">{o.avgThickPost.toFixed(2)} m</p>
+                </div>
+                {g.hasSubGraph && (
+                  <div className="bg-amber-50 rounded p-2">
+                    <p className="text-amber-500 mb-0.5">Pre Avg Thick</p>
+                    <p className="font-bold text-amber-700">{o.avgThickPre.toFixed(2)} m</p>
+                  </div>
+                )}
+                <div className="bg-blue-50 rounded p-2">
+                  <p className="text-blue-400 mb-0.5">Calc Thickness</p>
+                  <p className="font-bold text-blue-700">{o.activeCalcThick.toFixed(2)} m</p>
+                </div>
+                <div className="col-span-4 bg-slate-900 rounded p-2 text-white">
+                  <p className="text-slate-400 text-[7px] mb-0.5">Allowed Excavation ({g.pct}%)</p>
+                  <p className="font-black text-blue-400 text-[11px]">{o.allowed.toLocaleString(undefined, { maximumFractionDigits: 0 })} MT</p>
+                  <p className="text-slate-500 text-[7px] font-mono mt-0.5">{o.pArea.toFixed(2)} × 10000 × {o.activeCalcThick.toFixed(2)} × {g.bulk} × {g.pct}%</p>
+                </div>
+              </div>
+
+              {/* Legend */}
+              <div className="flex gap-3 mt-2">
+                {[['#de3b3b', 'Red Line'], ['#da8b4e', 'Post Monsoon'], ['#eec34a', 'Pre Monsoon'], ['#3b8bba', 'Thalweg']].map(([color, label]) => (
+                  <div key={label} className="flex items-center gap-1">
+                    <span className="inline-block w-4 h-0.5" style={{ background: color }} />
+                    <span className="text-[7px] text-slate-500">{label}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+    </aside>
+  );
+}
+
 export default function CrossSectionGraphsPage() {
   const { projectId = "default" } = useParams();
   const [graphs, setGraphs] = useLocalDraft<Graph[]>("cross-sections-full", [seed]);
@@ -587,17 +723,26 @@ export default function CrossSectionGraphsPage() {
         } 
       />
       
-      <div className="space-y-6">
-        {graphs.map((g, i) => (
-          <GraphCard 
-            key={g.id} 
-            graph={g} 
-            updateG={(k: keyof Graph, v: any) => {
-               setGraphs(c => c.map((x, j) => j === i ? { ...x, [k]: v } : x));
-            }} 
-            onDelete={() => setGraphs(c => c.filter((_, j) => j !== i))} 
-          />
-        ))}
+      <div className="h-[calc(100vh-11rem)]">
+        <ResizableLayout
+          leftPanelDefaultSize={60}
+          rightPanelDefaultSize={40}
+          leftPanel={
+            <div className="pb-12 space-y-6">
+              {graphs.map((g, i) => (
+                <GraphCard 
+                  key={g.id} 
+                  graph={g} 
+                  updateG={(k: keyof Graph, v: any) => {
+                    setGraphs(c => c.map((x, j) => j === i ? { ...x, [k]: v } : x));
+                  }} 
+                  onDelete={() => setGraphs(c => c.filter((_, j) => j !== i))} 
+                />
+              ))}
+            </div>
+          }
+          rightPanel={<LivePreviewPanel graphs={graphs} />}
+        />
       </div>
     </>
   );
