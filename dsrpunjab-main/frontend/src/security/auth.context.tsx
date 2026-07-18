@@ -90,7 +90,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     _clearSession();
     toast.success("You have been logged out successfully.");
-    window.location.href = "/auth/login";
+    // Replace current history entry so the Back button cannot return to authenticated pages
+    window.history.replaceState(null, '', '/login');
+    window.location.href = '/login';
   }, []);
 
   const updateUser = useCallback((updates: Partial<User>) => {

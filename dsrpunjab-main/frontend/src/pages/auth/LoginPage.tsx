@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ArrowRight, Lock, User, ShieldCheck, Home, FileCheck2, UsersRound, ScanSearch, Eye } from "lucide-react";
-import { useNavigate, useLocation, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link, Navigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "../../security/auth.context";
 import { authApi } from "../../api/auth.api";
@@ -16,9 +16,15 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
 
   const [error, setError] = useState<string | null>(null);
+
+  // If already authenticated, redirect away from login page
+  if (isAuthenticated) {
+    const from = (location.state as any)?.from?.pathname || "/dashboard";
+    return <Navigate to={from} replace />;
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
