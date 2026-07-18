@@ -731,6 +731,18 @@ export default function ReplenishmentBuilderPage() {
           ))}
         </div>
       </Panel>
+
+      <div className="mt-5">
+        <Panel title="Live Replenishment Preview" icon={Eye} description="Database draft ka current printable report preview. Har form change yahan turant update hota hai.">
+          <div className="overflow-hidden rounded-xl border border-slate-300 bg-slate-200">
+            <iframe
+              title="Live replenishment report preview"
+              srcDoc={exportHtml()}
+              className="block h-[760px] w-full bg-white lg:h-[920px]"
+            />
+          </div>
+        </Panel>
+      </div>
     </>
   );
 }
