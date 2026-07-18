@@ -175,12 +175,6 @@ export default function ChaptersPage() {
                       </button>
                       <button
                         disabled={index === chapters.length - 1 || !editable}
-                        onClick={() => move(index, 1)}
-                        className="rounded p-2 hover:bg-slate-100 disabled:opacity-30"
-                      >
-                        <ArrowDown size={17} />
-                      </button>
-                      <button
                     console.error("Failed to generate PDF", e);
                   }
                 }
