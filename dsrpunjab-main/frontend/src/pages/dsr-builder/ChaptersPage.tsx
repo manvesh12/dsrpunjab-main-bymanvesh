@@ -1,6 +1,5 @@
 import { ArrowDown, ArrowUp, Plus, Trash2, Upload, Download, Save } from "lucide-react";
 import { useEffect, useState } from "react";
-import { downloadHtmlAsPdf } from "../../utils/reportExport";
 import PageHeader from "../../components/layout/PageHeader";
 import ResizableLayout from "../../components/layout/ResizableLayout";
 import { useLocalDraft } from "../../hooks/useLocalDraft";
@@ -11,6 +10,7 @@ import { uploadErrorMessage, uploadsApi } from "../../api/uploads.api";
 import { projectsApi } from "../../api/projects.api";
 import UploadedFilePreview from "../../components/ui/UploadedFilePreview";
 import { toast } from "sonner";
+import { appendUploadedDocument, createSectionPdf, drawPdfHeading, drawWrappedLines, saveSectionPdf } from "../../utils/sectionPdf";
 
 type Chapter = { name: string; summary: string; file?: { name: string; url: string } };
 
@@ -26,6 +26,27 @@ const initial: Chapter[] = [
   ["CHAPTER 9 - REMEDIAL MEASURE TO MITIGATE THE IMPACT OF MINING", "Environmental safeguards, monitoring mechanisms, and impact mitigation plans."],
   ["CHAPTER 10 - CONCLUSION", "Summary findings, recommendations, and compliance declarations."],
 ].map(([name, summary]) => ({ name, summary }));
+
+async function downloadChaptersPdf(chapters: Chapter[]) {
+  const { document, regular, bold } = await createSectionPdf();
+  let page = document.addPage([595.28, 841.89]);
+  drawPdfHeading(page, bold, "TABLE OF CHAPTERS");
+  let y = 745;
+  for (let index = 0; index < chapters.length; index += 1) {
+    const chapter = chapters[index];
+    if (y < 115) {
+      page = document.addPage([595.28, 841.89]);
+      drawPdfHeading(page, bold, "TABLE OF CHAPTERS (CONTINUED)");
+      y = 745;
+    }
+    page.drawText(`${index + 1}. ${chapter.name}`, { x: 45, y, size: 11, font: bold });
+    y = drawWrappedLines(page, regular, chapter.summary, { x: 55, y: y - 20, maxWidth: 495, size: 9, lineHeight: 13 }) - 17;
+    if (chapter.file) page.drawText(`Attached: ${chapter.file.name}`, { x: 55, y, size: 8, font: regular });
+    y -= 24;
+  }
+  for (const chapter of chapters) await appendUploadedDocument(document, chapter.file);
+  await saveSectionPdf(document, "Chapters.pdf");
+}
 
 export default function ChaptersPage() {
   const { projectId = "default" } = useParams();
@@ -230,14 +251,12 @@ export default function ChaptersPage() {
             <button
               className="module-btn"
               onClick={async () => {
-                const element = document.getElementById("chapters-pdf-preview");
-                if (!element) return;
-
                 try {
-                  await downloadHtmlAsPdf(element, "Chapters.pdf");
+                  await downloadChaptersPdf(chapters);
+                  toast.success("Chapters PDF downloaded");
                 } catch (error) {
-                  console.error("PDF generation failed:", error);
-                  toast.error("PDF generation failed");
+                  console.error("Chapters PDF generation failed:", error);
+                  toast.error("PDF download failed. Missing uploaded file ko re-upload karein.");
                 }
               }}
             >

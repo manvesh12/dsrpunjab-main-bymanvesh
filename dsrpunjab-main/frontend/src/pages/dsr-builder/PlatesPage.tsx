@@ -9,6 +9,7 @@ import { projectsApi } from "../../api/projects.api";
 import UploadedFilePreview from "../../components/ui/UploadedFilePreview";
 import { toast } from "sonner";
 import html2pdf from "html2pdf.js";
+import { appendUploadedDocument, createSectionPdf, drawPdfHeading, drawWrappedLines, saveSectionPdf } from "../../utils/sectionPdf";
 
 type Plate = { name: string; summary: string; fileName?: string; url?: string };
 
@@ -19,7 +20,30 @@ const initial: Plate[] = [
   { name: "Plate 2 - Geological Subsurface Map", summary: "Detailed lithological boundaries and soil types." },
 ];
 
-async function downloadPlatesPdf(plates: Plate[]) {
+async function downloadMergedPlatesPdf(plates: Plate[]) {
+  const { document, regular, bold } = await createSectionPdf();
+  let page = document.addPage([595.28, 841.89]);
+  drawPdfHeading(page, bold, "LIST OF PLATES");
+  let y = 745;
+  for (let index = 0; index < plates.length; index += 1) {
+    const plate = plates[index];
+    if (y < 115) {
+      page = document.addPage([595.28, 841.89]);
+      drawPdfHeading(page, bold, "LIST OF PLATES (CONTINUED)");
+      y = 745;
+    }
+    page.drawText(`${index + 1}. ${plate.name}`, { x: 45, y, size: 12, font: bold });
+    y = drawWrappedLines(page, regular, plate.summary, { x: 55, y: y - 22, maxWidth: 495, size: 10, lineHeight: 15 }) - 16;
+    if (plate.fileName) page.drawText(`Attached: ${plate.fileName}`, { x: 55, y, size: 8, font: regular });
+    y -= 28;
+  }
+  for (const plate of plates) {
+    await appendUploadedDocument(document, plate.url ? { name: plate.fileName || plate.name, url: plate.url } : null);
+  }
+  await saveSectionPdf(document, "Plates.pdf");
+}
+
+export async function downloadPlatesPdf(plates: Plate[]) {
   const pageStyle = `
     body { margin: 0; font-family: Arial, sans-serif; background: #fff; }
     .index-page { width: 794px; min-height: 1123px; padding: 60px; box-sizing: border-box; page-break-after: always; }
@@ -233,9 +257,13 @@ export default function PlatesPage() {
               onClick={async () => {
                 setDownloading(true);
                 try {
-                  await downloadPlatesPdf(plates);
+                  await downloadMergedPlatesPdf(plates);
+                  toast.success("Plates PDF downloaded");
                 }
-                catch (e) { console.error("PDF generation failed:", e); }
+                catch (e) {
+                  console.error("Plates PDF generation failed:", e);
+                  toast.error("PDF download failed. Missing uploaded file ko re-upload karein.");
+                }
                 finally { setDownloading(false); }
               }}
             >

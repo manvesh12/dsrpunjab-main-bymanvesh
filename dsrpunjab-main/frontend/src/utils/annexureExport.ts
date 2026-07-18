@@ -2,6 +2,8 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import type { EditorColumn } from "../components/ui/ModuleEditor";
+import { PDFDocument } from "pdf-lib";
+import { appendUploadedDocument, saveSectionPdf, type PdfUpload } from "./sectionPdf";
 
 export type AnnexureSnapshot = {
   title: string;
@@ -56,9 +58,10 @@ export function exportAnnexureExcel(
   XLSX.writeFile(workbook, `${safeName(title).replaceAll(" ", "-")}.xlsx`);
 }
 
-export function exportAnnexurePdf(
+export async function exportAnnexurePdf(
   title: string,
   snapshots: AnnexureSnapshot[],
+  uploads: PdfUpload[] = [],
 ) {
   const document = new jsPDF({
     orientation: "landscape",
@@ -123,5 +126,7 @@ export function exportAnnexurePdf(
     }
   });
   if (!snapshots.length) document.text(title, 148.5, 25, { align: "center" });
-  document.save(`${safeName(title).replaceAll(" ", "-")}.pdf`);
+  const merged = await PDFDocument.load(document.output("arraybuffer"));
+  for (const upload of uploads) await appendUploadedDocument(merged, upload);
+  await saveSectionPdf(merged, `${safeName(title).replaceAll(" ", "-")}.pdf`);
 }

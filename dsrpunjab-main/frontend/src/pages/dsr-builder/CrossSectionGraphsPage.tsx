@@ -5,8 +5,8 @@ import ResizableLayout from "../../components/layout/ResizableLayout";
 import { useLocalDraft } from "../../hooks/useLocalDraft";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { downloadHtmlAsPdf } from "../../utils/reportExport";
 import { projectsApi } from "../../api/projects.api";
+import jsPDF from "jspdf";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -369,18 +369,28 @@ function GraphBlock({ graph: g, updateG, onDelete }: { graph: Graph; updateG: (k
   });
 
   const downloadPDF = () => {
-    toast.info('Assembling PDF, please wait...');
-    const imgPost = getPdfChartDataURL(g, o, 'post');
-    const imgPre = g.hasSubGraph ? getPdfChartDataURL(g, o, 'pre') : '';
-    const templateHTML = buildGraphPdfPageHTML(g, o, imgPost, imgPre, g.hasSubGraph ? 159 : 170);
-
-    const filename = `${(g.hasSubGraph ? g.subName : g.name).replace(/\s+/g, '_')}_Report.pdf`;
-    downloadHtmlAsPdf(templateHTML, filename, true).then(() => {
+    try {
+      toast.info('Assembling PDF, please wait...');
+      const document = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const imgPost = getPdfChartDataURL(g, o, 'post');
+      const imgPre = g.hasSubGraph ? getPdfChartDataURL(g, o, 'pre') : '';
+      document.setFont('helvetica', 'bold');
+      document.setFontSize(15);
+      document.text(g.name || 'Cross Section Graph', 148.5, 14, { align: 'center' });
+      document.addImage(imgPost, 'PNG', 10, 24, g.hasSubGraph ? 135 : 277, 112);
+      if (imgPre) document.addImage(imgPre, 'PNG', 152, 24, 135, 112);
+      document.setFont('helvetica', 'normal');
+      document.setFontSize(9);
+      document.text(`Area: ${g.area || '-'} Ha   No-Mine: ${g.noMine || '-'} Ha   Bulk Density: ${g.bulk || '-'} g/cc   Mining: ${g.pct || '-'}%`, 14, 151);
+      document.text(`Post-Monsoon Distance: ${g.dist || '-'} | Elevation: ${g.post || '-'}`, 14, 160, { maxWidth: 270 });
+      if (g.hasSubGraph) document.text(`Pre-Monsoon Distance: ${g.subDist || '-'} | Elevation: ${g.subElev || '-'}`, 14, 171, { maxWidth: 270 });
+      const filename = `${(g.hasSubGraph ? g.subName : g.name).replace(/\s+/g, '_')}_Report.pdf`;
+      document.save(filename);
       toast.success('PDF downloaded successfully!');
-    }).catch((err: any) => {
+    } catch (err) {
       console.error(err);
       toast.error('Failed to export PDF.');
-    });
+    }
   };
 
   return (
@@ -692,29 +702,31 @@ export default function CrossSectionGraphsPage() {
 
   const generateAllGraphsPDF = () => {
     if (!graphs.length) return toast.error('No cross-sections available to compile.');
-    toast.info('Generating multi-page survey booklet, please wait...');
-
-    const pagesHTML: string[] = [];
-    graphs.forEach((g, idx) => {
-      const o = calcGraph(g);
-      const imgPost = getPdfChartDataURL(g, o, 'post');
-      const imgPre = g.hasSubGraph ? getPdfChartDataURL(g, o, 'pre') : '';
-      pagesHTML.push(buildGraphPdfPageHTML(g, o, imgPost, imgPre, 159 + idx));
-    });
-
-    const pagesSanitized = pagesHTML.map(html => html.replace(
-      'id="pdf-container" class="cross-section-pdf-page"',
-      'class="pdf-page-block cross-section-pdf-page"'
-    ));
-
-    const templateHTML = `<div id="all-pdf-container" style="background:#fff; width: 1040px;">${pagesSanitized.join('\n<div class="html2pdf__page-break"></div>\n')}</div>`;
-    
-    downloadHtmlAsPdf(templateHTML, 'All_Cross_Sections_Consolidated_Report.pdf', true).then(() => {
+    try {
+      toast.info('Generating multi-page survey booklet, please wait...');
+      const document = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      graphs.forEach((graph, index) => {
+        if (index) document.addPage('a4', 'landscape');
+        const output = calcGraph(graph);
+        const postImage = getPdfChartDataURL(graph, output, 'post');
+        const preImage = graph.hasSubGraph ? getPdfChartDataURL(graph, output, 'pre') : '';
+        document.setFont('helvetica', 'bold');
+        document.setFontSize(15);
+        document.text(graph.name || `Cross Section ${index + 1}`, 148.5, 14, { align: 'center' });
+        document.addImage(postImage, 'PNG', 10, 24, graph.hasSubGraph ? 135 : 277, 112);
+        if (preImage) document.addImage(preImage, 'PNG', 152, 24, 135, 112);
+        document.setFont('helvetica', 'normal');
+        document.setFontSize(9);
+        document.text(`Area: ${graph.area || '-'} Ha   No-Mine: ${graph.noMine || '-'} Ha   Bulk Density: ${graph.bulk || '-'} g/cc   Mining: ${graph.pct || '-'}%`, 14, 151);
+        document.text(`Post-Monsoon Distance: ${graph.dist || '-'} | Elevation: ${graph.post || '-'}`, 14, 160, { maxWidth: 270 });
+        if (graph.hasSubGraph) document.text(`Pre-Monsoon Distance: ${graph.subDist || '-'} | Elevation: ${graph.subElev || '-'}`, 14, 171, { maxWidth: 270 });
+      });
+      document.save('All_Cross_Sections_Consolidated_Report.pdf');
       toast.success('Unified booklet generated successfully!');
-    }).catch((err: any) => {
+    } catch (err) {
       console.error(err);
       toast.error('Failed to compile consolidated PDF.');
-    });
+    }
   };
 
   return (

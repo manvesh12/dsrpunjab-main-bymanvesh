@@ -4,11 +4,16 @@ import ModuleEditor from "../../components/ui/ModuleEditor";
 import type { EditorColumn } from "../../components/ui/ModuleEditor";
 import { useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Download, FileSpreadsheet, GripVertical } from "lucide-react";
+import { Download, FileSpreadsheet, GripVertical, Trash2 } from "lucide-react";
 import {
   exportAnnexureExcel,
   exportAnnexurePdf,
 } from "../../utils/annexureExport";
+import { useLocalDraft } from "../../hooks/useLocalDraft";
+import { uploadErrorMessage, uploadsApi } from "../../api/uploads.api";
+import { toast } from "sonner";
+
+type AnnexureUpload = { name: string; url: string };
 
 const key = (label: string) =>
   label
@@ -112,6 +117,10 @@ export default function AdditionalAnnexureEditorPage({
       { title: string; columns: EditorColumn[]; rows: Record<string, string>[]; attachments?: string[] }
     >
   >({});
+  const [uploadedFiles, setUploadedFiles] = useLocalDraft<AnnexureUpload[]>(
+    `project-${projectId}:annexure-${letter.toLowerCase()}:uploads`,
+    [],
+  );
 
   /* ── Drag-and-drop order ── */
   const [order, setOrder] = useState<number[]>(() =>
@@ -177,6 +186,7 @@ export default function AdditionalAnnexureEditorPage({
                 exportAnnexurePdf(
                   `Annexure ${letter}`,
                   Object.values(snapshots),
+                  uploadedFiles,
                 )
               }
             >
@@ -192,7 +202,9 @@ export default function AdditionalAnnexureEditorPage({
           rightPanelDefaultSize={40}
           leftPanel={
             <div className="min-w-0 pb-12">
-              {hasUploadSection.includes(letter) && <UploadPanel letter={letter} />}{" "}
+              {hasUploadSection.includes(letter) && (
+                <UploadPanel letter={letter} projectId={projectId} files={uploadedFiles} onChange={setUploadedFiles} />
+              )}{" "}
               {items.length > 0 &&
                 order.map((originalIndex, pos) => {
                   const item = items[originalIndex];
@@ -370,7 +382,26 @@ export default function AdditionalAnnexureEditorPage({
   );
 }
 
-function UploadPanel({ letter }: { letter: string }) {
+function UploadPanel({ letter, projectId, files, onChange }: { letter: string; projectId: string; files: AnnexureUpload[]; onChange: (files: AnnexureUpload[]) => void }) {
+  const [uploading, setUploading] = useState(false);
+  const uploadFiles = async (selected: FileList | null) => {
+    if (!selected?.length) return;
+    setUploading(true);
+    try {
+      const uploaded: AnnexureUpload[] = [];
+      for (const file of Array.from(selected)) {
+        const result = await uploadsApi.upload(file, projectId, `annexure-${letter.toLowerCase()}`);
+        uploaded.push({ name: file.name, url: result.url });
+      }
+      onChange([...files, ...uploaded]);
+      toast.success(`${uploaded.length} file(s) uploaded`);
+    } catch (error) {
+      toast.error(uploadErrorMessage(error));
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <h2 className="font-bold">Annexure {letter} Entries</h2>
@@ -379,7 +410,7 @@ function UploadPanel({ letter }: { letter: string }) {
       </p>
       <label className="mt-5 flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 text-center hover:border-blue-400 hover:bg-blue-50">
         <span className="font-semibold text-slate-700">
-          Select PDF or images
+          {uploading ? "Uploading..." : "Select PDF or images"}
         </span>
         <span className="mt-1 text-sm text-slate-500">
           PDF, PNG or JPG • multiple files supported
@@ -389,8 +420,22 @@ function UploadPanel({ letter }: { letter: string }) {
           accept="application/pdf,image/*"
           multiple
           className="hidden"
+          disabled={uploading}
+          onChange={(event) => uploadFiles(event.target.files)}
         />
       </label>
+      {files.length > 0 && (
+        <div className="mt-4 space-y-2">
+          {files.map((file, index) => (
+            <div key={`${file.url}-${index}`} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+              <span className="truncate font-medium text-slate-700">{file.name}</span>
+              <button type="button" className="rounded p-1.5 text-red-600 hover:bg-red-50" onClick={() => onChange(files.filter((_, itemIndex) => itemIndex !== index))} title="Remove file">
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
