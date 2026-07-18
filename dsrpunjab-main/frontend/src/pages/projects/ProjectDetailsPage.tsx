@@ -9,13 +9,17 @@ import {
   Map,
   RefreshCw,
   ShieldCheck,
+  Save,
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import PageHeader from "../../components/layout/PageHeader";
 import { useAuth } from "../../security/auth.context";
 import { hasAnyPermission, Permission } from "../../security/access";
 import { projectsApi, type ProjectDetail } from "../../api/projects.api";
+import { saveProjectBuilderDrafts } from "../../utils/projectDraftState";
+import { toast } from "sonner";
 
 const modulesTemplate = [
   ["Front Matter", "Certificates, contents and acknowledgements", "front-matter", FileText, [Permission.SectionFrontMatter, Permission.SectionCertificate]],
@@ -47,6 +51,8 @@ function computeModuleProgress(path: string, project?: ProjectDetail): number {
     case "plates":
     case "cross-sections":
     case "annexures":
+      if (path === "plates" && state.plates) return 100;
+      if (path === "cross-sections" && state["cross-sections"]) return 100;
       const files = project.files || [];
       const hasFiles = files.some(f => f.annexureId.startsWith(path) || f.annexureId === path);
       return hasFiles ? 100 : 0;
@@ -67,8 +73,9 @@ function computeModuleProgress(path: string, project?: ProjectDetail): number {
 export default function ProjectDetailsPage() {
   const { projectId = "1" } = useParams();
   const { user } = useAuth();
+  const [savingAll, setSavingAll] = useState(false);
 
-  const { data: project, isLoading } = useQuery({
+  const { data: project, isLoading, refetch } = useQuery({
     queryKey: ["project", projectId],
     queryFn: () => projectsApi.get(projectId),
   });
@@ -90,12 +97,34 @@ export default function ProjectDetailsPage() {
     ? project.progress 
     : Math.round((modules.reduce((acc, m) => acc + m.progress, 0) / (modules.length * 100)) * 100);
 
+  const handleSaveAllSections = async () => {
+    setSavingAll(true);
+    try {
+      await saveProjectBuilderDrafts(projectId);
+      await refetch();
+      toast.success("All available section drafts saved to database");
+    } catch (error) {
+      console.error("Failed to save all section drafts:", error);
+      toast.error("Save all sections failed");
+    } finally {
+      setSavingAll(false);
+    }
+  };
+
   return (
     <>
       <PageHeader
         title={project?.title || project?.projectName || `District Survey Report`}
         description={project ? `Project #${project.id} - ${project.year || "Financial Year 2025-26"} - ${project.mineral || "Sand and Minor Minerals"}` : `Loading...`}
-        action={<Link to="/projects" className="module-btn">Back to Projects</Link>}
+        action={
+          <div className="flex gap-2">
+            <button className="module-btn-primary" disabled={savingAll || isLoading} onClick={handleSaveAllSections}>
+              <Save size={17} />
+              {savingAll ? "Saving..." : "Save All Sections"}
+            </button>
+            <Link to="/projects" className="module-btn">Back to Projects</Link>
+          </div>
+        }
       />
       
       <section className="mb-6 grid gap-4 sm:grid-cols-3">

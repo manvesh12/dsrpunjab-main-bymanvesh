@@ -1,11 +1,12 @@
-import React, { useRef } from "react";
-import { Download, Plus, Layers } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { Download, Plus, Layers, Save } from "lucide-react";
 import PageHeader from "../../components/layout/PageHeader";
 import ResizableLayout from "../../components/layout/ResizableLayout";
 import { useLocalDraft } from "../../hooks/useLocalDraft";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { downloadHtmlAsPdf } from "../../utils/reportExport";
+import { projectsApi } from "../../api/projects.api";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -640,9 +641,53 @@ function LivePreviewPanel({ graphs }: { graphs: Graph[] }) {
 export default function CrossSectionGraphsPage() {
   const { projectId = "default" } = useParams();
   const [graphs, setGraphs] = useLocalDraft<Graph[]>("cross-sections-full", [seed]);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!/^\d+$/.test(projectId)) return;
+
+    let active = true;
+    projectsApi.get(projectId).then((project) => {
+      if (!active) return;
+      const crossSectionsState = project.projectState?.["cross-sections"] as { graphs?: Graph[] } | Graph[] | undefined;
+      if (Array.isArray(crossSectionsState)) setGraphs(crossSectionsState);
+      else if (Array.isArray(crossSectionsState?.graphs)) setGraphs(crossSectionsState.graphs);
+    }).catch((error) => {
+      console.error("Failed to load cross-section draft:", error);
+    });
+
+    return () => { active = false; };
+  }, [projectId, setGraphs]);
 
   const addGraph = () => {
     setGraphs(c => [...c, { ...seed, id: 'g' + Date.now(), name: `SECTION_${c.length + 1}` }]);
+  };
+
+  const saveDraft = async () => {
+    if (!/^\d+$/.test(projectId)) {
+      toast.error("Project ID missing");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const project = await projectsApi.get(projectId);
+      await projectsApi.updateState(projectId, {
+        state: {
+          ...(project.projectState || {}),
+          "cross-sections": {
+            graphs,
+            savedAt: new Date().toISOString(),
+          },
+        },
+      });
+      toast.success("Cross sections saved to database");
+    } catch (error) {
+      console.error("Failed to save cross-section draft:", error);
+      toast.error("Draft save failed");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const generateAllGraphsPDF = () => {
@@ -685,6 +730,9 @@ export default function CrossSectionGraphsPage() {
             </button>
             <button className="module-btn-primary" onClick={addGraph}>
               <Plus size={17} /> Add Section
+            </button>
+            <button className="module-btn-primary" disabled={saving} onClick={saveDraft}>
+              <Save size={17} /> {saving ? "Saving..." : "Save Draft"}
             </button>
           </div>
         } 
