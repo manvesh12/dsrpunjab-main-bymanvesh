@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Download, Plus, Layers, Save } from "lucide-react";
+import { Download, Plus, Layers, Save, Trash2 } from "lucide-react";
 import PageHeader from "../../components/layout/PageHeader";
 import ResizableLayout from "../../components/layout/ResizableLayout";
 import { useLocalDraft } from "../../hooks/useLocalDraft";
@@ -553,7 +553,8 @@ function GraphBlock({ graph: g, updateG, onDelete }: { graph: Graph; updateG: (k
       toast.info('Assembling PDF, please wait...');
       const document = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
       renderGraphPdfPage(document, g, 1);
-      const filename = `${(g.hasSubGraph ? g.subName : g.name).replace(/\s+/g, '_')}_Report.pdf`;
+      const filenameBase = (g.hasSubGraph ? g.subName : g.name) || g.name || 'Cross_Section';
+      const filename = `${filenameBase.replace(/\s+/g, '_')}_Report.pdf`;
       document.save(filename);
       toast.success('PDF downloaded successfully!');
     } catch (err) {
@@ -563,31 +564,53 @@ function GraphBlock({ graph: g, updateG, onDelete }: { graph: Graph; updateG: (k
   };
 
   return (
-    <div className="rounded-2xl border bg-white shadow-sm overflow-hidden mb-6">
-      <div className="flex items-center justify-between border-b bg-slate-50/50 p-4">
-        <div className="flex flex-1 items-center gap-4">
-          <span className="font-semibold text-slate-700">Main Graph (Post-Monsoon)</span>
-          <input 
-            value={g.name} 
-            placeholder="Main Graph Name" 
-            onChange={(e) => updateG('name', e.target.value)} 
-            className="rounded-lg border px-3 py-1.5 font-bold outline-none focus:border-blue-500 text-sm w-64"
-          />
-          <label className="flex items-center gap-2 text-xs font-semibold text-slate-500">
-            Report format
-            <select
-              value={g.pdfLayout || 1}
-              onChange={(event) => updateG('pdfLayout', Number(event.target.value) as 1 | 2)}
-              className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-medium text-slate-800 outline-none focus:border-blue-500"
-            >
-              <option value={1}>Format 1 - Calculation + graphs</option>
-              <option value={2}>Format 2 - Stacked graphs</option>
-            </select>
-          </label>
-        </div>
-        <div className="flex gap-2">
-          <button className="rounded-lg bg-red-50 text-red-600 px-3 py-1.5 text-xs font-semibold hover:bg-red-100 transition" onClick={downloadPDF}>Download PDF Report</button>
-          <button className="rounded-lg bg-red-50 text-red-600 px-3 py-1.5 text-xs font-semibold hover:bg-red-100 transition" onClick={onDelete}>Delete Section</button>
+    <div className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-200 bg-slate-50/80 p-4">
+        <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-end 2xl:justify-between">
+          <div className="grid min-w-0 flex-1 gap-4 lg:grid-cols-[minmax(220px,1fr)_minmax(330px,auto)]">
+            <label className="min-w-0">
+              <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">Post-monsoon section name</span>
+              <input
+                value={g.name}
+                placeholder="Main Graph Name"
+                onChange={(e) => updateG('name', e.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+            </label>
+
+            <div>
+              <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">Report format</span>
+              <div className="grid grid-cols-2 rounded-xl border border-slate-300 bg-white p-1" role="radiogroup" aria-label="Cross-section report format">
+                {([1, 2] as const).map((format) => {
+                  const selected = (g.pdfLayout || 1) === format;
+                  return (
+                    <button
+                      key={format}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => updateG('pdfLayout', format)}
+                      className={`rounded-lg px-3 py-2 text-left text-xs transition ${selected ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
+                    >
+                      <span className="block font-bold">Format {format}</span>
+                      <span className={`mt-0.5 block text-[10px] ${selected ? 'text-blue-100' : 'text-slate-400'}`}>
+                        {format === 1 ? 'Calculation + graphs' : 'Stacked graphs'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 2xl:justify-end">
+            <button type="button" className="module-btn whitespace-nowrap" onClick={downloadPDF}>
+              <Download size={15} /> Download section PDF
+            </button>
+            <button type="button" className="inline-flex items-center gap-2 whitespace-nowrap rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50" onClick={onDelete}>
+              <Trash2 size={15} /> Delete section
+            </button>
+          </div>
         </div>
       </div>
 
@@ -597,20 +620,20 @@ function GraphBlock({ graph: g, updateG, onDelete }: { graph: Graph; updateG: (k
             <div><label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Distance Array (m)</label><input value={g.dist} onChange={e => updateG('dist', e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-blue-500" /></div>
             <div><label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Elevation Array (m)</label><input value={g.post} onChange={e => updateG('post', e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-blue-500" /></div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <div><label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Red Line (m)</label><input type="number" step="0.01" value={g.red} onChange={e => updateG('red', e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-blue-500" /></div>
             <div><label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Thalweg (m)</label><input type="number" step="0.01" value={g.thal} onChange={e => updateG('thal', e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-blue-500" /></div>
             <div><label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Total Area (Ha)</label><input type="number" step="0.01" value={g.area} onChange={e => updateG('area', e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-blue-500" /></div>
             <div><label className="block text-xs font-semibold text-slate-500 uppercase mb-1">No-Mine (Ha)</label><input type="number" step="0.01" value={g.noMine} onChange={e => updateG('noMine', e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-blue-500" /></div>
             <div><label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Density (g/cc)</label><input type="number" step="0.01" value={g.bulk} onChange={e => updateG('bulk', e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-blue-500" /></div>
             <div><label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Mining %</label><input type="number" value={g.pct} onChange={e => updateG('pct', e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-blue-500" /></div>
-            <div className="col-span-3"><label className="block text-xs font-semibold text-blue-500 uppercase mb-1">Calculation Thickness Override (m)</label><input type="number" step="0.01" value={g.calcThick || ''} placeholder="Defaults to Post Avg if empty" onChange={e => updateG('calcThick', e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none border-blue-200 focus:border-blue-500 bg-blue-50/30" /></div>
+            <div className="col-span-2 sm:col-span-3"><label className="block text-xs font-semibold text-blue-500 uppercase mb-1">Calculation Thickness Override (m)</label><input type="number" step="0.01" value={g.calcThick || ''} placeholder="Defaults to Post Avg if empty" onChange={e => updateG('calcThick', e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none border-blue-200 focus:border-blue-500 bg-blue-50/30" /></div>
           </div>
         </div>
 
         {g.hasSubGraph ? (
           <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/30 p-4">
-            <div className="flex justify-between items-center mb-3">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <strong className="text-amber-600 text-sm font-semibold">Sub-Graph for Comparison (Pre-Monsoon)</strong>
               <button className="text-xs text-red-600 hover:underline font-semibold" onClick={() => updateG('hasSubGraph', false)}>Remove Comparison</button>
             </div>
@@ -696,11 +719,11 @@ function GraphBlock({ graph: g, updateG, onDelete }: { graph: Graph; updateG: (k
 // ------------- LIVE PREVIEW PANEL --------------
 function LivePreviewPanel({ graphs }: { graphs: Graph[] }) {
   return (
-    <aside className="h-full rounded-2xl border bg-slate-200 p-4 shadow-sm">
+    <aside className="h-full overflow-y-auto rounded-2xl border bg-slate-200 p-4 shadow-sm">
       <p className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
         <Layers size={13} /> Cross Section Live Preview
       </p>
-      <div className="bg-white shadow min-h-[900px] p-6" style={{ fontFamily: "'Times New Roman', serif" }}>
+      <div className="min-h-[900px] bg-white p-4 shadow sm:p-6" style={{ fontFamily: "'Times New Roman', serif" }}>
         {/* Document header */}
         <div className="border-b-2 border-slate-900 pb-4 text-center mb-6">
           <p className="text-[10px] font-bold uppercase tracking-[.2em]">Government of Punjab</p>
@@ -753,15 +776,15 @@ function LivePreviewPanel({ graphs }: { graphs: Graph[] }) {
           return (
             <section key={g.id} className="mb-8 border-b border-slate-200 pb-6 last:border-0">
               {/* Section header */}
-              <div className="flex items-center justify-between mb-3">
-                <div>
+              <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
                   <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mr-2">Section {idx + 1}</span>
                   <span className="text-sm font-bold text-slate-800">{g.name || 'Untitled'}</span>
                   {g.hasSubGraph && g.subName && (
                     <span className="ml-2 text-[9px] text-amber-600 font-semibold">/ {g.subName}</span>
                   )}
                 </div>
-                <div className="flex gap-2 text-[9px] text-slate-500">
+                <div className="flex flex-wrap gap-2 text-[9px] text-slate-500">
                   <span className="rounded bg-blue-50 px-1.5 py-0.5 font-bold text-blue-700">Format {isFormat2 ? 2 : 1}</span>
                   <span className="bg-slate-100 px-1.5 py-0.5 rounded font-mono">Area: {g.area} Ha</span>
                   <span className="bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-mono font-bold">{new Intl.NumberFormat().format(Math.floor(o.allowed))} MT</span>
@@ -787,7 +810,7 @@ function LivePreviewPanel({ graphs }: { graphs: Graph[] }) {
                   </div>
                 </div>
               ) : <>
-              <div className={`grid gap-3 mb-3 ${g.hasSubGraph ? 'grid-cols-2' : 'grid-cols-1'}`}>
+              <div className="mb-3 grid grid-cols-1 gap-3">
                 <div>
                   <p className="text-[8px] font-bold text-blue-700 mb-1 uppercase">Post-Monsoon — {g.name}</p>
                   <div className="h-[120px] bg-white border border-slate-100 rounded">
@@ -853,6 +876,15 @@ export default function CrossSectionGraphsPage() {
   const { projectId = "default" } = useParams();
   const [graphs, setGraphs] = useLocalDraft<Graph[]>("cross-sections-full", [seed]);
   const [saving, setSaving] = useState(false);
+  const [wideLayout, setWideLayout] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches);
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px)');
+    const updateLayout = () => setWideLayout(media.matches);
+    updateLayout();
+    media.addEventListener('change', updateLayout);
+    return () => media.removeEventListener('change', updateLayout);
+  }, []);
 
   useEffect(() => {
     if (!/^\d+$/.test(projectId)) return;
@@ -918,6 +950,23 @@ export default function CrossSectionGraphsPage() {
     }
   };
 
+  const editorPanel = (
+    <div className={wideLayout ? "h-full space-y-6 overflow-y-auto pb-12 pr-2" : "space-y-6 pb-6"}>
+      {graphs.map((g, i) => (
+        <GraphCard
+          key={g.id}
+          graph={g}
+          updateG={(k: keyof Graph, v: any) => {
+            setGraphs(c => c.map((x, j) => j === i ? { ...x, [k]: v } : x));
+          }}
+          onDelete={() => setGraphs(c => c.filter((_, j) => j !== i))}
+        />
+      ))}
+    </div>
+  );
+
+  const previewPanel = <LivePreviewPanel graphs={graphs} />;
+
   return (
     <>
       <PageHeader 
@@ -925,7 +974,7 @@ export default function CrossSectionGraphsPage() {
         title="Cross Section Graph Generator" 
         description="Input elevation & distance data to generate sandbar cross-section graphs with auto-calculated volumes" 
         action={
-          <div className="flex gap-2">
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:max-w-[48%] sm:justify-end lg:max-w-none">
             <button className="module-btn" onClick={generateAllGraphsPDF}>
               <Download size={17} /> Download All Graphs PDF
             </button>
@@ -939,27 +988,21 @@ export default function CrossSectionGraphsPage() {
         } 
       />
       
-      <div className="h-[calc(100vh-11rem)]">
-        <ResizableLayout
-          leftPanelDefaultSize={60}
-          rightPanelDefaultSize={40}
-          leftPanel={
-            <div className="pb-12 space-y-6">
-              {graphs.map((g, i) => (
-                <GraphCard 
-                  key={g.id} 
-                  graph={g} 
-                  updateG={(k: keyof Graph, v: any) => {
-                    setGraphs(c => c.map((x, j) => j === i ? { ...x, [k]: v } : x));
-                  }} 
-                  onDelete={() => setGraphs(c => c.filter((_, j) => j !== i))} 
-                />
-              ))}
-            </div>
-          }
-          rightPanel={<LivePreviewPanel graphs={graphs} />}
-        />
-      </div>
+      {wideLayout ? (
+        <div className="h-[calc(100vh-11rem)] min-h-[680px]">
+          <ResizableLayout
+            leftPanelDefaultSize={60}
+            rightPanelDefaultSize={40}
+            leftPanel={editorPanel}
+            rightPanel={previewPanel}
+          />
+        </div>
+      ) : (
+        <div className="space-y-6 px-3 pb-8 sm:px-4">
+          {editorPanel}
+          <div className="min-h-[700px]">{previewPanel}</div>
+        </div>
+      )}
     </>
   );
 }
