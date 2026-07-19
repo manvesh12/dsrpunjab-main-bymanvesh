@@ -1,4 +1,4 @@
-import { Download, Printer } from "lucide-react";
+import { Download, Printer, Save, Settings2 } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -7,7 +7,7 @@ import PageHeader from "../../components/layout/PageHeader";
 import UploadedFilePreview from "../../components/ui/UploadedFilePreview";
 import { projectsApi, type ProjectFile } from "../../api/projects.api";
 import { uploadsApi } from "../../api/uploads.api";
-import { appendGeneratedReportContent, appendReportSectionTitle, appendUploadedDocument, applyDsrReportFrame, createSectionPdf, saveSectionPdf, type ReportChapter, type ReportCrossSection, type ReportDataTable } from "../../utils/sectionPdf";
+import { appendGeneratedReportContent, appendReportSectionTitle, appendUploadedDocument, applyDsrReportFrame, createSectionPdf, saveSectionPdf, type ReportChapter, type ReportCrossSection, type ReportDataTable, type ReportFrameSettings } from "../../utils/sectionPdf";
 import { toast } from "sonner";
 import { annexureTemplates } from "../annexures/AnnexureEditorPage";
 import { additionalAnnexureTemplates } from "../annexures/AdditionalAnnexureEditorPage";
@@ -24,6 +24,7 @@ type FrontMatterState = {
 type PreviewUpload = { id: string; title: string; name: string; url: string };
 type DraftColumn = { key: string; label: string };
 const annexureSections = ["Annexure I", "Annexure II", "Annexure III", "Annexure IV", "Annexure V", "Annexure VI", "Annexure VII", "Annexure B", "Annexure C", "Annexure D", "Annexure E", "Annexure F", "Annexure G", "Annexure H", "Annexure I (Additional)", "Annexure J", "Annexure K"];
+const frameSections = ["Front Matter", "Chapters", "Cross Sections", "Plates and Maps", ...annexureSections];
 
 function annexureMatches(title: string, annexure: string) {
   const normalized = title.toLowerCase().replace(/\s+/g, " ");
@@ -105,6 +106,9 @@ export default function ReportPreviewPage() {
   const [draftGraphs, setDraftGraphs] = useState<ReportCrossSection[]>([]);
   const [draftChapters, setDraftChapters] = useState<Chapter[]>([]);
   const [draftPlates, setDraftPlates] = useState<Plate[]>([]);
+  const [frameSettings, setFrameSettings] = useState<ReportFrameSettings>({});
+  const [selectedFrameSection, setSelectedFrameSection] = useState("Chapters");
+  const [savingFormat, setSavingFormat] = useState(false);
   const { data: project, isLoading } = useQuery({
     queryKey: ["project", projectId, "preview"],
     queryFn: () => projectsApi.get(projectId),
@@ -122,6 +126,23 @@ export default function ReportPreviewPage() {
   const reportGraphs = graphs.length ? graphs : draftGraphs;
   const reportChapters = chapters.length ? chapters : draftChapters;
   const reportPlates = plates.length ? plates : draftPlates;
+
+  useEffect(() => {
+    const saved = state["report-format"] as ReportFrameSettings | undefined;
+    if (saved) setFrameSettings(saved);
+  }, [project?.id]);
+
+  const selectedOverride = frameSettings.sectionOverrides?.[selectedFrameSection] || {};
+  const saveFormat = async () => {
+    if (!/^\d+$/.test(projectId) || !project) return;
+    setSavingFormat(true);
+    try {
+      await projectsApi.updateState(projectId, { state: { ...state, "report-format": frameSettings } });
+      toast.success("Report header and footer settings saved");
+    } catch (error) { console.error(error); toast.error("Could not save report format settings"); }
+    finally { setSavingFormat(false); }
+  };
+  const setSelectedOverride = (field: "headerText" | "footerText", value: string) => setFrameSettings((current) => ({ ...current, sectionOverrides: { ...current.sectionOverrides, [selectedFrameSection]: { ...current.sectionOverrides?.[selectedFrameSection], [field]: value } } }));
 
   useEffect(() => {
     let active = true;
@@ -221,7 +242,7 @@ export default function ReportPreviewPage() {
         for (const upload of annexureUploads.filter((item) => annexureMatches(item.title, annexure))) await appendUpload(upload);
       }
       if (document.getPageCount() === 0) throw new Error("No readable uploaded documents found");
-      await applyDsrReportFrame(document, sections, project?.district || "Punjab");
+      await applyDsrReportFrame(document, sections, project?.district || "Punjab", frameSettings);
       await saveSectionPdf(document, `DSR-Final-Report-${projectId}.pdf`);
       if (skipped.length) toast.warning(`PDF downloaded; ${skipped.length} unreadable upload(s) skipped`);
       else toast.success("Final PDF downloaded with all uploaded annexures");
@@ -246,6 +267,19 @@ export default function ReportPreviewPage() {
           </button>
         </div>}
       />
+      <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-800"><Settings2 size={16} /> Report Header &amp; Footer Settings</div>
+        <div className="grid gap-3 md:grid-cols-4 md:items-end">
+          <label className="text-xs font-semibold text-slate-600">Default header<input value={frameSettings.headerText || ""} onChange={(event) => setFrameSettings((current) => ({ ...current, headerText: event.target.value }))} placeholder="District Survey Report" className="mt-1 w-full rounded-lg border px-3 py-2 font-normal" /></label>
+          <label className="text-xs font-semibold text-slate-600">Default footer<input value={frameSettings.footerText || ""} onChange={(event) => setFrameSettings((current) => ({ ...current, footerText: event.target.value }))} placeholder="Prepared by: District Survey Report Committee" className="mt-1 w-full rounded-lg border px-3 py-2 font-normal" /></label>
+          <label className="text-xs font-semibold text-slate-600">Section override<select value={selectedFrameSection} onChange={(event) => setSelectedFrameSection(event.target.value)} className="mt-1 w-full rounded-lg border bg-white px-3 py-2 font-normal">{frameSections.map((section) => <option key={section}>{section}</option>)}</select></label>
+          <button className="module-btn-primary justify-center" disabled={savingFormat} onClick={saveFormat}><Save size={16} />{savingFormat ? "Saving..." : "Save Format"}</button>
+        </div>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <label className="text-xs text-slate-600">{selectedFrameSection} header<input value={selectedOverride.headerText || ""} onChange={(event) => setSelectedOverride("headerText", event.target.value)} placeholder="Uses default header if empty" className="mt-1 w-full rounded-lg border px-3 py-2" /></label>
+          <label className="text-xs text-slate-600">{selectedFrameSection} footer<input value={selectedOverride.footerText || ""} onChange={(event) => setSelectedOverride("footerText", event.target.value)} placeholder="Uses default footer if empty" className="mt-1 w-full rounded-lg border px-3 py-2" /></label>
+        </div>
+      </section>
       <main className="overflow-y-auto rounded-2xl border border-slate-200 bg-slate-100 p-4 md:p-8">
         <article id="report-preview-article" className="mx-auto flex min-h-screen w-full max-w-[1200px] flex-col items-center gap-12 bg-white px-4 py-16 shadow-xl md:px-12">
           {!previewPages.length ? (
