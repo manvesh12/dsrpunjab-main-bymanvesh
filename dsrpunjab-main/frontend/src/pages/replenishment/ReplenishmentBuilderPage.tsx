@@ -1,1334 +1,448 @@
-import { useCallback, useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { useParams } from "react-router-dom";
 import {
-  Archive,
-  Bot,
+  Calculator,
+  Check,
   CheckCircle2,
-  ClipboardCheck,
-  Copy,
-  Eye,
-  FileStack,
-  FolderTree,
-  GitCompare,
-  Layers3,
-  Lock,
-  Map,
-  Merge,
-  Download,
-  FileJson,
-  FileText,
-  FileSpreadsheet,
-  Printer,
-  RefreshCw,
-  Replace,
-  Save,
-  Upload,
-  Sparkles,
-  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
   CloudUpload,
   Database,
-  GripVertical,
-  X,
-  type LucideIcon,
+  Download,
+  Eye,
+  FileCheck2,
+  FileText,
+  FolderOpen,
+  Plus,
+  RefreshCw,
+  Save,
+  ShieldCheck,
+  Sparkles,
+  Trash2,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import PageHeader from "../../components/layout/PageHeader";
-import {
-  replenishmentApi,
-  type ReplenishmentFile,
-  type ReplenishmentStudy,
-} from "../../api/replenishment.api";
+import { replenishmentApi, type ReplenishmentFile, type ReplenishmentStudy } from "../../api/replenishment.api";
 import {
   downloadBlob,
+  downloadHtmlAsPdf,
   exportDraftJson,
   exportWordDocument,
-  loadDownloadHistory,
   openPrintableDocument,
-  downloadHtmlAsPdf,
-  recordDownloadHistory,
   replenishmentFileName,
-  type DownloadFormat,
 } from "../../utils/reportExport";
 
-type ImportMode = "smart" | "selective" | "fresh";
-type ContentAction = "Preview" | "Copy" | "Replace" | "Merge" | "Reference" | "Skip";
+type StepId = "setup" | "import" | "content" | "survey" | "evidence" | "review";
+type SectionSource = "template" | "dsr" | "manual";
 
-type ContentItem = {
+type ReportSection = {
   id: string;
-  group: string;
-  name: string;
-  status: "Imported" | "Updated" | "Pending" | "Fresh Survey Required";
-  action: ContentAction;
+  title: string;
+  category: string;
+  content: string;
+  included: boolean;
+  source: SectionSource;
 };
 
-type SurveyUpdate = {
-  surveyYear: string;
-  surveyDate: string;
-  projectName: string;
-  blockName: string;
+type GridRow = {
+  id: string;
+  grid: string;
+  area: string;
+  preRl: string;
+  postRl: string;
+};
+
+type StudyDetails = {
+  reportTitle: string;
+  district: string;
+  river: string;
+  block: string;
   village: string;
   mineral: string;
   applicant: string;
   preparedBy: string;
+  studyYear: string;
   leaseArea: string;
   mineableArea: string;
-  approvedAnnualQuantity: string;
-  preMonsoonDate: string;
-  postMonsoonDate: string;
-  gridArea: string;
-  preMonsoonElevation: string;
-  postMonsoonElevation: string;
+  preSurveyDate: string;
+  postSurveyDate: string;
   bulkDensity: string;
+  approvedQuantity: string;
   extractedQuantity: string;
-  dgps: boolean;
-  drone: boolean;
-  demDsm: boolean;
-  orthomosaic: boolean;
-  crossSections: boolean;
   rainfall: string;
-  waterLevel: string;
-  riverWidthDepth: string;
-  sediment: string;
-  photos: string;
+  remarks: string;
 };
 
-type CrossSectionRow = {
-  id: string;
-  chainage: string;
-  previous: string;
-  updated: string;
-  action: "Copy previous" | "Replace graph" | "Upload updated" | "Overlay compare";
-};
-
-type EvidenceFile = {
-  id: string;
-  sectionId: string;
-  name: string;
-  size: number;
-  objectKey: string;
-  uploadedAt: string;
-};
-
-function toEvidenceFile(file: ReplenishmentFile): EvidenceFile {
-  return {
-    id: file.id,
-    sectionId: file.sectionId,
-    name: file.fileName,
-    size: file.sizeBytes,
-    objectKey: file.objectKey,
-    uploadedAt: file.createdAt,
-  };
-}
-
-type WorkflowState = {
-  type: "replenishment_enterprise_workflow";
-  importMode: ImportMode;
-  selectedResources: string[];
-  contentItems: ContentItem[];
-  crossSections: CrossSectionRow[];
-  importSummary: { imported: number; updated: number; pending: number };
-  suggestions: { title: string; detail: string; kind: "static" | "dynamic" | "pending" }[];
-  dynamicRegeneration: string[];
-  previewNotes: string[];
-  evidenceFiles: EvidenceFile[];
-  customExcelTemplate?: EvidenceFile;
+type BuilderState = {
+  type: "replenishment_builder_v2";
+  schemaVersion: 2;
+  details: StudyDetails;
+  sections: ReportSection[];
+  grids: GridRow[];
+  inherited?: Record<string, unknown>;
+  importedKeys: string[];
   lastSavedAt?: string;
-  district?: string;
-  river?: string;
-  year?: string;
-  version?: number;
 };
 
-const resourceOptions = [
-  "Chapters",
-  "Tables",
-  "Figures",
-  "Maps",
-  "Cross Sections",
-  "Images",
-  "Graphs",
-  "Annexures",
-  "References",
+type EvidenceRequirement = {
+  id: string;
+  title: string;
+  hint: string;
+  required: boolean;
+  accept: string;
+};
+
+const steps: { id: StepId; label: string; helper: string }[] = [
+  { id: "setup", label: "Study setup", helper: "Project identity" },
+  { id: "import", label: "Import from DSR", helper: "Select reusable data" },
+  { id: "content", label: "Report content", helper: "Write every chapter" },
+  { id: "survey", label: "Survey & calculation", helper: "Pre/post monsoon" },
+  { id: "evidence", label: "Evidence", helper: "Upload annexures" },
+  { id: "review", label: "Review & download", helper: "Validate final report" },
 ];
 
-const excelTemplates = [
-  {
-    name: "Survey Grid",
-    description: "100 grid rows with auto elevation difference, volume and replenished quantity formulas.",
-    href: "/templates/Replenishment-Survey-Grid-Template.xlsx",
-  },
-  {
-    name: "Cross Sections",
-    description: "Chainage-wise pre/post RL comparison with verification status dropdowns.",
-    href: "/templates/Replenishment-Cross-Section-Template.xlsx",
-  },
-  {
-    name: "Evidence Register",
-    description: "Annexure, approval, survey output and laboratory evidence tracker.",
-    href: "/templates/Replenishment-Evidence-Register-Template.xlsx",
-  },
-];
-
-const dynamicOutputs = [
-  "Reserve Estimation",
-  "Volume Calculation",
-  "Grid Calculation",
-  "Replenishment Analysis",
-  "Quantity Tables",
-  "Cross Section Tables",
-  "Updated Figures",
-  "Executive Summary",
-  "Conclusion",
-  "Recommendations",
-];
-
-const defaultSurvey: SurveyUpdate = {
-  surveyYear: "2025-26",
-  surveyDate: "",
-  projectName: "River Bed Material Replenishment Study",
-  blockName: "",
+const defaultDetails: StudyDetails = {
+  reportTitle: "Replenishment Study Report",
+  district: "",
+  river: "",
+  block: "",
   village: "",
-  mineral: "River Bed Material / Sand",
+  mineral: "River Bed Material",
   applicant: "",
-  preparedBy: "District Survey Report Committee",
+  preparedBy: "",
+  studyYear: String(new Date().getFullYear()),
   leaseArea: "",
   mineableArea: "",
-  approvedAnnualQuantity: "",
-  preMonsoonDate: "",
-  postMonsoonDate: "",
-  gridArea: "",
-  preMonsoonElevation: "",
-  postMonsoonElevation: "",
-  bulkDensity: "1.80",
+  preSurveyDate: "",
+  postSurveyDate: "",
+  bulkDensity: "",
+  approvedQuantity: "",
   extractedQuantity: "",
-  dgps: true,
-  drone: true,
-  demDsm: true,
-  orthomosaic: true,
-  crossSections: true,
   rainfall: "",
-  waterLevel: "",
-  riverWidthDepth: "",
-  sediment: "",
-  photos: "",
+  remarks: "",
 };
 
-const defaultWorkflow: WorkflowState = {
-  type: "replenishment_enterprise_workflow",
-  importMode: "smart",
-  selectedResources: resourceOptions,
-  contentItems: [
-    { id: "front", group: "Front Matter", name: "Certificate, Preface, Executive context", status: "Imported", action: "Reference" },
-    { id: "chapters", group: "Chapters", name: "Static district, geology and drainage chapters", status: "Imported", action: "Copy" },
-    { id: "tables", group: "Tables", name: "Lease, river and baseline district tables", status: "Imported", action: "Merge" },
-    { id: "maps", group: "Maps", name: "District maps, mining block plans and GIS outputs", status: "Updated", action: "Replace" },
-    { id: "cross", group: "Cross Sections", name: "Pre/post monsoon chainage profiles", status: "Fresh Survey Required", action: "Replace" },
-    { id: "annexures", group: "Annexures", name: "References, approvals and survey attachments", status: "Pending", action: "Skip" },
-  ],
-  crossSections: [
-    { id: "cs-01", chainage: "R-01 / 0+500", previous: "Final DSR graph available", updated: "Awaiting updated Excel", action: "Overlay compare" },
-    { id: "cs-02", chainage: "R-02 / 1+250", previous: "Final DSR graph available", updated: "Fresh survey required", action: "Upload updated" },
-  ],
-  importSummary: { imported: 3, updated: 1, pending: 2 },
-  suggestions: [
-    { title: "Reuse safe", detail: "District profile, geology, drainage and statutory references look static.", kind: "static" },
-    { title: "Update required", detail: "Survey year, cross sections, river dimensions, rainfall and water level are dynamic.", kind: "dynamic" },
-    { title: "Pending evidence", detail: "Upload updated DGPS/drone/DEM/orthomosaic files before final generation.", kind: "pending" },
-  ],
-  dynamicRegeneration: dynamicOutputs,
-  previewNotes: [
-    "Existing Final DSR remains read-only and untouched.",
-    "Imported Replenishment Report starts from reusable approved DSR content.",
-    "Updated Replenishment Report highlights modified survey-dependent sections.",
-  ],
-  evidenceFiles: [],
-  district: "Punjab",
-  river: "River",
-  year: String(new Date().getFullYear()),
-  version: 1,
+const defaultSections: ReportSection[] = [
+  { id: "executive-summary", title: "Executive Summary", category: "Front matter", included: true, source: "template", content: "This report presents the replenishment assessment for the selected river reach. The assessment compares authenticated pre-monsoon and post-monsoon survey surfaces, applies the verified bulk density and determines the sustainable quantity available for extraction." },
+  { id: "introduction", title: "1. Introduction", category: "Project context", included: true, source: "template", content: "The replenishment study has been prepared to assess the natural deposition of river-borne minor minerals within the approved lease area and to support scientific, sustainable and compliant mineral extraction." },
+  { id: "project-details", title: "1.1 Project Details and Coordinates", category: "Project context", included: true, source: "template", content: "Describe the project proponent, lease particulars, access, boundary coordinates, environmental clearance and mining plan references." },
+  { id: "location", title: "1.2 Location, Access and Maps", category: "Project context", included: true, source: "template", content: "Insert the location, approach, cadastral reference, river reach and map references. Upload signed location maps in the Evidence step." },
+  { id: "physiography", title: "2. Physiography, Drainage and Climate", category: "Baseline", included: true, source: "template", content: "Describe regional relief, drainage pattern, catchment behaviour, rainfall and the hydrological conditions influencing sediment transport and deposition." },
+  { id: "ecology", title: "3. Flora, Fauna and Hydrogeology", category: "Baseline", included: true, source: "template", content: "Summarise relevant ecological sensitivities, groundwater conditions, restricted zones and safeguards applicable to the study reach." },
+  { id: "geology", title: "4. General and Local Geology", category: "Baseline", included: true, source: "template", content: "Describe the regional and local geological setting, river bed material composition, sediment characteristics and source of mineral deposition." },
+  { id: "reserve", title: "5. Mineable Reserve and Method of Mining", category: "Mining", included: true, source: "template", content: "State the approved reserve, annual permissible quantity, mineable area, working depth, extraction method and statutory restrictions." },
+  { id: "replenishment", title: "6. Replenishment Study", category: "Study", included: true, source: "template", content: "Natural replenishment is evaluated by comparing like-for-like terrain observations over a common eligible area using the same datum, benchmarks and grid extent." },
+  { id: "guidelines", title: "6.1 SSMG 2016 / EMGSM 2020 Compliance", category: "Study", included: true, source: "template", content: "Record how the survey, exclusion zones, depth controls, reserve estimation, monitoring and recommended extraction quantity comply with applicable sustainable sand mining guidelines." },
+  { id: "equipment", title: "7. Software and Equipment Deployed", category: "Methodology", included: true, source: "template", content: "List DGPS base and rover, total station, UAV/drone, camera, processing software, calibration records and accuracy specifications used for the study." },
+  { id: "methodology", title: "8. Survey Methodology and Accuracy", category: "Methodology", included: true, source: "template", content: "Document survey control, benchmark establishment, flight or field plan, data capture, quality checks, accuracy assessment and common-area comparison methodology." },
+  { id: "processing", title: "9. Data Processing and Survey Output", category: "Results", included: true, source: "template", content: "Explain the generation of point clouds, DEM/DSM, orthomosaic, contours, cross sections and pre/post monsoon surfaces. Refer to uploaded signed outputs." },
+  { id: "calculation", title: "10. Grid-wise Volume and Quantity Calculation", category: "Results", included: true, source: "template", content: "Grid-wise replenished volume is computed from eligible area and positive elevation gain. Quantity is derived using the authenticated bulk density. The calculated table is generated automatically in this report." },
+  { id: "conclusion", title: "11. Conclusion and Recommendations", category: "Results", included: true, source: "template", content: "State the assessed replenished quantity, comparison with approved and extracted quantity, safe recommended extraction and site-specific monitoring conditions." },
+];
+
+const defaultGrid = (): GridRow => ({ id: crypto.randomUUID(), grid: "", area: "", preRl: "", postRl: "" });
+
+const evidenceRequirements: EvidenceRequirement[] = [
+  { id: "environmental-clearance", title: "Environmental Clearance", hint: "EC letter with conditions", required: true, accept: ".pdf" },
+  { id: "approved-mining-plan", title: "Approved Mining Plan", hint: "Relevant approved pages or complete plan", required: true, accept: ".pdf" },
+  { id: "accreditation", title: "NABET / Agency Accreditation", hint: "Valid consultant and laboratory certificates", required: true, accept: ".pdf,.png,.jpg,.jpeg" },
+  { id: "dgps-data", title: "DGPS / Survey Raw Data", hint: "Base-rover observations, CSV or Excel", required: true, accept: ".csv,.xls,.xlsx,.zip,.pdf" },
+  { id: "survey-output", title: "Pre & Post Monsoon Survey", hint: "Authenticated survey sheets and output", required: true, accept: ".csv,.xls,.xlsx,.zip,.pdf" },
+  { id: "maps-plates", title: "Maps, DEM/DSM and Replenishment Plates", hint: "Location, contours, orthomosaic and signed plates", required: true, accept: ".pdf,.png,.jpg,.jpeg,.tif,.tiff,.zip" },
+  { id: "cross-sections", title: "Cross Sections and Graphs", hint: "Chainage-wise pre/post comparison", required: true, accept: ".pdf,.png,.jpg,.jpeg,.xls,.xlsx,.csv,.zip" },
+  { id: "survey-photos", title: "Survey Photographs", hint: "Geo-tagged field and equipment photographs", required: true, accept: ".pdf,.png,.jpg,.jpeg,.zip" },
+  { id: "bulk-density", title: "Bulk Density / Laboratory Report", hint: "Authenticated test report used in calculation", required: true, accept: ".pdf,.png,.jpg,.jpeg" },
+  { id: "supporting", title: "Other Supporting Documents", hint: "Approvals, declarations and correspondence", required: false, accept: ".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx,.zip" },
+];
+
+const inheritedLabels: Record<string, { title: string; target: string; description: string }> = {
+  district: { title: "District profile", target: "physiography", description: "District name and administrative context" },
+  rivers: { title: "River inventory", target: "location", description: "River names, reaches and source information" },
+  demographics: { title: "Demographic baseline", target: "physiography", description: "Reusable district baseline" },
+  drainage: { title: "Drainage pattern", target: "physiography", description: "Drainage and catchment information" },
+  rainfall: { title: "Rainfall and climate", target: "physiography", description: "Historical rainfall reference" },
+  geology: { title: "Geology", target: "geology", description: "General and local geological context" },
+  miningLeases: { title: "Mining leases", target: "reserve", description: "Lease and reserve reference data" },
+  mineral: { title: "Minor mineral", target: "project-details", description: "Mineral classification" },
 };
 
-function escapeHtml(value: unknown) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function numericValue(value: string) {
-  const parsed = Number(String(value || "").replaceAll(",", ""));
+function numberValue(value: string) {
+  const parsed = Number(String(value || "").replace(/,/g, ""));
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function formattedNumber(value: number, digits = 2) {
-  return value.toLocaleString("en-IN", { maximumFractionDigits: digits });
+function formatNumber(value: number, decimals = 2) {
+  return value.toLocaleString("en-IN", { maximumFractionDigits: decimals, minimumFractionDigits: decimals });
 }
 
-function currentUserName() {
-  try {
-    const raw = localStorage.getItem("dsr:auth_user");
-    const user = raw ? JSON.parse(raw) : null;
-    return user?.fullName || user?.username || user?.email || "Current Officer";
-  } catch {
-    return "Current Officer";
+function safe(value: unknown) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function readableInherited(value: unknown) {
+  if (value == null || value === "") return "No data available";
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (Array.isArray(value)) return value.map((item, index) => `${index + 1}. ${typeof item === "object" ? JSON.stringify(item) : item}`).join("\n");
+  return Object.entries(value as Record<string, unknown>).map(([key, item]) => `${key.replace(/_/g, " ")}: ${typeof item === "object" ? JSON.stringify(item) : item}`).join("\n");
+}
+
+function fileSize(bytes: number) {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function normaliseState(study: ReplenishmentStudy): BuilderState {
+  const saved = study.reportState as Partial<BuilderState> & { inherited?: Record<string, unknown> };
+  if (saved.type === "replenishment_builder_v2") {
+    return {
+      type: "replenishment_builder_v2",
+      schemaVersion: 2,
+      details: { ...defaultDetails, ...saved.details },
+      sections: Array.isArray(saved.sections) ? saved.sections : defaultSections,
+      grids: Array.isArray(saved.grids) && saved.grids.length ? saved.grids : [defaultGrid()],
+      inherited: saved.inherited || {},
+      importedKeys: Array.isArray(saved.importedKeys) ? saved.importedKeys : [],
+      lastSavedAt: saved.lastSavedAt,
+    };
   }
+  return {
+    type: "replenishment_builder_v2",
+    schemaVersion: 2,
+    details: {
+      ...defaultDetails,
+      reportTitle: study.title || defaultDetails.reportTitle,
+      river: study.river || "",
+      block: study.miningBlock || "",
+    },
+    sections: defaultSections,
+    grids: [defaultGrid()],
+    inherited: saved.inherited || {},
+    importedKeys: [],
+  };
 }
 
-function fileNameFor(workflow: WorkflowState, extension: "pdf" | "json" | "docx") {
-  return replenishmentFileName({
-    district: workflow.district,
-    river: workflow.river,
-    year: workflow.year,
-    version: workflow.version,
-    extension,
+function buildReportHtml(state: BuilderState, study: ReplenishmentStudy | null, files: ReplenishmentFile[]) {
+  const { details } = state;
+  const rows = state.grids.map((row) => {
+    const difference = Math.max(0, numberValue(row.postRl) - numberValue(row.preRl));
+    const volume = numberValue(row.area) * difference;
+    const quantity = volume * numberValue(details.bulkDensity);
+    return { ...row, difference, volume, quantity };
   });
+  const totalVolume = rows.reduce((sum, row) => sum + row.volume, 0);
+  const totalQuantity = rows.reduce((sum, row) => sum + row.quantity, 0);
+  const approved = numberValue(details.approvedQuantity);
+  const replenishment = approved ? (totalQuantity / approved) * 100 : 0;
+  const sections = state.sections.filter((section) => section.included);
+  const toc = sections.map((section, index) => `<tr><td>${index + 1}</td><td>${safe(section.title)}</td><td>${safe(section.category)}</td></tr>`).join("");
+  const body = sections.map((section) => `<section class="chapter"><div class="chapter-head"><span>${safe(section.category)}</span><small>${section.source === "dsr" ? "Imported from approved DSR" : section.source === "manual" ? "Project-specific content" : "Standard report section"}</small></div><h2>${safe(section.title)}</h2><div class="narrative">${safe(section.content).replace(/\n/g, "<br>")}</div>${section.id === "calculation" ? `<h3>Grid-wise calculation</h3><table><thead><tr><th>Grid / Chainage</th><th>Area (m²)</th><th>Pre RL (m)</th><th>Post RL (m)</th><th>Gain (m)</th><th>Volume (m³)</th><th>Quantity (MT)</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${safe(row.grid || "-")}</td><td>${safe(row.area || "-")}</td><td>${safe(row.preRl || "-")}</td><td>${safe(row.postRl || "-")}</td><td>${formatNumber(row.difference)}</td><td>${formatNumber(row.volume)}</td><td>${formatNumber(row.quantity)}</td></tr>`).join("")}<tr class="total"><td colspan="5">Total assessed replenishment</td><td>${formatNumber(totalVolume)}</td><td>${formatNumber(totalQuantity)}</td></tr></tbody></table>` : ""}</section>`).join("");
+  const evidenceRows = evidenceRequirements.map((requirement, index) => {
+    const matches = files.filter((file) => file.sectionId === requirement.id);
+    return `<tr><td>${index + 1}</td><td>${safe(requirement.title)}</td><td>${requirement.required ? "Required" : "Optional"}</td><td>${matches.length ? matches.map((file) => safe(file.fileName)).join("<br>") : "Not uploaded"}</td><td>${matches.length ? "Attached" : "Pending"}</td></tr>`;
+  }).join("");
+  return `<!doctype html><html><head><meta charset="utf-8"><title></title><style>
+  @page{size:A4;margin:17mm 15mm 18mm}*{box-sizing:border-box}body{margin:0;color:#172033;font-family:Arial,sans-serif;font-size:10.5pt;line-height:1.55}h1,h2,h3{color:#12396b}h1{font-size:28pt;line-height:1.15}h2{font-size:17pt;border-bottom:2px solid #d5a928;padding-bottom:7px}h3{font-size:12pt;margin-top:22px}.cover{height:255mm;border:2px solid #12396b;padding:24mm 18mm;display:flex;flex-direction:column;justify-content:space-between;page-break-after:always}.kicker{color:#b38500;font-weight:bold;letter-spacing:2px}.cover-card{background:#f3f6fb;border-left:5px solid #d5a928;padding:18px}.cover-grid{display:grid;grid-template-columns:145px 1fr;gap:7px}.muted{color:#657086}.page{page-break-after:always}.chapter{page-break-before:always}.chapter-head{display:flex;justify-content:space-between;align-items:center;color:#b38500;text-transform:uppercase;font-size:8pt;font-weight:bold;letter-spacing:1px}.chapter-head small{color:#718096;text-transform:none;letter-spacing:0}.narrative{white-space:normal;text-align:justify;min-height:40px}table{width:100%;border-collapse:collapse;margin:12px 0;font-size:8.3pt}th{background:#12396b;color:white;text-align:left}th,td{border:1px solid #aeb7c4;padding:5px;vertical-align:top}.total td{font-weight:bold;background:#fff8db}.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}.metric{border:1px solid #d6dde8;border-top:4px solid #d5a928;padding:12px}.metric b{font-size:16pt;color:#12396b;display:block}.cert{border:1px solid #ccd5e1;padding:18px;margin-top:22px}.signatures{display:grid;grid-template-columns:repeat(3,1fr);gap:35px;margin-top:65px}.signature{border-top:1px solid #172033;padding-top:6px;text-align:center}.footer-note{font-size:8pt;color:#657086;margin-top:20px}
+  </style></head><body>
+  <div class="cover"><div><div class="kicker">REPLENISHMENT STUDY REPORT</div><h1>${safe(details.reportTitle)}</h1><p class="muted">Scientific assessment of river bed mineral replenishment</p></div><div class="cover-card"><div class="cover-grid"><b>District</b><span>${safe(details.district || "Not specified")}</span><b>River / Reach</b><span>${safe(details.river || "Not specified")}</span><b>Mining block</b><span>${safe(details.block || "Not specified")}</span><b>Village</b><span>${safe(details.village || "Not specified")}</span><b>Study year</b><span>${safe(details.studyYear)}</span><b>Applicant</b><span>${safe(details.applicant || "Not specified")}</span></div></div><div><b>Prepared by</b><br>${safe(details.preparedBy || "Not specified")}<p class="footer-note">Generated from the DSR Punjab Replenishment Module • Report version ${study?.currentVersion || 1}</p></div></div>
+  <div class="page"><h2>Document control and declaration</h2><table><tbody><tr><th>Report title</th><td>${safe(details.reportTitle)}</td></tr><tr><th>Study period</th><td>${safe(details.preSurveyDate || "-")} to ${safe(details.postSurveyDate || "-")}</td></tr><tr><th>Mineral</th><td>${safe(details.mineral)}</td></tr><tr><th>Lease / mineable area</th><td>${safe(details.leaseArea || "-")} ha / ${safe(details.mineableArea || "-")} ha</td></tr><tr><th>Status</th><td>${safe(study?.approvalState?.replace(/_/g, " ") || "DRAFT")}</td></tr></tbody></table><div class="cert"><b>Declaration</b><p>The data, survey observations, calculations, maps and supporting records included in this report shall be authenticated by the responsible survey, GIS, geology and district authorities before official issue.</p></div><h2>Contents</h2><table><thead><tr><th>No.</th><th>Section</th><th>Group</th></tr></thead><tbody>${toc}</tbody></table></div>
+  <div class="page"><h2>Study dashboard</h2><div class="summary"><div class="metric"><span>Assessed volume</span><b>${formatNumber(totalVolume)} m³</b></div><div class="metric"><span>Assessed quantity</span><b>${formatNumber(totalQuantity)} MT</b></div><div class="metric"><span>Replenishment</span><b>${formatNumber(replenishment, 1)}%</b></div><div class="metric"><span>Approved quantity</span><b>${formatNumber(approved)} MT</b></div><div class="metric"><span>Extracted quantity</span><b>${formatNumber(numberValue(details.extractedQuantity))} MT</b></div><div class="metric"><span>Bulk density</span><b>${formatNumber(numberValue(details.bulkDensity))} MT/m³</b></div></div><table><tbody><tr><th>Pre-monsoon survey</th><td>${safe(details.preSurveyDate || "-")}</td><th>Post-monsoon survey</th><td>${safe(details.postSurveyDate || "-")}</td></tr><tr><th>Rainfall</th><td>${safe(details.rainfall || "-")} mm</td><th>Grid rows</th><td>${rows.length}</td></tr><tr><th>Project remarks</th><td colspan="3">${safe(details.remarks || "-")}</td></tr></tbody></table></div>
+  ${body}
+  <section class="chapter"><div class="chapter-head"><span>Annexures</span><small>Evidence register</small></div><h2>Annexure Register</h2><p>The following uploaded records form part of the digital study file. Their titles are recorded in the generated report; originals remain available through authenticated storage.</p><table><thead><tr><th>No.</th><th>Document group</th><th>Requirement</th><th>Uploaded file(s)</th><th>Status</th></tr></thead><tbody>${evidenceRows}</tbody></table><div class="cert"><b>Final verification</b><p>Coordinates and lease boundary verified • Common datum and benchmark verified • Restricted zones excluded • Bulk density authenticated • Quantity calculation independently checked • Maps and cross sections signed.</p></div><div class="signatures"><div class="signature">Survey Officer</div><div class="signature">Geologist / GIS Expert</div><div class="signature">Competent Authority</div></div></section>
+  </body></html>`;
 }
 
-function recordHistory(studyId: string, workflow: WorkflowState, fileName: string, fileSize: number, format: DownloadFormat) {
-  recordDownloadHistory({
-    reportId: studyId,
-    generatedBy: currentUserName(),
-    version: workflow.version || 1,
-    fileName,
-    fileSize,
-    format,
-  });
+function Field({ label, value, onChange, type = "text", placeholder, suffix }: { label: string; value: string; onChange: (value: string) => void; type?: string; placeholder?: string; suffix?: string }) {
+  return <label className="block"><span className="mb-1.5 block text-xs font-bold text-slate-600">{label}</span><div className="relative"><input type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#12396b] focus:ring-2 focus:ring-blue-100" />{suffix && <span className="absolute right-3 top-2.5 text-xs text-slate-400">{suffix}</span>}</div></label>;
 }
 
-function buildReplenishmentPreviewHtml(study: ReplenishmentStudy | null, workflow: WorkflowState, survey: SurveyUpdate) {
-  const summary = workflow.importSummary;
-  const safe = (value: unknown, fallback = "To be provided") => escapeHtml(value || fallback);
-  const gridArea = numericValue(survey.gridArea);
-  const preElevation = numericValue(survey.preMonsoonElevation);
-  const postElevation = numericValue(survey.postMonsoonElevation);
-  const elevationDifference = Math.abs(postElevation - preElevation);
-  const bulkDensity = numericValue(survey.bulkDensity);
-  const replenishedVolume = gridArea * elevationDifference;
-  const replenishedQuantity = replenishedVolume * bulkDensity;
-  const approvedQuantity = numericValue(survey.approvedAnnualQuantity);
-  const replenishmentPercentage = approvedQuantity > 0 ? (replenishedQuantity / approvedQuantity) * 100 : 0;
-  const extractedQuantity = numericValue(survey.extractedQuantity);
-  const netAvailableQuantity = Math.max(0, replenishedQuantity - extractedQuantity);
-  const instrumentList = [survey.dgps && "DGPS", survey.drone && "Drone survey", survey.demDsm && "DEM/DSM", survey.orthomosaic && "Orthomosaic", survey.crossSections && "Cross-section profiles"].filter(Boolean).join(", ");
-  const requiredFields = [workflow.district, workflow.river, survey.blockName, survey.preMonsoonDate, survey.postMonsoonDate, survey.gridArea, survey.preMonsoonElevation, survey.postMonsoonElevation, survey.bulkDensity];
-  const completedFields = requiredFields.filter(Boolean).length;
-  const calculationStatus = completedFields === requiredFields.length ? "CALCULATION READY" : `${completedFields}/${requiredFields.length} DATA FIELDS READY`;
-  const rows = workflow.contentItems.map((item) => `<tr><td>${safe(item.group)}</td><td>${safe(item.name)}</td><td>${safe(item.status)}</td><td>${safe(item.action)}</td></tr>`).join("");
-  const annexures = [
-    ["A", "Environmental Clearance / statutory approval"],
-    ["B", "Approved mining plan and lease plan"],
-    ["C", "DGPS base and rover observations"],
-    ["D", "Pre-monsoon and post-monsoon grid data"],
-    ["E", "Orthomosaic, DEM/DSM and cross-section plates"],
-    ["F", "Survey photographs and benchmark records"],
-    ["G", "Bulk density laboratory report"],
-  ].map(([id, name]) => `<tr><td>Annexure ${id}</td><td>${name}</td><td>Attach verified copy</td></tr>`).join("");
-  return `<!doctype html>
-<html>
-<head>
-<meta charset="utf-8">
-<title></title>
-<style>
-  @page { size: A4; margin: 0; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, Helvetica, sans-serif; background: #dbe2e8; color: #17212b; padding: 18px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .page { position: relative; width: 210mm; min-height: 297mm; margin: 0 auto 18px; background: #fff; padding: 18mm 17mm 16mm; box-shadow: 0 3px 18px rgba(15,23,42,.16); page-break-after: always; }
-  .page:last-child { page-break-after: auto; }
-  .watermark { position: absolute; left: 0; right: 0; top: 46%; text-align: center; transform: rotate(-28deg); font-size: 42px; font-weight: 800; color: rgba(23,50,77,.045); pointer-events: none; }
-  .running { display: flex; justify-content: space-between; gap: 16px; border-bottom: 2px solid #183c5a; padding-bottom: 7px; margin-bottom: 18px; color: #183c5a; font-size: 9px; font-weight: 700; text-transform: uppercase; }
-  .cover { display: flex; min-height: 250mm; flex-direction: column; align-items: center; justify-content: center; text-align: center; border: 3px double #183c5a; padding: 18mm; }
-  .emblem { width: 76px; height: 76px; object-fit: contain; margin-bottom: 14px; }
-  h1 { font-size: 22px; line-height: 1.35; color: #183c5a; text-transform: uppercase; }
-  h2 { margin-top: 9px; font-size: 16px; line-height: 1.4; color: #263b4d; text-transform: uppercase; }
-  h3 { margin: 22px 0 10px; font-size: 13px; color: #183c5a; text-transform: uppercase; border-bottom: 1px solid #9eacb8; padding-bottom: 6px; }
-  h4 { margin: 14px 0 6px; font-size: 11px; color: #263b4d; }
-  p, li { font-size: 10.5px; line-height: 1.65; text-align: justify; }
-  ul, ol { margin: 6px 0 10px 20px; }
-  .meta { margin-top: 12px; font-size: 11px; color: #526575; }
-  .flag { display: inline-block; margin-top: 22px; border: 1px solid #14804a; background: #e8f7ef; color: #11643c; padding: 8px 15px; border-radius: 4px; font-size: 10px; font-weight: 800; text-transform: uppercase; }
-  .cover-table { width: 82%; margin-top: 28px; }
-  .signature { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 48px; }
-  .signature div { border-top: 1px solid #506474; padding-top: 7px; text-align: center; font-size: 9px; }
-  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin: 15px 0; }
-  .metric { border: 1px solid #b9c5cf; background: #f3f6f8; padding: 10px; border-radius: 3px; }
-  .metric b { display: block; font-size: 16px; color: #183c5a; }
-  .metric span { font-size: 8px; color: #526575; text-transform: uppercase; }
-  .notice { border-left: 4px solid #183c5a; background: #eef3f6; padding: 10px 12px; margin: 12px 0; font-size: 10px; line-height: 1.55; }
-  .result { border: 2px solid #14804a; background: #edf9f2; padding: 14px; margin: 16px 0; }
-  .result strong { color: #11643c; }
-  table { width: 100%; border-collapse: collapse; margin: 8px 0 14px; font-size: 9.5px; break-inside: avoid; }
-  th, td { border: 1px solid #8fa0ad; padding: 6px; text-align: left; vertical-align: top; line-height: 1.4; }
-  th { background: #dfe8ee; color: #183c5a; text-transform: uppercase; }
-  .toc td:first-child { width: 9%; text-align: center; }
-  .toc td:last-child { width: 12%; text-align: center; }
-  .formula { font-family: Consolas, monospace; background: #f3f6f8; border: 1px solid #b9c5cf; padding: 10px; margin: 8px 0; font-size: 10px; }
-  .checklist { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin: 10px 0; }
-  .check { border: 1px solid #b9c5cf; padding: 8px; font-size: 9.5px; background: #f8fafb; }
-  .footer { position: absolute; left: 17mm; right: 17mm; bottom: 8mm; border-top: 1px solid #b9c5cf; padding-top: 5px; display: flex; justify-content: space-between; font-size: 8px; color: #667885; }
-  @media print { body { background: #fff; padding: 0; } .page { box-shadow: none; margin: 0; } }
-</style>
-</head>
-<body>
-<div class="page">
-  <div class="cover">
-    <img class="emblem" src="/assets/state-emblem.png" alt="State emblem">
-    <h1>Government of Punjab</h1>
-    <div class="meta">Department of Mines and Geology</div>
-    <h2>Replenishment Study Report</h2>
-    <p class="meta">Prepared in accordance with Sustainable Sand Mining Management Guidelines, 2016 and Enforcement & Monitoring Guidelines for Sand Mining, 2020</p>
-    <div class="flag">Format Validated - Green Flag</div>
-    <table class="cover-table">
-      <tr><th>Project</th><td>${safe(survey.projectName)}</td></tr>
-      <tr><th>Mining Block</th><td>${safe(survey.blockName)}</td></tr>
-      <tr><th>River / Village</th><td>${safe(workflow.river)} / ${safe(survey.village)}</td></tr>
-      <tr><th>District</th><td>${safe(workflow.district)}</td></tr>
-      <tr><th>Study Year</th><td>${safe(survey.surveyYear || workflow.year)}</td></tr>
-      <tr><th>Applicant</th><td>${safe(survey.applicant)}</td></tr>
-      <tr><th>Prepared By</th><td>${safe(survey.preparedBy)}</td></tr>
-    </table>
-    <p class="meta">Report version ${safe(workflow.version, "1")} | ${safe(calculationStatus)}</p>
-  </div>
-  <div class="footer"><span>Replenishment Study Report</span><span>Cover</span></div>
-</div>
-
-<div class="page">
-  <div class="watermark">GOVERNMENT OF PUNJAB</div>
-  <div class="running"><span>Replenishment Study Report</span><span>${safe(workflow.district)} | ${safe(workflow.year)}</span></div>
-  <h2>Certificate and Declaration</h2>
-  <div class="notice">This generic report format has been prepared for documenting a scientific replenishment assessment. All project-specific values, survey observations, maps, photographs, laboratory results and statutory approvals must be verified by the competent authority before submission.</div>
-  <h3>Certificate</h3>
-  <p>It is certified that the pre-monsoon and post-monsoon survey data presented in this report shall be based on field observations, authenticated benchmarks and approved survey methodology. The replenished quantity shall be restricted to scientifically assessed deposition within the eligible mineable area.</p>
-  <h3>Report Particulars</h3>
-  <table>
-    <tr><th>Mineral</th><td>${safe(survey.mineral)}</td><th>Lease Area</th><td>${safe(survey.leaseArea)} ha</td></tr>
-    <tr><th>Mineable Area</th><td>${safe(survey.mineableArea)} ha</td><th>Mining Block</th><td>${safe(survey.blockName)}</td></tr>
-    <tr><th>Pre-monsoon Survey</th><td>${safe(survey.preMonsoonDate)}</td><th>Post-monsoon Survey</th><td>${safe(survey.postMonsoonDate)}</td></tr>
-    <tr><th>Survey Technologies</th><td colspan="3">${safe(instrumentList, "DGPS / drone / cross-section survey as applicable")}</td></tr>
-  </table>
-  <div class="signature"><div>Survey Officer / GIS Expert</div><div>District Mining Officer</div></div>
-  <div class="signature"><div>Project Proponent</div><div>Competent Authority</div></div>
-  <div class="footer"><span>Government format - verify before issue</span><span>Page 2</span></div>
-</div>
-
-<div class="page">
-  <div class="running"><span>Replenishment Study Report</span><span>Contents</span></div>
-  <h2>Table of Contents</h2>
-  <table class="toc">
-    <tr><th>Sr.</th><th>Section</th><th>Page</th></tr>
-    <tr><td>1</td><td>Introduction, objectives and statutory basis</td><td>4</td></tr>
-    <tr><td>2</td><td>Project and baseline particulars</td><td>4</td></tr>
-    <tr><td>3</td><td>Survey methodology and quality controls</td><td>5</td></tr>
-    <tr><td>4</td><td>Pre/post monsoon observations</td><td>6</td></tr>
-    <tr><td>5</td><td>Volume, quantity and replenishment calculation</td><td>6</td></tr>
-    <tr><td>6</td><td>Findings, conclusion and recommendations</td><td>7</td></tr>
-    <tr><td>7</td><td>Annexure and evidence checklist</td><td>8</td></tr>
-  </table>
-  <h3>Imported DSR Content Register</h3>
-  <table><tr><th>Group</th><th>Content</th><th>Status</th><th>Treatment</th></tr>${rows}</table>
-  <div class="grid">
-    <div class="metric"><b>${summary.imported}</b><span>Imported references</span></div>
-    <div class="metric"><b>${summary.updated}</b><span>Updated sections</span></div>
-    <div class="metric"><b>${summary.pending}</b><span>Pending evidence</span></div>
-  </div>
-  <div class="footer"><span>${safe(study?.title, "Replenishment Study")}</span><span>Page 3</span></div>
-</div>
-
-<div class="page">
-  <div class="running"><span>Chapter 1</span><span>Introduction and Project Profile</span></div>
-  <h2>1. Introduction</h2>
-  <p>Natural replenishment is the deposition of river-borne sediment within a river reach during the hydrological cycle. A replenishment study establishes the quantity of minor mineral deposited between scientifically comparable survey periods and supports a sustainable extraction limit.</p>
-  <p>The study shall compare authenticated pre-monsoon and post-monsoon terrain surfaces using common benchmarks, eligible grid areas and consistent survey controls. Static district information may be referenced from the approved District Survey Report, while survey-dependent data must be refreshed for the current study year.</p>
-  <h3>1.1 Objectives</h3>
-  <ol><li>Measure changes in river-bed elevation between the selected survey periods.</li><li>Estimate deposited volume and convert it to mass using verified bulk density.</li><li>Compare replenishment with approved annual quantity and recorded extraction.</li><li>Recommend a sustainable quantity subject to statutory safety restrictions.</li></ol>
-  <h3>1.2 Project Details</h3>
-  <table>
-    <tr><th>Project / Block</th><td>${safe(survey.projectName)} / ${safe(survey.blockName)}</td></tr>
-    <tr><th>Location</th><td>${safe(survey.village)}, ${safe(workflow.district)}, Punjab</td></tr>
-    <tr><th>River and Mineral</th><td>${safe(workflow.river)} | ${safe(survey.mineral)}</td></tr>
-    <tr><th>Lease / Mineable Area</th><td>${safe(survey.leaseArea)} ha / ${safe(survey.mineableArea)} ha</td></tr>
-    <tr><th>Approved Annual Quantity</th><td>${safe(survey.approvedAnnualQuantity)} metric tonnes</td></tr>
-    <tr><th>Rainfall / Water Level</th><td>${safe(survey.rainfall)} / ${safe(survey.waterLevel)}</td></tr>
-    <tr><th>River Width / Depth</th><td>${safe(survey.riverWidthDepth)}</td></tr>
-    <tr><th>Sediment Description</th><td>${safe(survey.sediment)}</td></tr>
-  </table>
-  <h3>1.3 Statutory Basis</h3>
-  <p>The assessment framework follows the Sustainable Sand Mining Management Guidelines, 2016 and the Enforcement & Monitoring Guidelines for Sand Mining, 2020. Applicable Environmental Clearance conditions, approved mining plan provisions, bridge and embankment safety distances, active-channel exclusions and no-mining zones shall prevail.</p>
-  <div class="footer"><span>${safe(survey.blockName, "Mining block")}</span><span>Page 4</span></div>
-</div>
-
-<div class="page">
-  <div class="running"><span>Chapter 2</span><span>Survey Methodology</span></div>
-  <h2>2. Survey Methodology</h2>
-  <h3>2.1 Survey Design</h3>
-  <p>A common survey boundary and coordinate reference system shall be used for both survey epochs. Permanent benchmarks shall be fixed outside disturbance-prone areas and validated against an authenticated reduced level. Grid points and cross-sections must adequately represent the mineable river-bed surface.</p>
-  <h3>2.2 Field and Processing Workflow</h3>
-  <ol><li>Reconnaissance, boundary verification and benchmark establishment.</li><li>Pre-monsoon acquisition of DGPS/drone elevations and cross-sections.</li><li>Post-monsoon acquisition using the same control network and grid.</li><li>Generation of orthomosaic, DEM/DSM and cleaned terrain surfaces.</li><li>Grid-wise comparison, exclusion of ineligible areas and volume computation.</li><li>Independent quality review of coordinates, elevations and quantity tables.</li></ol>
-  <h3>2.3 Equipment and Deliverables</h3>
-  <div class="checklist">
-    <div class="check">${survey.dgps ? "[Included]" : "[Required]"} DGPS base/rover observations</div>
-    <div class="check">${survey.drone ? "[Included]" : "[Required]"} Geo-tagged drone imagery</div>
-    <div class="check">${survey.demDsm ? "[Included]" : "[Required]"} DEM/DSM terrain model</div>
-    <div class="check">${survey.orthomosaic ? "[Included]" : "[Required]"} Orthomosaic and grid map</div>
-    <div class="check">${survey.crossSections ? "[Included]" : "[Required]"} Pre/post cross-sections</div>
-    <div class="check">[Required] Bulk density laboratory report</div>
-  </div>
-  <h3>2.4 Quality Assurance</h3>
-  <p>Outliers, water-covered cells, restricted zones and disturbed surfaces shall be identified before calculation. Survey accuracy, coordinate reference, instrument calibration and benchmark closure must be recorded. The final quantity table shall remain traceable to grid/cross-section source data.</p>
-  <div class="notice"><strong>Current survey record:</strong> Survey date ${safe(survey.surveyDate)}; pre-monsoon ${safe(survey.preMonsoonDate)}; post-monsoon ${safe(survey.postMonsoonDate)}; photographs ${safe(survey.photos)}.</div>
-  <div class="footer"><span>Scientific survey and QA/QC</span><span>Page 5</span></div>
-</div>
-
-<div class="page">
-  <div class="running"><span>Chapter 3</span><span>Calculation and Results</span></div>
-  <h2>3. Replenishment Calculation</h2>
-  <h3>3.1 Survey Observation Summary</h3>
-  <table>
-    <tr><th>Parameter</th><th>Pre-monsoon</th><th>Post-monsoon</th><th>Difference / Basis</th></tr>
-    <tr><td>Survey date</td><td>${safe(survey.preMonsoonDate)}</td><td>${safe(survey.postMonsoonDate)}</td><td>Comparable survey epochs</td></tr>
-    <tr><td>Average eligible elevation (m)</td><td>${safe(survey.preMonsoonElevation)}</td><td>${safe(survey.postMonsoonElevation)}</td><td>${formattedNumber(elevationDifference, 3)} m</td></tr>
-    <tr><td>Eligible grid area</td><td colspan="2">${safe(survey.gridArea)} sq. m</td><td>After statutory exclusions</td></tr>
-    <tr><td>Bulk density</td><td colspan="2">${safe(survey.bulkDensity)} t/cu. m</td><td>Laboratory value required</td></tr>
-  </table>
-  <h3>3.2 Formula</h3>
-  <div class="formula">Replenished volume = Eligible grid area x Average positive elevation difference</div>
-  <div class="formula">Replenished quantity = Replenished volume x Verified bulk density</div>
-  <h3>3.3 Auto-calculated Result</h3>
-  <table>
-    <tr><th>Eligible grid area</th><td>${formattedNumber(gridArea)} sq. m</td></tr>
-    <tr><th>Average elevation difference</th><td>${formattedNumber(elevationDifference, 3)} m</td></tr>
-    <tr><th>Replenished volume</th><td>${formattedNumber(replenishedVolume)} cu. m</td></tr>
-    <tr><th>Bulk density</th><td>${formattedNumber(bulkDensity, 3)} t/cu. m</td></tr>
-    <tr><th>Replenished quantity</th><td><strong>${formattedNumber(replenishedQuantity)} metric tonnes</strong></td></tr>
-    <tr><th>Recorded extraction</th><td>${formattedNumber(extractedQuantity)} metric tonnes</td></tr>
-    <tr><th>Net available after recorded extraction</th><td>${formattedNumber(netAvailableQuantity)} metric tonnes</td></tr>
-    <tr><th>Replenishment against approved annual quantity</th><td>${formattedNumber(replenishmentPercentage)}%</td></tr>
-  </table>
-  <div class="result"><strong>${safe(calculationStatus)}</strong><br>Scientifically supportable quantity is subject to verified source data, statutory exclusions and competent-authority approval.</div>
-  <div class="footer"><span>Auto-calculation from entered survey values</span><span>Page 6</span></div>
-</div>
-
-<div class="page">
-  <div class="running"><span>Chapter 4</span><span>Findings and Recommendations</span></div>
-  <h2>4. Findings, Conclusion and Recommendations</h2>
-  <h3>4.1 Findings</h3>
-  <ul><li>The assessed eligible area is ${formattedNumber(gridArea)} sq. m with an average survey elevation difference of ${formattedNumber(elevationDifference, 3)} m.</li><li>The computed replenished volume is ${formattedNumber(replenishedVolume)} cu. m and the corresponding quantity is ${formattedNumber(replenishedQuantity)} metric tonnes at a bulk density of ${formattedNumber(bulkDensity, 3)} t/cu. m.</li><li>The computed replenishment is ${formattedNumber(replenishmentPercentage)}% of the entered approved annual quantity.</li></ul>
-  <h3>4.2 Conclusion</h3>
-  <p>Based on the entered pre-monsoon and post-monsoon survey parameters, the estimated replenished quantity is <strong>${formattedNumber(replenishedQuantity)} metric tonnes</strong>. This value is a calculation output and shall be adopted only after verification of survey grids, benchmarks, bulk density, restricted areas and the competent authority's approval.</p>
-  <h3>4.3 Recommendations</h3>
-  <ol><li>Permit extraction only up to the lower of verified replenished quantity, approved mineable quantity and statutory limit.</li><li>Exclude active water channels, safety barriers, bridge influence zones, embankments and ecologically sensitive areas.</li><li>Maintain benchmark pillars and repeat surveys using the same datum, grid and cross-sections.</li><li>Reconcile dispatch/extraction records with replenishment before the next mining cycle.</li><li>Continue annual pre-monsoon and post-monsoon monitoring to establish a reliable deposition trend.</li></ol>
-  <h3>4.4 Officer Review Note</h3>
-  <div class="notice">The green flag on this template confirms report-format completeness only. It does not constitute environmental clearance, mining permission or administrative approval.</div>
-  <div class="signature"><div>Technical Reviewer</div><div>District Level Committee</div></div>
-  <div class="footer"><span>Conclusion subject to verification</span><span>Page 7</span></div>
-</div>
-
-<div class="page">
-  <div class="running"><span>Annexures</span><span>Evidence Register</span></div>
-  <h2>5. Annexure and Evidence Checklist</h2>
-  <table><tr><th>Reference</th><th>Document / Evidence</th><th>Status</th></tr>${annexures}</table>
-  <h3>Uploaded Evidence Register</h3>
-  <table>
-    <tr><th>Section</th><th>Uploaded File</th><th>Size</th><th>Upload Date</th></tr>
-    ${workflow.evidenceFiles.length
-      ? workflow.evidenceFiles.map((file) => `<tr><td>${safe(file.sectionId)}</td><td>${safe(file.name)}</td><td>${formattedNumber(file.size / 1024, 1)} KB</td><td>${safe(new Date(file.uploadedAt).toLocaleDateString("en-IN"))}</td></tr>`).join("")
-      : '<tr><td colspan="4">No evidence files uploaded yet.</td></tr>'}
-  </table>
-  <h3>Dynamic Outputs Selected for Regeneration</h3>
-  <table>${workflow.dynamicRegeneration.map((item, index) => `<tr><td>${index + 1}</td><td>${safe(item)}</td><td>Regenerate from current survey</td></tr>`).join("")}</table>
-  <h3>Final Submission Checklist</h3>
-  <div class="checklist"><div class="check">[ ] Coordinates and lease boundary verified</div><div class="check">[ ] Benchmarks and datum authenticated</div><div class="check">[ ] Pre/post grids use identical extent</div><div class="check">[ ] Restricted zones excluded</div><div class="check">[ ] Bulk density report attached</div><div class="check">[ ] Quantity table independently checked</div><div class="check">[ ] Maps and cross-sections signed</div><div class="check">[ ] Competent authority approval recorded</div></div>
-  <div class="result"><strong>GENERIC REPLENISHMENT REPORT FORMAT READY</strong><br>Complete project-specific evidence and signatures before official issue.</div>
-  <div class="footer"><span>DSR Portal | Government of Punjab</span><span>Page 8</span></div>
-</div>
-</body>
-</html>`;
+function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <div className={`rounded-xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}>{children}</div>;
 }
 
 export default function ReplenishmentBuilderPage() {
   const { projectId } = useParams();
+  const [activeStep, setActiveStep] = useState<StepId>("setup");
   const [study, setStudy] = useState<ReplenishmentStudy | null>(null);
-  const [workflow, setWorkflow] = useState<WorkflowState>(defaultWorkflow);
-  const [survey, setSurvey] = useState<SurveyUpdate>(defaultSurvey);
-  const [originalPdf, setOriginalPdf] = useState<{ name: string; url: string; size: number; serverKey?: string } | null>(null);
+  const [state, setState] = useState<BuilderState>({ type: "replenishment_builder_v2", schemaVersion: 2, details: defaultDetails, sections: defaultSections, grids: [defaultGrid()], inherited: {}, importedKeys: [] });
+  const [files, setFiles] = useState<ReplenishmentFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [generatingAi, setGeneratingAi] = useState(false);
-  const [importingDsr, setImportingDsr] = useState(false);
-  const [copyingItemId, setCopyingItemId] = useState<string | null>(null);
-  const [uploadingEvidence, setUploadingEvidence] = useState(false);
-  const [dragActive, setDragActive] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [uploading, setUploading] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
-  const loadStudy = useCallback(async () => {
+  const load = useCallback(async () => {
     if (!projectId) return;
     setLoading(true);
     try {
       const studies = await replenishmentApi.list(projectId);
-      const existing = studies.find((item) => item.reportState?.type === defaultWorkflow.type) || studies[0];
-      const active = existing || await replenishmentApi.create(projectId, {
-        title: "Enterprise Replenishment Report",
-        reportState: defaultWorkflow,
-        surveyData: defaultSurvey,
-      });
+      const active = studies.find((item) => item.reportState?.type === "replenishment_builder_v2") || studies[0] || await replenishmentApi.create(projectId, { title: defaultDetails.reportTitle, reportState: { type: "replenishment_builder_v2", schemaVersion: 2, details: defaultDetails, sections: defaultSections, grids: [defaultGrid()], importedKeys: [] } });
       setStudy(active);
-      const storedFiles = await replenishmentApi.listFiles(active.id);
-      const evidenceFiles = storedFiles.map(toEvidenceFile);
-      const savedWorkflow = active.reportState as Partial<WorkflowState>;
-      const customExcelTemplate = evidenceFiles.find((file) => file.sectionId === "custom_excel_template");
-      setWorkflow({ ...defaultWorkflow, ...savedWorkflow, evidenceFiles, customExcelTemplate });
-      setSurvey({ ...defaultSurvey, ...(active.surveyData as Partial<SurveyUpdate>) });
+      setState(normaliseState(active));
+      setFiles(await replenishmentApi.listFiles(active.id));
     } catch {
-      toast.error("Replenishment workflow load nahi ho paya");
+      toast.error("Replenishment study load nahi ho payi");
     } finally {
       setLoading(false);
     }
   }, [projectId]);
 
   useEffect(() => {
-    loadStudy();
-  }, [loadStudy]);
+    // The API-backed study is the external source of truth for this editor.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load();
+  }, [load]);
 
-  const summary = useMemo(() => ({
-    imported: workflow.contentItems.filter((item) => item.status === "Imported").length,
-    updated: workflow.contentItems.filter((item) => item.status === "Updated").length,
-    pending: workflow.contentItems.filter((item) => item.status === "Pending" || item.status === "Fresh Survey Required").length,
-  }), [workflow.contentItems]);
+  const gridResults = useMemo(() => state.grids.map((row) => {
+    const gain = Math.max(0, numberValue(row.postRl) - numberValue(row.preRl));
+    const volume = numberValue(row.area) * gain;
+    return { ...row, gain, volume, quantity: volume * numberValue(state.details.bulkDensity) };
+  }), [state.grids, state.details.bulkDensity]);
+  const totalVolume = gridResults.reduce((sum, row) => sum + row.volume, 0);
+  const totalQuantity = gridResults.reduce((sum, row) => sum + row.quantity, 0);
+  const requiredUploaded = evidenceRequirements.filter((item) => item.required && files.some((file) => file.sectionId === item.id)).length;
+  const requiredCount = evidenceRequirements.filter((item) => item.required).length;
+  const coreFields = [state.details.district, state.details.river, state.details.studyYear, state.details.preSurveyDate, state.details.postSurveyDate, state.details.bulkDensity];
+  const completion = Math.round(((coreFields.filter(Boolean).length + requiredUploaded + state.sections.filter((item) => item.included && item.content.trim()).length) / (coreFields.length + requiredCount + state.sections.filter((item) => item.included).length)) * 100);
+  const reportHtml = useMemo(() => buildReportHtml(state, study, files), [state, study, files]);
 
-  const calculation = useMemo(() => {
-    const gridArea = numericValue(survey.gridArea);
-    const elevationDifference = Math.abs(numericValue(survey.postMonsoonElevation) - numericValue(survey.preMonsoonElevation));
-    const volume = gridArea * elevationDifference;
-    const quantity = volume * numericValue(survey.bulkDensity);
-    const approved = numericValue(survey.approvedAnnualQuantity);
-    return { elevationDifference, volume, quantity, percentage: approved > 0 ? quantity / approved * 100 : 0 };
-  }, [survey]);
+  const updateDetails = (key: keyof StudyDetails, value: string) => setState((current) => ({ ...current, details: { ...current.details, [key]: value } }));
+  const updateSection = (id: string, patch: Partial<ReportSection>) => setState((current) => ({ ...current, sections: current.sections.map((section) => section.id === id ? { ...section, ...patch } : section) }));
+  const updateGrid = (id: string, key: keyof GridRow, value: string) => setState((current) => ({ ...current, grids: current.grids.map((row) => row.id === id ? { ...row, [key]: value } : row) }));
 
-  const persist = async () => {
+  const save = async () => {
     if (!study) return;
     setSaving(true);
     try {
-      const nextState = { ...workflow, importSummary: summary, lastSavedAt: new Date().toISOString() };
-      const saved = await replenishmentApi.update(study.id, {
-        reportState: nextState,
-        surveyData: survey,
-      });
+      const next = { ...state, lastSavedAt: new Date().toISOString() };
+      const saved = await replenishmentApi.update(study.id, { title: state.details.reportTitle, river: state.details.river, miningBlock: state.details.block, reportState: next, surveyData: { details: state.details, grids: state.grids } });
       setStudy(saved);
-      setWorkflow({ ...defaultWorkflow, ...(saved.reportState as Partial<WorkflowState>) });
-      setSurvey({ ...defaultSurvey, ...(saved.surveyData as Partial<SurveyUpdate>) });
-      toast.success("Replenishment workflow database me save ho gaya");
+      setState(normaliseState(saved));
+      toast.success("Study database mein save ho gayi");
     } catch {
-      toast.error("Save failed - database connection/API check karo");
+      toast.error("Save failed. Connection check karke dobara try karein.");
     } finally {
       setSaving(false);
     }
   };
 
-  const updateItem = (id: string, patch: Partial<ContentItem>) => {
-    setWorkflow((current) => ({
+  const refreshDsr = async () => {
+    if (!study) return;
+    setImporting(true);
+    try {
+      const result = await replenishmentApi.fetchFinalDsr(study.id);
+      setState((current) => ({ ...current, inherited: result.imported || {} }));
+      toast.success("Approved Final DSR data refresh ho gaya");
+    } catch {
+      toast.error("Final DSR linked nahi hai ya import unavailable hai");
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const importKey = (key: string) => {
+    const config = inheritedLabels[key];
+    const value = state.inherited?.[key];
+    if (!config || value == null) return;
+    const imported = readableInherited(value);
+    setState((current) => ({
       ...current,
-      contentItems: current.contentItems.map((item) => item.id === id ? { ...item, ...patch } : item),
+      importedKeys: Array.from(new Set([...current.importedKeys, key])),
+      sections: current.sections.map((section) => section.id === config.target ? { ...section, content: `${section.content}\n\nImported from approved Final DSR — ${config.title}:\n${imported}`, source: "dsr" } : section),
+      details: {
+        ...current.details,
+        ...(key === "district" && typeof value === "string" ? { district: value } : {}),
+        ...(key === "mineral" && typeof value === "string" ? { mineral: value } : {}),
+      },
     }));
+    toast.success(`${config.title} report mein copy ho gaya`);
   };
 
-  const updateWorkflowMeta = (key: "district" | "river" | "year" | "version", value: string) => {
-    setWorkflow((current) => ({ ...current, [key]: key === "version" ? Number(value) || 1 : value }));
-  };
-
-  const updateSurveyField = (key: keyof SurveyUpdate, value: string | boolean) => {
-    setSurvey((current) => ({ ...current, [key]: value }));
-  };
-
-  const livePreviewHtml = useMemo(
-    () => buildReplenishmentPreviewHtml(study, { ...workflow, importSummary: summary }, survey),
-    [study, workflow, summary, survey],
-  );
-
-  const exportHtml = () => livePreviewHtml;
-
-  const handleDownloadGeneratedPdf = async () => {
-    const fileName = fileNameFor(workflow, "pdf");
-    toast.info("Generating PDF, please wait...");
+  const uploadEvidence = async (requirement: EvidenceRequirement, event: ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (!study || !selected.length) return;
+    const tooLarge = selected.find((file) => file.size > 50 * 1024 * 1024);
+    if (tooLarge) { toast.error(`${tooLarge.name} 50 MB se bada hai. Compress ya split karke upload karein.`); return; }
+    setUploading(requirement.id);
     try {
-      await downloadHtmlAsPdf(exportHtml(), fileName, false);
-      if (study) recordHistory(study.id, workflow, fileName, 0, "generated-pdf");
-      toast.success("Generated PDF downloaded");
-    } catch (e) {
-      toast.error("Failed to generate PDF");
-    }
-  };
-
-  const handleDownloadDraft = () => {
-    if (!study) return;
-    const fileName = fileNameFor(workflow, "json");
-    const size = exportDraftJson({ study, workflow: { ...workflow, importSummary: summary }, survey }, fileName);
-    recordHistory(study.id, workflow, fileName, size, "draft-json");
-    toast.success("Draft JSON downloaded");
-  };
-
-  const handleExportDocx = () => {
-    if (!study) return;
-    const fileName = fileNameFor(workflow, "docx");
-    const size = exportWordDocument(exportHtml(), fileName);
-    recordHistory(study.id, workflow, fileName, size, "docx");
-    toast.success("Editable DOCX downloaded");
-  };
-
-  const handlePrint = () => {
-    if (!study) return;
-    openPrintableDocument(exportHtml(), study.title);
-    recordHistory(study.id, workflow, fileNameFor(workflow, "pdf"), 0, "print");
-  };
-
-  const handleOriginalPdfSelect = async (file: File | undefined) => {
-    if (!file) return;
-    if (file.type !== "application/pdf") {
-      toast.error("Original official file PDF hona chahiye");
-      return;
-    }
-    if (!study) {
-      toast.error("Please wait for study to load");
-      return;
-    }
-    try {
-      const result = await replenishmentApi.uploadFile(study.id, "original_pdf", file);
-      if (originalPdf?.url) URL.revokeObjectURL(originalPdf.url);
-      setOriginalPdf({ name: file.name, url: URL.createObjectURL(file), size: file.size, serverKey: result.objectKey });
-      toast.success("Original PDF uploaded successfully");
+      const uploaded: ReplenishmentFile[] = [];
+      for (const file of selected) uploaded.push(await replenishmentApi.uploadFile(study.id, requirement.id, file));
+      setFiles((current) => [...current, ...uploaded]);
+      toast.success(`${uploaded.length} file upload ho gayi`);
     } catch {
-      toast.error("Upload failed");
-    }
-  };
-
-  const handleCrossSectionUpload = async (file: File | undefined) => {
-    if (!file || !study) return;
-    try {
-      await replenishmentApi.uploadFile(study.id, "cross_section", file);
-      toast.success("Cross section data uploaded successfully");
-    } catch {
-      toast.error("Upload failed");
-    }
-  };
-
-  const handleEvidenceFiles = async (files: FileList | File[], sectionId = "evidence") => {
-    if (!study || files.length === 0) return;
-    const accepted = Array.from(files).filter((file) => /\.(pdf|xlsx?|csv|png|jpe?g|webp|zip)$/i.test(file.name));
-    if (accepted.length === 0) {
-      toast.error("PDF, Excel, CSV, image ya ZIP file upload karo");
-      return;
-    }
-    setUploadingEvidence(true);
-    try {
-      const uploaded: EvidenceFile[] = [];
-      for (const file of accepted) {
-        const result = await replenishmentApi.uploadFile(study.id, sectionId, file);
-        uploaded.push({
-          id: result.id,
-          sectionId,
-          name: file.name,
-          size: file.size,
-          objectKey: result.objectKey,
-          uploadedAt: new Date().toISOString(),
-        });
-      }
-      const nextEvidenceFiles = [...workflow.evidenceFiles, ...uploaded];
-      const nextWorkflow = { ...workflow, evidenceFiles: nextEvidenceFiles, importSummary: summary, lastSavedAt: new Date().toISOString() };
-      setWorkflow(nextWorkflow);
-      await replenishmentApi.update(study.id, { reportState: nextWorkflow, surveyData: survey });
-      toast.success(`${uploaded.length} evidence file(s) uploaded`);
-    } catch {
-      toast.error("Evidence upload failed");
+      toast.error("File upload failed");
     } finally {
-      setUploadingEvidence(false);
-      setDragActive(false);
+      setUploading(null);
     }
   };
 
-  const handleEvidenceDrop = (event: DragEvent<HTMLLabelElement>) => {
-    event.preventDefault();
-    handleEvidenceFiles(event.dataTransfer.files);
-  };
-
-  const handleCustomExcelTemplate = async (file: File | undefined) => {
-    if (!file || !study) return;
-    if (!/\.xlsx?$/i.test(file.name)) {
-      toast.error("Custom format ke liye .xlsx ya .xls Excel file upload karo");
-      return;
-    }
-    setUploadingEvidence(true);
-    try {
-      const result = await replenishmentApi.uploadFile(study.id, "custom_excel_template", file);
-      const customExcelTemplate: EvidenceFile = {
-        id: result.id,
-        sectionId: "custom_excel_template",
-        name: result.fileName,
-        size: result.sizeBytes,
-        objectKey: result.objectKey,
-        uploadedAt: new Date().toISOString(),
-      };
-      const nextWorkflow = {
-        ...workflow,
-        customExcelTemplate,
-        evidenceFiles: [...workflow.evidenceFiles.filter((entry) => entry.sectionId !== "custom_excel_template"), customExcelTemplate],
-        lastSavedAt: new Date().toISOString(),
-      };
-      setWorkflow(nextWorkflow);
-      await replenishmentApi.update(study.id, { reportState: nextWorkflow, surveyData: survey });
-      toast.success("Custom Excel format saved and selected for this report");
-    } catch {
-      toast.error("Custom Excel format upload failed");
-    } finally {
-      setUploadingEvidence(false);
-    }
-  };
-
-  const handleDownloadEvidence = async (file: EvidenceFile) => {
+  const downloadEvidence = async (file: ReplenishmentFile) => {
     if (!study) return;
+    try { downloadBlob(await replenishmentApi.downloadFile(study.id, file.id), file.fileName); }
+    catch { toast.error("File download failed"); }
+  };
+
+  const downloadPdf = async () => {
+    toast.info("Final PDF generate ho rahi hai…");
     try {
-      const blob = await replenishmentApi.downloadFile(study.id, file.id);
-      downloadBlob(blob, file.name);
-      toast.success(`${file.name} downloaded`);
-    } catch {
-      toast.error("Uploaded file download failed");
-    }
+      await downloadHtmlAsPdf(reportHtml, replenishmentFileName({ district: state.details.district, river: state.details.river, year: state.details.studyYear, version: study?.currentVersion, extension: "pdf" }));
+      toast.success("Final report downloaded");
+    } catch { toast.error("PDF generation failed"); }
   };
 
-  const handleCopyFromDsr = async (item: ContentItem) => {
-    if (!study) return;
-    setCopyingItemId(item.id);
-    try {
-      await replenishmentApi.fetchFinalDsr(study.id);
-      const nextItems = workflow.contentItems.map((contentItem) => contentItem.id === item.id ? { ...contentItem, status: "Imported" as const, action: "Copy" as const } : contentItem);
-      const nextWorkflow = { ...workflow, contentItems: nextItems, lastSavedAt: new Date().toISOString() };
-      setWorkflow(nextWorkflow);
-      await replenishmentApi.update(study.id, { reportState: nextWorkflow, surveyData: survey });
-      toast.success(`${item.group} Final DSR se working report me copy ho gaya`);
-    } catch {
-      toast.error(`${item.group} copy nahi ho paya`);
-    } finally {
-      setCopyingItemId(null);
-    }
-  };
+  const activeIndex = steps.findIndex((step) => step.id === activeStep);
+  const inheritedEntries = Object.keys(state.inherited || {}).filter((key) => state.inherited?.[key] != null && inheritedLabels[key]);
 
-  const removeEvidenceFile = (fileId: string) => {
-    setWorkflow((current) => ({
-      ...current,
-      evidenceFiles: current.evidenceFiles.filter((file) => file.id !== fileId),
-    }));
-  };
+  if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><RefreshCw className="animate-spin text-[#12396b]" /></div>;
 
-  const handleExecuteImport = async () => {
-    if (!study) return;
-    setImportingDsr(true);
-    try {
-      await replenishmentApi.fetchFinalDsr(study.id);
-      toast.success("Final DSR data imported successfully");
-      loadStudy(); // Reload to get updated inherited state
-    } catch (e: any) {
-      toast.error(e.response?.data?.message || "Import failed");
-    } finally {
-      setImportingDsr(false);
-    }
-  };
+  return <div className="pb-10">
+    <PageHeader backLink={`/projects/${projectId}`} title="Replenishment Report Studio" description="DSR import se signed, calculation-backed final report tak ek guided workflow" action={<div className="flex gap-2"><button onClick={() => setPreviewOpen(true)} className="module-btn-secondary"><Eye size={16} /> Live preview</button><button onClick={save} disabled={saving} className="module-btn-primary"><Save size={16} /> {saving ? "Saving…" : "Save"}</button></div>} />
 
-  const handleGenerateAi = async () => {
-    if (!study) return;
-    setGeneratingAi(true);
-    try {
-      const result = await replenishmentApi.generateAi(study.id, "general");
-      setWorkflow((current) => ({
-        ...current,
-        suggestions: [{ title: "AI Generated Insight", detail: result.generatedText, kind: "dynamic" }, ...current.suggestions]
-      }));
-      toast.success("AI insights generated successfully");
-    } catch {
-      toast.error("AI Generation failed");
-    } finally {
-      setGeneratingAi(false);
-    }
-  };
+    <div className="mb-5 grid gap-3 px-4 sm:grid-cols-2 xl:grid-cols-4">
+      <Card className="!p-4"><div className="flex items-center gap-3"><div className="rounded-lg bg-blue-50 p-2 text-[#12396b]"><FileText size={20} /></div><div><div className="text-xs text-slate-500">Report completion</div><b className="text-xl text-[#12396b]">{completion}%</b></div></div></Card>
+      <Card className="!p-4"><div className="flex items-center gap-3"><div className="rounded-lg bg-amber-50 p-2 text-amber-700"><Calculator size={20} /></div><div><div className="text-xs text-slate-500">Assessed quantity</div><b className="text-xl text-[#12396b]">{formatNumber(totalQuantity)} MT</b></div></div></Card>
+      <Card className="!p-4"><div className="flex items-center gap-3"><div className="rounded-lg bg-emerald-50 p-2 text-emerald-700"><ShieldCheck size={20} /></div><div><div className="text-xs text-slate-500">Required evidence</div><b className="text-xl text-[#12396b]">{requiredUploaded}/{requiredCount}</b></div></div></Card>
+      <Card className="!p-4"><div className="flex items-center gap-3"><div className="rounded-lg bg-violet-50 p-2 text-violet-700"><Database size={20} /></div><div><div className="text-xs text-slate-500">Workflow status</div><b className="text-sm text-[#12396b]">{study?.approvalState?.replace(/_/g, " ") || "DRAFT"}</b></div></div></Card>
+    </div>
 
-  const WORKFLOW_STAGES = [
-    "DRAFT", "SURVEY_OFFICER_APPROVED", "GIS_EXPERT_APPROVED", 
-    "GEOLOGIST_APPROVED", "DISTRICT_OFFICER_APPROVED", "REVIEWER_APPROVED", 
-    "DISTRICT_ADMIN_APPROVED", "STATE_ADMIN_APPROVED", "FINAL_REPORT_GENERATED"
-  ];
+    <div className="grid gap-5 px-4 xl:grid-cols-[260px_minmax(0,1fr)]">
+      <aside className="h-fit rounded-xl border border-slate-200 bg-white p-3 shadow-sm xl:sticky xl:top-4">
+        {steps.map((step, index) => <button key={step.id} onClick={() => setActiveStep(step.id)} className={`mb-1 flex w-full items-center gap-3 rounded-lg p-3 text-left transition ${activeStep === step.id ? "bg-[#12396b] text-white" : "hover:bg-slate-50"}`}><span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${activeStep === step.id ? "bg-white/20" : "bg-slate-100 text-slate-600"}`}>{index + 1}</span><span><b className="block text-sm">{step.label}</b><small className={activeStep === step.id ? "text-blue-100" : "text-slate-400"}>{step.helper}</small></span></button>)}
+        <div className="mt-3 border-t border-slate-200 pt-3 text-xs text-slate-500">Last saved<br/><b className="text-slate-700">{state.lastSavedAt ? new Date(state.lastSavedAt).toLocaleString("en-IN") : "Not saved yet"}</b></div>
+      </aside>
 
-  const handleWorkflowAdvance = async () => {
-    if (!study) return;
-    const currentIndex = WORKFLOW_STAGES.indexOf(study.approvalState || "DRAFT");
-    const nextState = WORKFLOW_STAGES[currentIndex + 1];
-    if (!nextState) {
-      toast.success("Workflow already complete!");
-      return;
-    }
-    try {
-      await replenishmentApi.workflow(study.id, { action: nextState });
-      toast.success(`Workflow advanced to ${nextState}`);
-      loadStudy(); // Reload to get new status
-    } catch (e: any) {
-      toast.error(e.response?.data?.message || "Workflow advancement failed");
-    }
-  };
+      <main className="min-w-0">
+        {activeStep === "setup" && <div className="space-y-5"><Card><div className="mb-5"><h3 className="text-lg font-extrabold text-[#12396b]">Study identity</h3><p className="text-sm text-slate-500">Final report cover aur document control ki details.</p></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"><Field label="Report title" value={state.details.reportTitle} onChange={(value) => updateDetails("reportTitle", value)} /><Field label="District" value={state.details.district} onChange={(value) => updateDetails("district", value)} /><Field label="River / reach" value={state.details.river} onChange={(value) => updateDetails("river", value)} /><Field label="Mining block" value={state.details.block} onChange={(value) => updateDetails("block", value)} /><Field label="Village" value={state.details.village} onChange={(value) => updateDetails("village", value)} /><Field label="Minor mineral" value={state.details.mineral} onChange={(value) => updateDetails("mineral", value)} /><Field label="Applicant / project proponent" value={state.details.applicant} onChange={(value) => updateDetails("applicant", value)} /><Field label="Prepared by" value={state.details.preparedBy} onChange={(value) => updateDetails("preparedBy", value)} /><Field label="Study year" value={state.details.studyYear} onChange={(value) => updateDetails("studyYear", value)} /></div></Card><Card><div className="flex items-start gap-3"><Sparkles className="mt-0.5 text-amber-600" size={20}/><div><h3 className="font-bold text-slate-800">Built from both official report formats</h3><p className="mt-1 text-sm leading-6 text-slate-500">Detailed chapter sequence, survey methodology, grid calculation, evidence annexures, certificates and compact results layout are combined into one editable format. Next step mein approved DSR ka reusable data select karein.</p></div></div></Card></div>}
 
-  const handleDownloadOriginalPdf = () => {
-    if (!study || !originalPdf) {
-      toast.error("Pehle official Replenishment PDF upload karo");
-      return;
-    }
-    fetch(originalPdf.url)
-      .then((response) => response.blob())
-      .then((blob) => {
-        downloadBlob(blob, originalPdf.name);
-        recordHistory(study.id, workflow, originalPdf.name, blob.size || originalPdf.size, "original-pdf");
-      })
-      .catch(() => toast.error("Original PDF download nahi ho paya"));
-  };
+        {activeStep === "import" && <div className="space-y-5"><Card><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-lg font-extrabold text-[#12396b]">Selective Final DSR import</h3><p className="text-sm text-slate-500">Sirf selected data report mein copy hoga; original DSR change nahi hoga.</p></div><button onClick={refreshDsr} disabled={importing} className="module-btn-primary"><RefreshCw size={16} className={importing ? "animate-spin" : ""}/>{importing ? "Fetching…" : "Refresh approved DSR"}</button></div></Card>{inheritedEntries.length ? <div className="grid gap-4 md:grid-cols-2">{inheritedEntries.map((key) => { const config = inheritedLabels[key]; const done = state.importedKeys.includes(key); return <Card key={key}><div className="flex items-start justify-between gap-4"><div><div className="mb-1 flex items-center gap-2"><Database size={16} className="text-blue-700"/><b>{config.title}</b></div><p className="text-xs text-slate-500">{config.description}</p><pre className="mt-3 max-h-28 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-600">{readableInherited(state.inherited?.[key])}</pre></div><button onClick={() => importKey(key)} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-bold ${done ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-[#12396b]"}`}>{done ? <><Check size={14} className="inline"/> Copied</> : "Copy"}</button></div></Card>; })}</div> : <Card><div className="py-10 text-center"><FolderOpen className="mx-auto mb-3 text-slate-300" size={44}/><h3 className="font-bold text-slate-700">Approved Final DSR data abhi load nahi hai</h3><p className="mt-1 text-sm text-slate-500">Refresh button use karein. Agar project ke saath Final DSR linked nahi hai, report fresh/manual content se continue ho sakti hai.</p></div></Card>}</div>}
 
-  const downloadHistory = study ? loadDownloadHistory(study.id).slice(0, 4) : [];
+        {activeStep === "content" && <div className="space-y-4"><Card><div className="flex items-center justify-between gap-3"><div><h3 className="text-lg font-extrabold text-[#12396b]">Report chapters</h3><p className="text-sm text-slate-500">Typing ke saath live preview update hota hai. Section include/exclude bhi kar sakte hain.</p></div><button onClick={() => setState((current) => ({ ...current, sections: [...current.sections, { id: crypto.randomUUID(), title: `Custom Section ${current.sections.length + 1}`, category: "Custom", content: "", included: true, source: "manual" }] }))} className="module-btn-secondary"><Plus size={16}/> Add section</button></div></Card>{state.sections.map((section) => <Card key={section.id}><div className="mb-3 flex flex-wrap items-center gap-3"><input type="checkbox" checked={section.included} onChange={(event) => updateSection(section.id, { included: event.target.checked })} className="h-4 w-4 accent-[#12396b]"/><input value={section.title} onChange={(event) => updateSection(section.id, { title: event.target.value, source: "manual" })} className="min-w-[260px] flex-1 border-0 bg-transparent text-base font-bold text-[#12396b] outline-none"/><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${section.source === "dsr" ? "bg-blue-50 text-blue-700" : section.source === "manual" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"}`}>{section.source === "dsr" ? "DSR + edited" : section.source}</span>{section.category === "Custom" && <button onClick={() => setState((current) => ({ ...current, sections: current.sections.filter((item) => item.id !== section.id) }))} className="rounded p-1.5 text-red-500 hover:bg-red-50"><Trash2 size={16}/></button>}</div><textarea disabled={!section.included} value={section.content} onChange={(event) => updateSection(section.id, { content: event.target.value, source: "manual" })} rows={6} className="w-full resize-y rounded-lg border border-slate-300 p-3 text-sm leading-6 outline-none focus:border-[#12396b] focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-400"/></Card>)}</div>}
 
-  if (loading) {
-    return <div className="rounded-2xl border border-slate-200 bg-white p-8 text-slate-600">Loading replenishment workflow...</div>;
-  }
+        {activeStep === "survey" && <div className="space-y-5"><Card><h3 className="mb-1 text-lg font-extrabold text-[#12396b]">Survey inputs</h3><p className="mb-5 text-sm text-slate-500">Common datum aur same grid extent ke verified pre/post observations enter karein.</p><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><Field label="Lease area" suffix="ha" value={state.details.leaseArea} onChange={(value) => updateDetails("leaseArea", value)} /><Field label="Mineable area" suffix="ha" value={state.details.mineableArea} onChange={(value) => updateDetails("mineableArea", value)} /><Field label="Pre-monsoon survey" type="date" value={state.details.preSurveyDate} onChange={(value) => updateDetails("preSurveyDate", value)} /><Field label="Post-monsoon survey" type="date" value={state.details.postSurveyDate} onChange={(value) => updateDetails("postSurveyDate", value)} /><Field label="Bulk density" suffix="MT/m³" value={state.details.bulkDensity} onChange={(value) => updateDetails("bulkDensity", value)} /><Field label="Approved annual quantity" suffix="MT" value={state.details.approvedQuantity} onChange={(value) => updateDetails("approvedQuantity", value)} /><Field label="Extracted quantity" suffix="MT" value={state.details.extractedQuantity} onChange={(value) => updateDetails("extractedQuantity", value)} /><Field label="Rainfall during period" suffix="mm" value={state.details.rainfall} onChange={(value) => updateDetails("rainfall", value)} /></div></Card><Card><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-lg font-extrabold text-[#12396b]">Grid-wise calculation</h3><p className="text-sm text-slate-500">Positive RL gain × eligible area × bulk density.</p></div><button onClick={() => setState((current) => ({ ...current, grids: [...current.grids, defaultGrid()] }))} className="module-btn-secondary"><Plus size={16}/> Add grid</button></div><div className="overflow-x-auto"><table className="w-full min-w-[850px] text-sm"><thead><tr className="bg-[#12396b] text-white"><th className="p-2 text-left">Grid / chainage</th><th className="p-2 text-left">Area (m²)</th><th className="p-2 text-left">Pre RL (m)</th><th className="p-2 text-left">Post RL (m)</th><th className="p-2 text-right">Gain</th><th className="p-2 text-right">Volume</th><th className="p-2 text-right">Quantity (MT)</th><th></th></tr></thead><tbody>{gridResults.map((row) => <tr key={row.id} className="border-b border-slate-200">{(["grid", "area", "preRl", "postRl"] as const).map((key) => <td key={key} className="p-1.5"><input value={row[key]} onChange={(event) => updateGrid(row.id, key, event.target.value)} className="w-full rounded border border-slate-300 px-2 py-2 outline-none focus:border-[#12396b]"/></td>)}<td className="p-2 text-right font-medium">{formatNumber(row.gain)}</td><td className="p-2 text-right font-medium">{formatNumber(row.volume)}</td><td className="p-2 text-right font-bold text-[#12396b]">{formatNumber(row.quantity)}</td><td className="p-2"><button disabled={state.grids.length === 1} onClick={() => setState((current) => ({ ...current, grids: current.grids.filter((item) => item.id !== row.id) }))} className="text-red-500 disabled:text-slate-300"><Trash2 size={16}/></button></td></tr>)}</tbody><tfoot><tr className="bg-amber-50 font-bold"><td colSpan={5} className="p-3">Total assessed replenishment</td><td className="p-3 text-right">{formatNumber(totalVolume)} m³</td><td className="p-3 text-right text-[#12396b]">{formatNumber(totalQuantity)} MT</td><td></td></tr></tfoot></table></div></Card><Card><label className="block"><span className="mb-1.5 block text-xs font-bold text-slate-600">Study remarks and calculation assumptions</span><textarea rows={4} value={state.details.remarks} onChange={(event) => updateDetails("remarks", event.target.value)} className="w-full rounded-lg border border-slate-300 p-3 text-sm outline-none focus:border-[#12396b]"/></label></Card></div>}
 
-  return (
-    <>
-      <PageHeader
-        backLink={`/projects/${projectId}`}
-        title="Enterprise Replenishment Report"
-        description="Approved Final DSR se smart import, selective reuse, survey updates aur dynamic regeneration - sab database me persisted."
-        action={
-          <div className="flex flex-wrap justify-end gap-2">
-            <label className="module-btn cursor-pointer">
-              <Upload size={17}/>Upload Original PDF
-              <input type="file" accept="application/pdf" hidden onChange={(event) => handleOriginalPdfSelect(event.target.files?.[0])} />
-            </label>
-            <button className="module-btn" onClick={handleDownloadOriginalPdf}><FileText size={17}/>Download Original PDF</button>
-            <button className="module-btn-primary" onClick={handleDownloadGeneratedPdf}><Download size={17}/>Download Generated PDF</button>
-            <button className="module-btn" onClick={handleDownloadDraft}><FileJson size={17}/>Download Draft (.json)</button>
-            <button className="module-btn" onClick={handleExportDocx}><FileText size={17}/>Export DOCX</button>
-            <button className="module-btn" onClick={handlePrint}><Printer size={17}/>Print</button>
-            <button className="module-btn-primary" onClick={persist} disabled={saving || !study}><Save size={17}/>{saving ? "Saving..." : "Save to Database"}</button>
-          </div>
-        }
-      />
+        {activeStep === "evidence" && <div className="space-y-4"><Card><h3 className="text-lg font-extrabold text-[#12396b]">Evidence and annexure upload centre</h3><p className="mt-1 text-sm text-slate-500">PDF, Excel/CSV, images aur ZIP evidence category-wise store hota hai. Per file limit 50 MB.</p></Card><div className="grid gap-4 md:grid-cols-2">{evidenceRequirements.map((requirement) => { const matches = files.filter((file) => file.sectionId === requirement.id); return <Card key={requirement.id}><div className="flex items-start gap-3"><div className={`rounded-lg p-2 ${matches.length ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{matches.length ? <FileCheck2 size={20}/> : <CloudUpload size={20}/>}</div><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><b className="text-sm">{requirement.title}</b><span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${requirement.required ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500"}`}>{requirement.required ? "REQUIRED" : "OPTIONAL"}</span></div><p className="mt-1 text-xs text-slate-500">{requirement.hint}</p><div className="mt-3 space-y-2">{matches.map((file) => <button key={file.id} onClick={() => void downloadEvidence(file)} className="flex w-full items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-left text-xs hover:bg-blue-50"><span className="truncate font-medium text-[#12396b]">{file.fileName}</span><span className="shrink-0 text-slate-400">{fileSize(file.sizeBytes)}</span></button>)}</div><label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-blue-300 bg-blue-50 px-3 py-2 text-xs font-bold text-[#12396b] hover:bg-blue-100"><Upload size={14}/>{uploading === requirement.id ? "Uploading…" : matches.length ? "Add another file" : "Choose file(s)"}<input type="file" multiple accept={requirement.accept} disabled={uploading !== null} onChange={(event) => void uploadEvidence(requirement, event)} className="hidden"/></label></div></div></Card>; })}</div></div>}
 
-      <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-3 md:grid-cols-4">
-          {([
-            ["district", "District"],
-            ["river", "River"],
-            ["year", "Year"],
-            ["version", "Version"],
-          ] as const).map(([key, label]) => (
-            <label key={key} className="text-xs font-bold uppercase text-slate-500">
-              {label}
-              <input
-                value={String(workflow[key] || (key === "version" ? 1 : ""))}
-                onChange={(event) => updateWorkflowMeta(key, event.target.value)}
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold normal-case text-slate-700 outline-none focus:border-blue-500"
-              />
-            </label>
-          ))}
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
-          {originalPdf && <span className="rounded-full bg-emerald-50 px-3 py-1 font-semibold text-emerald-700">Original: {originalPdf.name}</span>}
-          {downloadHistory.map((item) => (
-            <span key={item.id} className="rounded-full bg-slate-100 px-3 py-1">
-              {item.fileName} | v{item.version} | {Math.ceil(item.fileSize / 1024)} KB | {item.downloadCount}x | {item.generatedBy}
-            </span>
-          ))}
-        </div>
-      </section>
+        {activeStep === "review" && <div className="space-y-5"><div className="grid gap-4 md:grid-cols-3"><Card><CheckCircle2 className="mb-2 text-emerald-600"/><div className="text-xs text-slate-500">Completion</div><b className="text-2xl text-[#12396b]">{completion}%</b></Card><Card><ClipboardList className="mb-2 text-blue-700"/><div className="text-xs text-slate-500">Included chapters</div><b className="text-2xl text-[#12396b]">{state.sections.filter((item) => item.included).length}</b></Card><Card><CloudUpload className="mb-2 text-amber-600"/><div className="text-xs text-slate-500">Uploaded files</div><b className="text-2xl text-[#12396b]">{files.length}</b></Card></div><Card><h3 className="mb-4 text-lg font-extrabold text-[#12396b]">Final verification</h3><div className="grid gap-2 md:grid-cols-2">{[
+          [Boolean(state.details.district && state.details.river), "District and river identity complete"],
+          [Boolean(state.details.preSurveyDate && state.details.postSurveyDate), "Pre/post survey dates complete"],
+          [numberValue(state.details.bulkDensity) > 0, "Bulk density entered"],
+          [state.grids.some((row) => numberValue(row.area) > 0), "At least one calculation grid complete"],
+          [requiredUploaded === requiredCount, "All required evidence uploaded"],
+          [state.sections.filter((item) => item.included).every((item) => item.content.trim()), "All included chapters have content"],
+        ].map(([ok, label]) => <div key={String(label)} className={`flex items-center gap-2 rounded-lg p-3 text-sm ${ok ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>{ok ? <CheckCircle2 size={17}/> : <ClipboardList size={17}/>}<span>{label}</span></div>)}</div></Card><Card><h3 className="mb-1 text-lg font-extrabold text-[#12396b]">Preview and export</h3><p className="mb-4 text-sm text-slate-500">Draft ko save karein, live A4 preview verify karein, phir PDF/DOCX download karein.</p><div className="flex flex-wrap gap-3"><button onClick={() => setPreviewOpen(true)} className="module-btn-primary"><Eye size={16}/> Open live preview</button><button onClick={() => void downloadPdf()} className="module-btn-primary"><Download size={16}/> Download final PDF</button><button onClick={() => { exportWordDocument(reportHtml, replenishmentFileName({ district: state.details.district, river: state.details.river, year: state.details.studyYear, version: study?.currentVersion, extension: "docx" })); toast.success("Editable document downloaded"); }} className="module-btn-secondary"><FileText size={16}/> Editable DOCX</button><button onClick={() => { exportDraftJson(state, `Replenishment_Draft_${state.details.studyYear}.json`); toast.success("Backup downloaded"); }} className="module-btn-secondary"><Database size={16}/> Draft backup</button><button onClick={() => openPrintableDocument(reportHtml, state.details.reportTitle)} className="module-btn-secondary"><FileCheck2 size={16}/> Print / Save PDF</button></div></Card></div>}
 
-      <section className="mb-5 border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-4">
-          <div>
-            <h2 className="font-bold text-slate-900">Generic Report Particulars</h2>
-            <p className="text-sm text-slate-500">Project identity, survey epochs and scientific calculation values.</p>
-          </div>
-          <span className="rounded bg-emerald-50 px-3 py-1.5 text-xs font-bold uppercase text-emerald-700 ring-1 ring-emerald-200">
-            Format Validated - Green Flag
-          </span>
-        </div>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {([
-            ["projectName", "Project Name", "text"],
-            ["blockName", "Mining Block", "text"],
-            ["village", "Village / Site", "text"],
-            ["mineral", "Mineral", "text"],
-            ["applicant", "Applicant", "text"],
-            ["preparedBy", "Prepared By", "text"],
-            ["leaseArea", "Lease Area (ha)", "number"],
-            ["mineableArea", "Mineable Area (ha)", "number"],
-            ["approvedAnnualQuantity", "Approved Quantity (MT)", "number"],
-            ["preMonsoonDate", "Pre-monsoon Survey", "date"],
-            ["postMonsoonDate", "Post-monsoon Survey", "date"],
-            ["gridArea", "Eligible Grid Area (sq. m)", "number"],
-            ["preMonsoonElevation", "Pre-monsoon Avg. RL (m)", "number"],
-            ["postMonsoonElevation", "Post-monsoon Avg. RL (m)", "number"],
-            ["bulkDensity", "Bulk Density (t/cu. m)", "number"],
-            ["extractedQuantity", "Recorded Extraction (MT)", "number"],
-          ] as [keyof SurveyUpdate, string, string][]).map(([key, label, type]) => (
-            <label key={key} className="text-xs font-bold uppercase text-slate-500">
-              {label}
-              <input
-                value={String(survey[key] || "")}
-                type={type}
-                min={type === "number" ? "0" : undefined}
-                step={type === "number" ? "any" : undefined}
-                onChange={(event) => updateSurveyField(key, event.target.value)}
-                className="mt-1 w-full border border-slate-200 px-3 py-2 text-sm font-semibold normal-case text-slate-700 outline-none focus:border-blue-500"
-              />
-            </label>
-          ))}
-        </div>
-        <div className="mt-4 grid gap-px overflow-hidden border border-slate-200 bg-slate-200 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            ["Elevation Difference", `${formattedNumber(calculation.elevationDifference, 3)} m`],
-            ["Replenished Volume", `${formattedNumber(calculation.volume)} cu. m`],
-            ["Replenished Quantity", `${formattedNumber(calculation.quantity)} MT`],
-            ["Against Approved Qty.", `${formattedNumber(calculation.percentage)}%`],
-          ].map(([label, value]) => (
-            <div key={label} className="bg-slate-50 px-4 py-3">
-              <p className="text-[10px] font-bold uppercase text-slate-500">{label}</p>
-              <p className="mt-1 text-base font-bold text-slate-900">{value}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+        <div className="mt-5 flex items-center justify-between"><button disabled={activeIndex === 0} onClick={() => setActiveStep(steps[Math.max(0, activeIndex - 1)].id)} className="module-btn-secondary disabled:opacity-40"><ChevronLeft size={16}/> Previous</button><div className="text-xs text-slate-400">Step {activeIndex + 1} of {steps.length}</div><button disabled={activeIndex === steps.length - 1} onClick={() => setActiveStep(steps[Math.min(steps.length - 1, activeIndex + 1)].id)} className="module-btn-primary disabled:opacity-40">Next <ChevronRight size={16}/></button></div>
+      </main>
+    </div>
 
-      <section className="mb-5 border border-slate-300 bg-slate-100 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-300 bg-slate-900 px-5 py-4 text-white">
-          <div>
-            <h2 className="text-base font-bold">Replenishment Report Workspace</h2>
-            <p className="mt-0.5 text-xs text-slate-300">Copy approved DSR content, complete Excel survey templates, upload evidence and review the final report together.</p>
-          </div>
-          <div className="flex items-center gap-2 text-xs font-semibold">
-            <span className="rounded bg-emerald-500/20 px-2.5 py-1 text-emerald-200">Live</span>
-            <span>{workflow.evidenceFiles.length} files</span>
-            <span>{summary.imported} DSR sections</span>
-          </div>
-        </div>
-
-        <div className="grid min-h-[980px] xl:grid-cols-[minmax(0,1.05fr)_minmax(520px,0.95fr)]">
-          <div className="space-y-5 border-r border-slate-300 p-5">
-            <section className="bg-white p-4 shadow-sm ring-1 ring-slate-200">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <Database size={18} className="text-blue-700" />
-                  <div><h3 className="text-sm font-bold">Approved DSR Source Library</h3><p className="text-xs text-slate-500">Reusable written content can be copied; dynamic survey content can be replaced by uploads.</p></div>
-                </div>
-                <button className="module-btn" onClick={handleExecuteImport} disabled={importingDsr}>{importingDsr ? "Importing..." : "Copy Selected DSR"}</button>
-              </div>
-              <div className="divide-y divide-slate-200 border border-slate-200">
-                {workflow.contentItems.map((item) => (
-                  <div key={item.id} className="grid gap-3 p-3 md:grid-cols-[24px_minmax(0,1fr)_auto] md:items-center">
-                    <GripVertical size={17} className="hidden text-slate-400 md:block" />
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2"><p className="text-sm font-bold text-slate-800">{item.group}</p><StatusBadge status={item.status} /></div>
-                      <p className="mt-1 text-xs text-slate-500">{item.name}</p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <button className="module-btn" onClick={() => handleCopyFromDsr(item)} disabled={copyingItemId === item.id}>
-                        <Copy size={15}/>{copyingItemId === item.id ? "Copying..." : "Copy from DSR"}
-                      </button>
-                      <label className="module-btn cursor-pointer">
-                        <Upload size={15}/>Upload replacement
-                        <input type="file" hidden multiple accept=".pdf,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.webp,.zip" onChange={(event) => event.target.files && handleEvidenceFiles(event.target.files, item.id)} />
-                      </label>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="bg-white p-4 shadow-sm ring-1 ring-slate-200">
-              <div className="mb-3 flex items-center gap-2"><FileSpreadsheet size={18} className="text-emerald-700"/><div><h3 className="text-sm font-bold">Official Excel Working Templates</h3><p className="text-xs text-slate-500">Download, fill formulas/observations in Excel, then upload the completed file below.</p></div></div>
-              <div className="grid gap-3 md:grid-cols-3">
-                {excelTemplates.map((template) => (
-                  <article key={template.name} className="border border-slate-200 p-3">
-                    <FileSpreadsheet size={22} className="text-emerald-700" />
-                    <h4 className="mt-2 text-sm font-bold">{template.name}</h4>
-                    <p className="mt-1 min-h-12 text-xs leading-5 text-slate-500">{template.description}</p>
-                    <a href={template.href} download className="module-btn mt-3 w-full justify-center"><Download size={15}/>Download .xlsx</a>
-                  </article>
-                ))}
-              </div>
-              <div className="mt-4 border border-dashed border-emerald-400 bg-emerald-50 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-start gap-3">
-                    <FileSpreadsheet size={24} className="mt-0.5 shrink-0 text-emerald-700" />
-                    <div>
-                      <h4 className="text-sm font-bold text-emerald-950">Upload Your Exact Excel Format</h4>
-                      <p className="mt-1 text-xs leading-5 text-emerald-900">Upload an existing replenishment `.xlsx`/`.xls` format. It becomes this study's active custom template and can be downloaded later as the exact original format.</p>
-                      {workflow.customExcelTemplate && <p className="mt-2 text-xs font-semibold text-emerald-800">Active format: {workflow.customExcelTemplate.name}</p>}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {workflow.customExcelTemplate && <button className="module-btn" onClick={() => handleDownloadEvidence(workflow.customExcelTemplate!)}><Download size={15}/>Copy Exact Format</button>}
-                    <label className="module-btn-primary cursor-pointer"><Upload size={15}/>{workflow.customExcelTemplate ? "Replace Format" : "Upload Format"}<input type="file" hidden accept=".xls,.xlsx" onChange={(event) => handleCustomExcelTemplate(event.target.files?.[0])} /></label>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section className="bg-white p-4 shadow-sm ring-1 ring-slate-200">
-              <div className="mb-3 flex items-center gap-2"><CloudUpload size={18} className="text-blue-700"/><div><h3 className="text-sm font-bold">Evidence and Completed Excel Uploads</h3><p className="text-xs text-slate-500">Files are stored against this replenishment study and listed in the generated report.</p></div></div>
-              <label
-                onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }}
-                onDragOver={(event) => event.preventDefault()}
-                onDragLeave={() => setDragActive(false)}
-                onDrop={handleEvidenceDrop}
-                className={`flex min-h-44 cursor-pointer flex-col items-center justify-center border-2 border-dashed px-5 py-8 text-center transition ${dragActive ? "border-blue-500 bg-blue-50" : "border-slate-300 bg-slate-50 hover:border-blue-400"}`}
-              >
-                <CloudUpload size={34} className="text-blue-600" />
-                <p className="mt-3 text-sm font-bold">{uploadingEvidence ? "Uploading files..." : "Drag and drop completed Excel, PDF, maps or photographs"}</p>
-                <p className="mt-1 text-xs text-slate-500">or click to browse | PDF, XLSX, XLS, CSV, PNG, JPG, WEBP, ZIP</p>
-                <input type="file" hidden multiple accept=".pdf,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.webp,.zip" onChange={(event) => event.target.files && handleEvidenceFiles(event.target.files)} />
-              </label>
-              {workflow.evidenceFiles.length > 0 && (
-                <div className="mt-3 divide-y divide-slate-200 border border-slate-200">
-                  {workflow.evidenceFiles.map((file) => (
-                    <div key={file.id} className="flex items-center gap-3 px-3 py-2.5">
-                      <FileText size={17} className="shrink-0 text-slate-500" />
-                      <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{file.name}</p><p className="text-xs text-slate-500">{file.sectionId} | {Math.ceil(file.size / 1024)} KB</p></div>
-                      <button title="Download uploaded file" onClick={() => handleDownloadEvidence(file)} className="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-blue-600"><Download size={16}/></button>
-                      <button title="Remove from report register" onClick={() => removeEvidenceFile(file.id)} className="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-red-600"><X size={16}/></button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          </div>
-
-          <aside className="min-h-0 bg-slate-300 p-4">
-            <div className="sticky top-4 overflow-hidden border border-slate-400 bg-slate-200 shadow-lg">
-              <div className="flex items-center justify-between gap-3 border-b border-slate-400 bg-white px-4 py-3">
-                <div><p className="text-xs font-bold uppercase text-slate-700">Live Government Report Preview</p><p className="text-[11px] text-slate-500">All written content, calculations and uploaded evidence register</p></div>
-                <button className="module-btn-primary" onClick={handleDownloadGeneratedPdf}><Download size={16}/>Download PDF</button>
-              </div>
-              <iframe title="Live replenishment report preview" srcDoc={livePreviewHtml} className="block h-[calc(100vh-150px)] min-h-[900px] w-full bg-white" />
-            </div>
-          </aside>
-        </div>
-      </section>
-
-      {/* Workflow Progress Bar */}
-      <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <p className="text-xs font-bold uppercase text-slate-500">Current Workflow Stage</p>
-          <div className="flex items-center gap-2 mt-1">
-            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${study?.approvalState === 'FINAL_REPORT_GENERATED' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
-              {study?.approvalState?.replace(/_/g, ' ') || "DRAFT"}
-            </span>
-            {study?.status === 'APPROVED' && <span className="text-green-600 font-bold ml-2">✓ GREEN FLAG - FULLY APPROVED</span>}
-          </div>
-        </div>
-        <div>
-          <button 
-            onClick={handleWorkflowAdvance} 
-            disabled={study?.approvalState === 'FINAL_REPORT_GENERATED'}
-            className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
-          >
-            Advance Workflow Stage <ArrowRight size={16} />
-          </button>
-        </div>
-      </section>
-
-      <section className="mb-5 grid gap-4 md:grid-cols-4">
-        <Metric icon={FileStack} label="Study" value={study?.title || "Draft"} />
-        <Metric icon={CheckCircle2} label="Imported" value={String(summary.imported)} />
-        <Metric icon={RefreshCw} label="Updated" value={String(summary.updated)} />
-        <Metric icon={Lock} label="Pending/Fresh Survey" value={String(summary.pending)} />
-      </section>
-
-      <section className="mb-5 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-        <Panel title="Import Setup" icon={Archive} description="Final DSR read-only source rahega; Replenishment report usse imported working copy banata hai.">
-          <div className="grid gap-3 md:grid-cols-3">
-            {(["smart", "selective", "fresh"] as ImportMode[]).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => setWorkflow((current) => ({ ...current, importMode: mode }))}
-                className={`rounded-2xl border p-4 text-left transition ${workflow.importMode === mode ? "border-blue-500 bg-blue-50 text-blue-900" : "border-slate-200 bg-white hover:border-blue-300"}`}
-              >
-                <p className="font-semibold capitalize">{mode === "smart" ? "Smart Import" : mode === "selective" ? "Selective Import" : "Fresh Report"}</p>
-                <p className="mt-1 text-sm text-slate-500">{mode === "smart" ? "Auto-detect reusable and outdated DSR content." : mode === "selective" ? "Choose chapters/resources one by one." : "Start clean but still linked to project DB."}</p>
-              </button>
-            ))}
-          </div>
-          <div className="mt-4 grid gap-2 md:grid-cols-3">
-            {resourceOptions.map((resource) => (
-              <label key={resource} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={workflow.selectedResources.includes(resource)}
-                  onChange={(event) => setWorkflow((current) => ({
-                    ...current,
-                    selectedResources: event.target.checked
-                      ? [...current.selectedResources, resource]
-                      : current.selectedResources.filter((item) => item !== resource),
-                  }))}
-                />
-                {resource}
-              </label>
-            ))}
-          </div>
-          <div className="mt-4 border-t border-slate-100 pt-4">
-            <button 
-              onClick={handleExecuteImport}
-              disabled={importingDsr}
-              className="flex items-center gap-2 rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
-            >
-              {importingDsr ? "Importing Data..." : "Execute DSR Import"}
-            </button>
-          </div>
-        </Panel>
-
-        <Panel title="AI Smart Suggestions" icon={Bot} description="Static vs dynamic detection summary.">
-          <div className="mb-3">
-            <button 
-              onClick={handleGenerateAi}
-              disabled={generatingAi}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-50 py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-100 disabled:opacity-50"
-            >
-              <Sparkles size={16} /> {generatingAi ? "Generating AI Insights..." : "Generate AI Insights"}
-            </button>
-          </div>
-          <div className="space-y-3 max-h-[250px] overflow-y-auto">
-            {workflow.suggestions.map((suggestion) => (
-              <div key={suggestion.title} className="rounded-xl border border-slate-200 p-3">
-                <p className="font-semibold">{suggestion.title}</p>
-                <p className="text-sm text-slate-600">{suggestion.detail}</p>
-              </div>
-            ))}
-          </div>
-        </Panel>
-      </section>
-
-      <section className="mb-5 grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <Panel title="DSR Content Manager" icon={FolderTree} description="Each imported item can be previewed, copied, replaced, merged, referenced or skipped.">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[820px] text-sm">
-              <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
-                <tr><th className="px-3 py-3">Group</th><th>Name</th><th>Status</th><th>Action</th><th>Tools</th></tr>
-              </thead>
-              <tbody>
-                {workflow.contentItems.map((item) => (
-                  <tr key={item.id} className="border-t">
-                    <td className="px-3 py-3 font-semibold">{item.group}</td>
-                    <td className="pr-3 text-slate-600">{item.name}</td>
-                    <td className="pr-3"><StatusBadge status={item.status} /></td>
-                    <td className="pr-3">
-                      <select value={item.action} onChange={(event) => updateItem(item.id, { action: event.target.value as ContentAction })} className="rounded-lg border border-slate-200 px-2 py-1">
-                        {["Preview", "Copy", "Replace", "Merge", "Reference", "Skip"].map((action) => <option key={action}>{action}</option>)}
-                      </select>
-                    </td>
-                    <td className="flex gap-2 py-3">
-                      {[Eye, Copy, Replace, Merge].map((Icon, index) => <button key={index} className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50"><Icon size={15}/></button>)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Panel>
-
-        <Panel title="Survey Update Section" icon={ClipboardCheck} description="Sirf new/changing survey data yahan capture hota hai.">
-          <div className="grid gap-3">
-            {(["surveyYear", "surveyDate", "rainfall", "waterLevel", "riverWidthDepth", "sediment", "photos"] as (keyof SurveyUpdate)[]).map((field) => (
-              <label key={field} className="text-sm font-medium text-slate-700">
-                {labelize(field)}
-                <input
-                  value={String(survey[field] || "")}
-                  type={field === "surveyDate" ? "date" : "text"}
-                  onChange={(event) => setSurvey((current) => ({ ...current, [field]: event.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-blue-500"
-                />
-              </label>
-            ))}
-            <div className="grid grid-cols-2 gap-2">
-              {(["dgps", "drone", "demDsm", "orthomosaic", "crossSections"] as (keyof SurveyUpdate)[]).map((field) => (
-                <label key={field} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm">
-                  <input type="checkbox" checked={Boolean(survey[field])} onChange={(event) => setSurvey((current) => ({ ...current, [field]: event.target.checked }))} />
-                  {labelize(field)}
-                </label>
-              ))}
-            </div>
-          </div>
-        </Panel>
-      </section>
-
-      <section className="mb-5 grid gap-4 xl:grid-cols-2">
-        <Panel title="Cross Section Manager" icon={GitCompare} description="Previous graph, updated Excel, overlay compare and regenerate flow.">
-          <div className="space-y-3">
-            {workflow.crossSections.map((row) => (
-              <div key={row.id} className="rounded-2xl border border-slate-200 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div><p className="font-semibold">{row.chainage}</p><p className="text-sm text-slate-500">{row.previous} {"->"} {row.updated}</p></div>
-                  <select value={row.action} onChange={(event) => setWorkflow((current) => ({ ...current, crossSections: current.crossSections.map((item) => item.id === row.id ? { ...item, action: event.target.value as CrossSectionRow["action"] } : item) }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
-                    {["Copy previous", "Replace graph", "Upload updated", "Overlay compare"].map((action) => <option key={action}>{action}</option>)}
-                  </select>
-                </div>
-              </div>
-            ))}
-            <label className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer">
-              <Upload size={16}/> Upload updated Excel / graph
-              <input type="file" accept=".xls,.xlsx,.png,.jpg,.jpeg" hidden onChange={(e) => handleCrossSectionUpload(e.target.files?.[0])} />
-            </label>
-          </div>
-        </Panel>
-
-        <Panel title="Dynamic Regeneration Queue" icon={Layers3} description="Only changing calculations and report sections regenerate automatically.">
-          <div className="grid gap-2 md:grid-cols-2">
-            {dynamicOutputs.map((item) => (
-              <label key={item} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={workflow.dynamicRegeneration.includes(item)}
-                  onChange={(event) => setWorkflow((current) => ({
-                    ...current,
-                    dynamicRegeneration: event.target.checked
-                      ? [...current.dynamicRegeneration, item]
-                      : current.dynamicRegeneration.filter((entry) => entry !== item),
-                  }))}
-                />
-                {item}
-              </label>
-            ))}
-          </div>
-        </Panel>
-      </section>
-
-      <Panel title="Preview Mode" icon={Map} description="Side-by-side review: Existing Final DSR, Imported Replenishment, Updated Replenishment.">
-        <div className="grid gap-4 lg:grid-cols-3">
-          {["Existing Final DSR", "Imported Replenishment Report", "Updated Replenishment Report"].map((title, index) => (
-            <div key={title} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="font-semibold">{title}</p>
-              <p className="mt-2 text-sm text-slate-600">{workflow.previewNotes[index]}</p>
-              <div className="mt-4 rounded-xl bg-white p-3 text-xs text-slate-500">{index === 0 ? "Read-only approved content" : index === 1 ? `${workflow.selectedResources.length} resource groups imported` : `${workflow.dynamicRegeneration.length} dynamic outputs selected`}</div>
-            </div>
-          ))}
-        </div>
-      </Panel>
-
-    </>
-  );
-}
-
-function Panel({ title, description, icon: Icon, children }: { title: string; description: string; icon: LucideIcon; children: ReactNode }) {
-  return <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="mb-4 flex items-start gap-3"><div className="rounded-xl bg-blue-50 p-2 text-blue-700"><Icon size={18}/></div><div><h2 className="font-bold">{title}</h2><p className="text-sm text-slate-500">{description}</p></div></div>{children}</section>;
-}
-
-function Metric({ label, value, icon: Icon }: { label: string; value: string; icon: LucideIcon }) {
-  return <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center gap-2 text-sm text-slate-500"><Icon size={16}/>{label}</div><p className="mt-2 truncate text-xl font-bold">{value}</p></div>;
-}
-
-function StatusBadge({ status }: { status: ContentItem["status"] }) {
-  const tone = status === "Imported" ? "bg-green-50 text-green-700" : status === "Updated" ? "bg-blue-50 text-blue-700" : status === "Fresh Survey Required" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600";
-  return <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${tone}`}>{status}</span>;
-}
-
-function labelize(value: string) {
-  return value.replace(/([A-Z])/g, " $1").replace(/^./, (char) => char.toUpperCase());
+    {previewOpen && <div className="fixed inset-0 z-50 flex flex-col bg-slate-950/70 p-3 md:p-6"><div className="mx-auto flex w-full max-w-6xl items-center justify-between rounded-t-xl bg-white px-4 py-3"><div><b className="text-[#12396b]">Live final report preview</b><p className="text-xs text-slate-500">Current form values, selected DSR content aur calculations</p></div><div className="flex gap-2"><button onClick={() => void downloadPdf()} className="module-btn-primary"><Download size={15}/> PDF</button><button onClick={() => setPreviewOpen(false)} className="module-btn-secondary">Close</button></div></div><iframe title="Replenishment report preview" srcDoc={reportHtml} className="mx-auto h-full w-full max-w-6xl rounded-b-xl bg-white"/></div>}
+  </div>;
 }
