@@ -208,15 +208,15 @@ export const annexureTemplates: Record<
         title: "Annexure IV(a) - Lease Routes",
         description: "Original lease transportation route schedule",
         columns: [
-          "Sl. No.",
+          "Sl.No.",
           "Lease No.",
           "Transportation Route No.",
-          "Number of Tippers/Day of Lease",
-          "Number of Tippers/Day of All Leases on Route",
-          "Length of Route (KM)",
-          "Type of Road (Black Topped/Unpaved)",
-          "Recommendation for Road (Black Topped/Unpaved)",
-          "Road Constructed by Govt./Lease Owner",
+          "Number of Tippers/Day (of Lease)",
+          "Number of Tippers/Day (of All Leases on Route)",
+          "Length of Route (Km)",
+          "Type of Road",
+          "Recommendation for Road",
+          "The Road Will Be Constructed By",
           "Route Map & Location",
         ],
       },
@@ -232,21 +232,6 @@ export const annexureTemplates: Record<
           "Type of Road",
           "Recommendation for Road",
           "The Road Will Be Constructed By",
-          "Route Map & Location",
-        ],
-      },
-      {
-        title: "Cluster Routes",
-        description: "Transportation routes shared by lease clusters",
-        columns: [
-          "Cluster No.",
-          "Transportation Route No.",
-          "Number of Tippers/Day of Cluster",
-          "Number of Tippers/Day of All Clusters on Route",
-          "Length of Route (KM)",
-          "Type of Road",
-          "Recommendation for Road",
-          "Road Constructed by",
           "Route Map & Location",
         ],
       },
@@ -398,7 +383,13 @@ export default function AnnexureEditorPage({ annexure }: { annexure: string }) {
   const { projectId = "default" } = useParams();
   const data = annexureTemplates[annexure] ?? annexureTemplates["1"];
   const templateStorageVersion =
-    annexure === "5" ? "5-v2" : annexure === "7" ? "7-v2" : annexure;
+    annexure === "4"
+      ? "4-v2"
+      : annexure === "5"
+        ? "5-v2"
+        : annexure === "7"
+          ? "7-v2"
+          : annexure;
   const [annexureTitle, setAnnexureTitle] = useLocalDraft<string>(
     `project-${projectId}:annexure-${annexure}:heading`,
     data.title,
@@ -645,6 +636,80 @@ export default function AnnexureEditorPage({ annexure }: { annexure: string }) {
                                 total_excavation_mt: "1237500",
                                 total_mineral_excavation_mt_considering_60_as_per_emgsm_2020:
                                   "742500",
+                              },
+                            ]
+                          : annexure === "4" && originalIndex === 0
+                          ? [
+                              {
+                                sl_no: "1",
+                                lease_no:
+                                  "Jalandhar Sutlej -1 Vill-Kadiana, Block- Phillaur",
+                                transportation_route_no: "A-A'",
+                                number_of_tippers_day_of_lease: "43",
+                                number_of_tippers_day_of_all_leases_on_route:
+                                  "NA",
+                                length_of_route_km: "0.73",
+                                type_of_road: "Unpaved",
+                                recommendation_for_road: "Unpaved",
+                                the_road_will_be_constructed_by: "Lease Owner",
+                                route_map_location: "Route Map attached",
+                              },
+                              {
+                                sl_no: "2",
+                                lease_no:
+                                  "Jalandhar Sutlej -2 Vill-Kadiana, Block- Phillaur",
+                                transportation_route_no: "B-B'",
+                                number_of_tippers_day_of_lease: "315",
+                                number_of_tippers_day_of_all_leases_on_route:
+                                  "NA",
+                                length_of_route_km: "0.48",
+                                type_of_road: "Unpaved",
+                                recommendation_for_road: "Unpaved",
+                                the_road_will_be_constructed_by: "Lease Owner",
+                                route_map_location: "Route Map attached",
+                              },
+                              {
+                                sl_no: "3",
+                                lease_no:
+                                  "Jalandhar Sutlej -3 Vill-Chauhla, Block- Phillaur",
+                                transportation_route_no: "C-C'",
+                                number_of_tippers_day_of_lease: "127",
+                                number_of_tippers_day_of_all_leases_on_route:
+                                  "NA",
+                                length_of_route_km: "2.1",
+                                type_of_road: "Unpaved",
+                                recommendation_for_road: "Unpaved",
+                                the_road_will_be_constructed_by: "Lease Owner",
+                                route_map_location: "Route Map attached",
+                              },
+                            ]
+                          : annexure === "4" && originalIndex === 1
+                          ? [
+                              {
+                                cluster_no:
+                                  "Cluster Jalandhar Sutlej -1,2 Vill-Kadiana, Block- Phillaur",
+                                transportation_route_no: "A-A', B-B'",
+                                number_of_tippers_day_of_cluster: "358",
+                                number_of_tippers_day_of_all_clusters_on_route:
+                                  "NA",
+                                length_of_route_in_km: "0.73",
+                                type_of_road: "Unpaved",
+                                recommendation_for_road: "Unpaved",
+                                the_road_will_be_constructed_by: "Lease Owner",
+                                route_map_location: "Route Map attached",
+                              },
+                              {
+                                cluster_no:
+                                  "Cluster Jalandhar Beas -3,4 Vill-Chauhla, Block- Phillaur",
+                                transportation_route_no: "C-C' TO F-F'",
+                                number_of_tippers_day_of_cluster: "343",
+                                number_of_tippers_day_of_all_clusters_on_route:
+                                  "NA",
+                                length_of_route_in_km: "2.1",
+                                type_of_road: "Unpaved",
+                                recommendation_for_road: "Unpaved",
+                                the_road_will_be_constructed_by: "Lease Owner",
+                                route_map_location: "Route Map attached",
                               },
                             ]
                           : []
