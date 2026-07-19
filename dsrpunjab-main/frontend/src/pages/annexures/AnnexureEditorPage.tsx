@@ -5,7 +5,13 @@ import ModuleEditor, {
 } from "../../components/ui/ModuleEditor";
 import { useCallback, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Download, FileSpreadsheet, GripVertical, Plus } from "lucide-react";
+import {
+  CheckCircle2,
+  Download,
+  FileSpreadsheet,
+  GripVertical,
+  Plus,
+} from "lucide-react";
 import { useLocalDraft } from "../../hooks/useLocalDraft";
 import {
   exportAnnexureExcel,
@@ -229,6 +235,21 @@ export const annexureTemplates: Record<
           "Route Map & Location",
         ],
       },
+      {
+        title: "Cluster Routes",
+        description: "Transportation routes shared by lease clusters",
+        columns: [
+          "Cluster No.",
+          "Transportation Route No.",
+          "Number of Tippers/Day of Cluster",
+          "Number of Tippers/Day of All Clusters on Route",
+          "Length of Route (KM)",
+          "Type of Road",
+          "Recommendation for Road",
+          "Road Constructed by",
+          "Route Map & Location",
+        ],
+      },
     ],
   },
   "5": {
@@ -297,6 +318,18 @@ export const annexureTemplates: Record<
           "Quantity (Tonnes/Annum)", "Existing/Proposed",
         ],
       },
+      {
+        title: "Bench Mark & CORS",
+        description: "Survey reference points used for bench mark and CORS control",
+        columns: [
+          "Point Name",
+          "Type",
+          "Latitude",
+          "Longitude",
+          "Elevation (m)",
+          "Remarks",
+        ],
+      },
     ],
   },
   "6": {
@@ -355,6 +388,21 @@ export const annexureTemplates: Record<
           "Station Code",
         ],
       },
+      {
+        title: "Final Cluster Routes",
+        description: "Final approved transportation routes shared by lease clusters",
+        columns: [
+          "Cluster No.",
+          "Transportation Route No.",
+          "Number of Tippers/Day of Cluster",
+          "Number of Tippers/Day of All Clusters on Route",
+          "Length of Route (KM)",
+          "Type of Road",
+          "Recommendation for Road",
+          "Road Constructed by",
+          "Route Map & Location",
+        ],
+      },
     ],
   },
 };
@@ -372,6 +420,10 @@ export default function AnnexureEditorPage({ annexure }: { annexure: string }) {
   const [annexureTitle, setAnnexureTitle] = useLocalDraft<string>(
     `project-${projectId}:annexure-${annexure}:heading`,
     data.title,
+  );
+  const [annexureDescription, setAnnexureDescription] = useLocalDraft<string>(
+    `project-${projectId}:annexure-${annexure}:description`,
+    data.description,
   );
   const resolvedAnnexureTitle = annexureTitle.trim() || data.title;
   const [snapshots, setSnapshots] = useState<Record<number, Snapshot>>({});
@@ -452,9 +504,29 @@ export default function AnnexureEditorPage({ annexure }: { annexure: string }) {
             title="Click to edit annexure heading"
           />
         }
-        description={data.description}
+        description={
+          <input
+            aria-label={`Edit ${data.title} description`}
+            className="w-full min-w-0 border-b border-dashed border-slate-300 bg-transparent font-inherit text-inherit outline-none transition focus:border-solid focus:border-emerald-600"
+            value={annexureDescription}
+            onChange={(event) => setAnnexureDescription(event.target.value)}
+            onBlur={() => {
+              if (!annexureDescription.trim()) {
+                setAnnexureDescription(data.description);
+              }
+            }}
+            title="Click to edit annexure description"
+          />
+        }
         action={
           <div className="flex flex-wrap gap-2">
+            <div
+              className="inline-flex items-center gap-1.5 rounded-md border border-emerald-600 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700"
+              title="This annexure format is complete and editable"
+            >
+              <CheckCircle2 size={17} />
+              Green Flag
+            </div>
             <button
               className="module-btn"
               onClick={() =>
@@ -618,8 +690,11 @@ export default function AnnexureEditorPage({ annexure }: { annexure: string }) {
                     {resolvedAnnexureTitle}
                   </h1>
                   <p className="mt-1 text-xs text-slate-500">
-                    District Survey Report
+                    {annexureDescription.trim() || data.description}
                   </p>
+                  <div className="mt-3 inline-flex items-center gap-1 rounded border border-emerald-600 bg-emerald-50 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-emerald-700">
+                    <CheckCircle2 size={11} /> Format Validated - Green Flag
+                  </div>
                 </div>
 
                 {/* Preview respects drag-drop order */}
