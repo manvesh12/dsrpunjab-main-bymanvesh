@@ -8,7 +8,7 @@ export type PdfUpload = { name: string; url?: string } | null | undefined;
 export type ReportDataTable = { title: string; columns: Array<{ key: string; label: string }>; rows: Record<string, string>[] };
 export type ReportCrossSection = { name?: string; dist?: string; post?: string; red?: string; thal?: string; area?: string; noMine?: string; bulk?: string; pct?: string; calcThick?: string };
 export type ReportChapter = { name: string; summary: string };
-export type ReportFrameSettings = { headerText?: string; footerText?: string; sectionOverrides?: Record<string, { headerText?: string; footerText?: string }> };
+export type ReportFrameSettings = { headerText?: string; footerText?: string; sectionTitles?: Record<string, string>; sectionOverrides?: Record<string, { headerText?: string; footerText?: string }> };
 
 function safeText(value: string) {
   return value.replace(/[^\x20-\x7E\xA0-\xFF]/g, "-");

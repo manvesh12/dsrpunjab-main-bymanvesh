@@ -133,6 +133,7 @@ export default function ReportPreviewPage() {
   }, [project?.id]);
 
   const selectedOverride = frameSettings.sectionOverrides?.[selectedFrameSection] || {};
+  const sectionDisplayName = (section: string) => frameSettings.sectionTitles?.[section]?.trim() || section;
   const saveFormat = async () => {
     if (!/^\d+$/.test(projectId) || !project) return;
     setSavingFormat(true);
@@ -226,7 +227,7 @@ export default function ReportPreviewPage() {
           skipped.push(upload.name);
         }
       };
-      const addSectionTitle = async (title: string) => { const startPage = document.getPageCount(); await appendReportSectionTitle(document, title); sections.push({ title, startPage }); };
+      const addSectionTitle = async (section: string) => { const startPage = document.getPageCount(); await appendReportSectionTitle(document, sectionDisplayName(section)); sections.push({ title: section, startPage }); };
       if (frontMatterUploads.length) { await addSectionTitle("Front Matter"); for (const upload of frontMatterUploads) await appendUpload(upload, "Front Matter"); }
       await addSectionTitle("Chapters");
       if (reportChapters.length) { const startPage = document.getPageCount(); await appendGeneratedReportContent(document, { district: project?.district || "Punjab", tables: [], graphs: [], chapters: reportChapters }); if (document.getPageCount() > startPage) sections.push({ title: "Chapters", startPage }); }
@@ -277,6 +278,7 @@ export default function ReportPreviewPage() {
           <button className="module-btn-primary justify-center" disabled={savingFormat} onClick={saveFormat}><Save size={16} />{savingFormat ? "Saving..." : "Save Format"}</button>
         </div>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <label className="text-xs text-slate-600">{selectedFrameSection} section heading<input value={frameSettings.sectionTitles?.[selectedFrameSection] || ""} onChange={(event) => setFrameSettings((current) => ({ ...current, sectionTitles: { ...current.sectionTitles, [selectedFrameSection]: event.target.value } }))} placeholder={`Uses \"${selectedFrameSection}\" if empty`} className="mt-1 w-full rounded-lg border px-3 py-2" /></label>
           <label className="text-xs text-slate-600">{selectedFrameSection} header<input value={selectedOverride.headerText || ""} onChange={(event) => setSelectedOverride("headerText", event.target.value)} placeholder="Uses default header if empty" className="mt-1 w-full rounded-lg border px-3 py-2" /></label>
           <label className="text-xs text-slate-600">{selectedFrameSection} footer<input value={selectedOverride.footerText || ""} onChange={(event) => setSelectedOverride("footerText", event.target.value)} placeholder="Uses default footer if empty" className="mt-1 w-full rounded-lg border px-3 py-2" /></label>
         </div>
@@ -289,7 +291,7 @@ export default function ReportPreviewPage() {
             </div>
           ) : previewPages.map((page, index) => {
             const frame = previewFrame(page.section);
-            return page.title ? <SectionTitlePage key={`section-${page.title}-${index}`} title={page.title} pageNumber={index + 1} district={project?.district || "Punjab"} {...frame} /> : page.upload ? <UploadedSection key={page.upload.id} upload={page.upload} pageNumber={index + 1} district={project?.district || "Punjab"} {...frame} /> : <GeneratedSection key={page.table ? `table-${index}` : page.chapter ? `chapter-${index}` : `graph-${index}`} table={page.table} graph={page.graph} chapter={page.chapter} pageNumber={index + 1} district={project?.district || "Punjab"} {...frame} />;
+            return page.title ? <SectionTitlePage key={`section-${page.title}-${index}`} title={sectionDisplayName(page.title)} pageNumber={index + 1} district={project?.district || "Punjab"} {...frame} /> : page.upload ? <UploadedSection key={page.upload.id} upload={page.upload} pageNumber={index + 1} district={project?.district || "Punjab"} {...frame} /> : <GeneratedSection key={page.table ? `table-${index}` : page.chapter ? `chapter-${index}` : `graph-${index}`} table={page.table} graph={page.graph} chapter={page.chapter} pageNumber={index + 1} district={project?.district || "Punjab"} {...frame} />;
           })}
         </article>
       </main>
