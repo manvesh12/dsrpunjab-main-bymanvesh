@@ -145,59 +145,7 @@ export default function ReportPreviewPage() {
     finally { setSavingFormat(false); }
   };
 
-  const cover = project?.files?.find((f) => f.objectKey.toLowerCase().includes("/front-matter/cover"));
-  const certificate = project?.files?.find((f) => f.objectKey.toLowerCase().includes("/front-matter/cert"));
-  const contents = project?.files?.find((f) => f.objectKey.toLowerCase().includes("/front-matter/content"));
-  const preface = project?.files?.find((f) => f.objectKey.toLowerCase().includes("/front-matter/preface"));
 
-  const reportSections = useMemo(() => {
-    const sections = [
-      cover?.preview ? { id: "report-cover", label: "Cover Page" } : null,
-      certificate?.preview ? { id: "report-certificate", label: "Certificate of Compliance" } : null,
-      contents?.preview ? { id: "report-contents", label: "Content Page" } : null,
-      preface?.preview ? { id: "report-preface", label: "Preface" } : null,
-      ...chapters.map((chapter, index) => chapter.file?.preview
-        ? { id: `report-chapter-${index + 1}`, label: `Chapter ${index + 1}: ${chapter.name}` }
-        : null),
-    ];
-
-    return sections.filter((section): section is { id: string; label: string } => Boolean(section));
-  }, [cover?.preview, certificate?.preview, contents?.preview, preface?.preview, chapters]);
-
-  const [activeSection, setActiveSection] = useState("");
-
-  useEffect(() => {
-    if (!reportSections.length) return;
-    setActiveSection((current) => reportSections.some(({ id }) => id === current) ? current : reportSections[0].id);
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
-        if (visible) setActiveSection(visible.target.id);
-      },
-      { rootMargin: "-15% 0px -70% 0px", threshold: 0 },
-    );
-
-    reportSections.forEach(({ id }) => {
-      const element = document.getElementById(id);
-      if (element) observer.observe(element);
-    });
-
-    return () => observer.disconnect();
-  }, [reportSections]);
-
-  const goToSection = (sectionId: string) => {
-    setActiveSection(sectionId);
-    document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
-  const downloadFinalPdf = async () => {
-    const element = document.getElementById("report-preview-article");
-    if (!element) return;
-
-  };
   const setSelectedOverride = (field: "headerText" | "footerText", value: string) => setFrameSettings((current) => ({ ...current, sectionOverrides: { ...current.sectionOverrides, [selectedFrameSection]: { ...current.sectionOverrides?.[selectedFrameSection], [field]: value } } }));
 
   useEffect(() => {
@@ -357,7 +305,6 @@ export default function ReportPreviewPage() {
           </button>
         </div>}
       />
-<<<<<<< HEAD
       <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-800"><Settings2 size={16} /> Report Header &amp; Footer Settings</div>
         <div className="grid gap-3 md:grid-cols-4 md:items-end">
@@ -377,26 +324,10 @@ export default function ReportPreviewPage() {
           <div className="sticky top-3 z-20 mb-4 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-md backdrop-blur lg:hidden">
             <label htmlFor="report-section-select" className="mb-1.5 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500"><List size={15} /> Jump to section</label>
             <select id="report-section-select" value={activeSection} onChange={(event) => goToSection(event.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
-=======
-      
-      <main className="rounded-2xl border border-slate-200 bg-slate-100 p-4 md:p-8">
-        {reportSections.length > 0 && (
-          <div className="sticky top-3 z-20 mb-4 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-md backdrop-blur lg:hidden">
-            <label htmlFor="report-section-select" className="mb-1.5 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
-              <List size={15} /> Jump to section
-            </label>
-            <select
-              id="report-section-select"
-              value={activeSection}
-              onChange={(event) => goToSection(event.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            >
->>>>>>> 1959f79 (Add sticky report section navigation)
               {reportSections.map((section) => <option key={section.id} value={section.id}>{section.label}</option>)}
             </select>
           </div>
         )}
-<<<<<<< HEAD
         <div className="mx-auto flex max-w-[1500px] items-start gap-6">
           {reportSections.length > 0 && (
             <aside className="sticky top-4 hidden w-64 shrink-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-md lg:block">
@@ -421,66 +352,6 @@ export default function ReportPreviewPage() {
             return <div key={page.title ? `section-${page.title}-${index}` : page.upload?.id || `generated-${index}`} id={sectionId} className="flex w-full scroll-mt-24 justify-center">{content}</div>;
           })}
         </article>
-=======
-
-        <div className="mx-auto flex max-w-[1500px] items-start gap-6">
-          {reportSections.length > 0 && (
-            <aside className="sticky top-4 hidden w-64 shrink-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-md lg:block">
-              <div className="mb-3 flex items-center gap-2 border-b border-slate-100 pb-3 font-bold text-slate-800">
-                <List size={18} className="text-blue-600" /> Report sections
-              </div>
-              <nav aria-label="Report sections" className="max-h-[calc(100vh-8rem)] space-y-1 overflow-y-auto pr-1">
-                {reportSections.map((section) => (
-                  <button
-                    key={section.id}
-                    type="button"
-                    onClick={() => goToSection(section.id)}
-                    aria-current={activeSection === section.id ? "location" : undefined}
-                    className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                      activeSection === section.id
-                        ? "bg-blue-600 font-semibold text-white"
-                        : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"
-                    }`}
-                  >
-                    {section.label}
-                  </button>
-                ))}
-              </nav>
-            </aside>
-          )}
-
-          <article id="report-preview-article" className="min-w-0 flex-1 bg-white shadow-xl min-h-screen py-16 px-4 md:px-12 flex flex-col items-center">
-          {!hasContent ? (
-            <div className="flex min-h-[500px] flex-col items-center justify-center text-center">
-              <p className="text-slate-500 max-w-md text-lg">
-                No documents have been uploaded yet. Please upload files in the Front Matter and Chapters sections to see the continuous live preview here.
-              </p>
-            </div>
-          ) : (
-            <div className="w-full flex flex-col items-center gap-16">
-              {cover?.preview && <section id="report-cover" className="w-full scroll-mt-24"><UploadedPreview src={cover.preview} title="Cover Page" /></section>}
-              {certificate?.preview && <section id="report-certificate" className="w-full scroll-mt-24"><UploadedPreview src={certificate.preview} title="Certificate of Compliance" /></section>}
-              {contents?.preview && <section id="report-contents" className="w-full scroll-mt-24"><UploadedPreview src={contents.preview} title="Content Page" /></section>}
-              {preface?.preview && <section id="report-preface" className="w-full scroll-mt-24"><UploadedPreview src={preface.preview} title="Preface" /></section>}
-              
-              {chapters.map((chapter, i) => (
-                chapter.file?.preview ? (
-                  <section key={i} id={`report-chapter-${i + 1}`} className="w-full scroll-mt-24">
-                    <UploadedPreview
-                      src={chapter.file.preview}
-                      title={`Chapter ${i + 1}: ${chapter.name}`}
-                    />
-                  </section>
-                ) : null
-              ))}
-              
-              <div className="w-full border-t-2 border-dashed border-slate-300 mt-12 pt-12 flex flex-col items-center text-slate-400">
-                <p>End of Report Document</p>
-              </div>
-            </div>
-          )}
-          </article>
->>>>>>> 1959f79 (Add sticky report section navigation)
         </div>
       </main>
     </>
