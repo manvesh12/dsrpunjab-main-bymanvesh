@@ -25,7 +25,7 @@ type FrontMatterState = {
 export type PreviewUpload = { id: string; title: string; name: string; url: string };
 type DraftColumn = { key: string; label: string };
 const annexureSections = ["Annexure I", "Annexure II", "Annexure III", "Annexure IV", "Annexure V", "Annexure VI", "Annexure VII", "Annexure B", "Annexure C", "Annexure D", "Annexure E", "Annexure F", "Annexure G", "Annexure H", "Annexure I (Additional)", "Annexure J", "Annexure K"];
-const frameSections = ["Front Matter", "Chapters", "Cross Sections", "Plates and Maps", ...annexureSections];
+const frameSections = ["Front Matter", "Chapters", "Plates and Maps", ...annexureSections];
 
 function annexureMatches(title: string, annexure: string) {
   const normalized = title.toLowerCase().replace(/\s+/g, " ");
@@ -104,7 +104,6 @@ export default function ReportPreviewPage() {
   const { projectId = "default" } = useParams();
   const [downloading, setDownloading] = useState(false);
   const [tables, setTables] = useState<ReportDataTable[]>([]);
-  const [draftGraphs, setDraftGraphs] = useState<ReportCrossSection[]>([]);
   const [draftChapters, setDraftChapters] = useState<Chapter[]>([]);
   const [draftPlates, setDraftPlates] = useState<Plate[]>([]);
   const [frameSettings, setFrameSettings] = useState<ReportFrameSettings>({});
@@ -122,9 +121,6 @@ export default function ReportPreviewPage() {
   const platesState = state.plates as { plates?: Plate[] } | Plate[] | undefined;
   const chapters = Array.isArray(chaptersState) ? chaptersState : chaptersState?.chapters || [];
   const plates = Array.isArray(platesState) ? platesState : platesState?.plates || [];
-  const crossSectionsState = state["cross-sections"] as { graphs?: ReportCrossSection[] } | ReportCrossSection[] | undefined;
-  const graphs = Array.isArray(crossSectionsState) ? crossSectionsState : crossSectionsState?.graphs || [];
-  const reportGraphs = graphs.length ? graphs : draftGraphs;
   const reportChapters = chapters.length ? chapters : draftChapters;
   const reportPlates = plates.length ? plates : draftPlates;
 
@@ -170,8 +166,8 @@ export default function ReportPreviewPage() {
         if (existingIndex >= 0) result[existingIndex] = replacement;
         else result.push(replacement);
       }
-      const [storedGraphs, storedChapters, storedPlates] = await Promise.all([get<unknown>("dsr:cross-sections-full"), get<unknown>("dsr:chapters-exact"), get<unknown>("dsr:plates-exact")]);
-      if (active) { setTables(result.map(({ source: _source, ...table }) => table)); if (Array.isArray(storedGraphs)) setDraftGraphs(storedGraphs as ReportCrossSection[]); if (Array.isArray(storedChapters)) setDraftChapters(storedChapters as Chapter[]); if (Array.isArray(storedPlates)) setDraftPlates(storedPlates as Plate[]); }
+      const [storedChapters, storedPlates] = await Promise.all([get<unknown>("dsr:chapters-exact"), get<unknown>("dsr:plates-exact")]);
+      if (active) { setTables(result.map(({ source: _source, ...table }) => table)); if (Array.isArray(storedChapters)) setDraftChapters(storedChapters as Chapter[]); if (Array.isArray(storedPlates)) setDraftPlates(storedPlates as Plate[]); }
     };
     void loadDraftTables();
     return () => { active = false; };
@@ -201,14 +197,12 @@ export default function ReportPreviewPage() {
   const uniqueUploads = uploads.filter((upload, index) => uploads.findIndex((item) => item.url === upload.url) === index).sort((a, b) => reportOrder(a.title) - reportOrder(b.title));
   const frontMatterUploads = uniqueUploads.filter((item) => reportOrder(item.title) === 0);
   const chapterUploads = uniqueUploads.filter((item) => reportOrder(item.title) === 1);
-  const crossUploads = uniqueUploads.filter((item) => reportOrder(item.title) === 3);
   const plateUploads = uniqueUploads.filter((item) => reportOrder(item.title) === 4);
   const otherUploads = uniqueUploads.filter((item) => reportOrder(item.title) === 5);
   const annexureUploads = uniqueUploads.filter((item) => reportOrder(item.title) === 6);
   const previewPages: Array<{ sectionName: string; title?: string; upload?: PreviewUpload; table?: ReportDataTable; graph?: ReportCrossSection; chapter?: ReportChapter }> = [
     ...(frontMatterUploads.length ? [{ sectionName: "Front Matter", title: "Front Matter" }, ...frontMatterUploads.map((upload) => ({ sectionName: "Front Matter", upload }))] : []),
     { sectionName: "Chapters", title: "Chapters" }, ...reportChapters.map((chapter) => ({ sectionName: "Chapters", chapter })), ...chapterUploads.map((upload) => ({ sectionName: "Chapters", upload })),
-    { sectionName: "Cross Sections", title: "Cross Sections" }, ...reportGraphs.map((graph) => ({ sectionName: "Cross Sections", graph })), ...crossUploads.map((upload) => ({ sectionName: "Cross Sections", upload })),
     { sectionName: "Plates and Maps", title: "Plates and Maps" }, ...plateUploads.map((upload) => ({ sectionName: "Plates and Maps", upload })), ...otherUploads.map((upload) => ({ sectionName: "Plates and Maps", upload })),
     ...annexureSections.flatMap((annexure) => [{ sectionName: annexure, title: annexure }, ...tables.filter((table) => annexureMatches(table.title, annexure)).map((table) => ({ sectionName: annexure, table })), ...annexureUploads.filter((upload) => annexureMatches(upload.title, annexure)).map((upload) => ({ sectionName: annexure, upload }))]),
   ];
@@ -268,9 +262,6 @@ export default function ReportPreviewPage() {
       await addSectionTitle("Chapters");
       if (reportChapters.length) { const startPage = document.getPageCount(); await appendGeneratedReportContent(document, { district: project?.district || "Punjab", tables: [], graphs: [], chapters: reportChapters }); if (document.getPageCount() > startPage) sections.push({ title: "Chapters", startPage }); }
       for (const upload of chapterUploads) await appendUpload(upload);
-      await addSectionTitle("Cross Sections");
-      if (reportGraphs.length) { const startPage = document.getPageCount(); await appendGeneratedReportContent(document, { district: project?.district || "Punjab", tables: [], graphs: reportGraphs }); if (document.getPageCount() > startPage) sections.push({ title: "Cross Sections", startPage }); }
-      for (const upload of crossUploads) await appendUpload(upload);
       await addSectionTitle("Plates and Maps");
       for (const upload of [...plateUploads, ...otherUploads]) await appendUpload(upload);
       for (const annexure of annexureSections) {
