@@ -7,6 +7,7 @@ import { downloadBlob } from "./reportExport";
 export type PdfUpload = { name: string; url?: string } | null | undefined;
 export type ReportDataTable = { title: string; columns: Array<{ key: string; label: string }>; rows: Record<string, string>[] };
 export type ReportCrossSection = { name?: string; dist?: string; post?: string; red?: string; thal?: string; area?: string; noMine?: string; bulk?: string; pct?: string; calcThick?: string };
+export type ReportChapter = { name: string; summary: string };
 
 function safeText(value: string) {
   return value.replace(/[^\x20-\x7E\xA0-\xFF]/g, "-");
@@ -95,11 +96,25 @@ export async function appendGeneratedReportContent(target: PDFDocument, input: {
   district: string;
   tables: ReportDataTable[];
   graphs: ReportCrossSection[];
+  chapters?: ReportChapter[];
 }) {
-  if (!input.tables.length && !input.graphs.length) return;
+  if (!input.tables.length && !input.graphs.length && !input.chapters?.length) return;
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   let hasPage = false;
   const addPage = () => { if (hasPage) pdf.addPage(); hasPage = true; };
+
+  (input.chapters || []).forEach((chapter) => {
+    addPage();
+    pdf.setFont("times", "bold"); pdf.setFontSize(17);
+    pdf.text(chapter.name, 105, 34, { align: "center", maxWidth: 165 });
+    pdf.setDrawColor(30); pdf.line(30, 54, 180, 54);
+    pdf.setFont("times", "normal"); pdf.setFontSize(11);
+    const content = chapter.summary || "Chapter content will appear here once it is entered and saved in the chapter editor.";
+    pdf.text(pdf.splitTextToSize(content, 150), 30, 75, { lineHeightFactor: 1.6 });
+    pdf.setFontSize(9); pdf.setTextColor(90);
+    pdf.text("Chapter template - District Survey Report", 105, 260, { align: "center" });
+    pdf.setTextColor(0);
+  });
 
   input.graphs.forEach((graph, index) => {
     addPage();
