@@ -277,6 +277,7 @@ export default function ReplenishmentBuilderPage() {
   const [importing, setImporting] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [workspacePreview, setWorkspacePreview] = useState(true);
 
   const load = useCallback(async () => {
     if (!projectId) return;
@@ -404,7 +405,7 @@ export default function ReplenishmentBuilderPage() {
   if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><RefreshCw className="animate-spin text-[#12396b]" /></div>;
 
   return <div className="pb-10">
-    <PageHeader backLink={`/projects/${projectId}`} title="Replenishment Report Studio" description="DSR import se signed, calculation-backed final report tak ek guided workflow" action={<div className="flex gap-2"><button onClick={() => setPreviewOpen(true)} className="module-btn-secondary"><Eye size={16} /> Live preview</button><button onClick={save} disabled={saving} className="module-btn-primary"><Save size={16} /> {saving ? "Saving…" : "Save"}</button></div>} />
+    <PageHeader backLink={`/projects/${projectId}`} title="Replenishment Report Studio" description="DSR import se signed, calculation-backed final report tak ek guided workflow" action={<div className="flex flex-wrap gap-2"><button onClick={() => setWorkspacePreview((visible) => !visible)} className="module-btn-secondary"><Eye size={16} /> {workspacePreview ? "Hide preview" : "Show preview"}</button><button onClick={() => setPreviewOpen(true)} className="module-btn-secondary"><Eye size={16} /> Full preview</button><button onClick={save} disabled={saving} className="module-btn-primary"><Save size={16} /> {saving ? "Saving…" : "Save"}</button></div>} />
 
     <div className="mb-5 grid gap-3 px-4 sm:grid-cols-2 xl:grid-cols-4">
       <Card className="!p-4"><div className="flex items-center gap-3"><div className="rounded-lg bg-blue-50 p-2 text-[#12396b]"><FileText size={20} /></div><div><div className="text-xs text-slate-500">Report completion</div><b className="text-xl text-[#12396b]">{completion}%</b></div></div></Card>
@@ -413,7 +414,7 @@ export default function ReplenishmentBuilderPage() {
       <Card className="!p-4"><div className="flex items-center gap-3"><div className="rounded-lg bg-violet-50 p-2 text-violet-700"><Database size={20} /></div><div><div className="text-xs text-slate-500">Workflow status</div><b className="text-sm text-[#12396b]">{study?.approvalState?.replace(/_/g, " ") || "DRAFT"}</b></div></div></Card>
     </div>
 
-    <div className="grid gap-5 px-4 xl:grid-cols-[260px_minmax(0,1fr)]">
+    <div className={`grid gap-5 px-4 ${workspacePreview ? "xl:grid-cols-[230px_minmax(500px,1fr)_minmax(380px,0.78fr)]" : "xl:grid-cols-[260px_minmax(0,1fr)]"}`}>
       <aside className="h-fit rounded-xl border border-slate-200 bg-white p-3 shadow-sm xl:sticky xl:top-4">
         {steps.map((step, index) => <button key={step.id} onClick={() => setActiveStep(step.id)} className={`mb-1 flex w-full items-center gap-3 rounded-lg p-3 text-left transition ${activeStep === step.id ? "bg-[#12396b] text-white" : "hover:bg-slate-50"}`}><span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${activeStep === step.id ? "bg-white/20" : "bg-slate-100 text-slate-600"}`}>{index + 1}</span><span><b className="block text-sm">{step.label}</b><small className={activeStep === step.id ? "text-blue-100" : "text-slate-400"}>{step.helper}</small></span></button>)}
         <div className="mt-3 border-t border-slate-200 pt-3 text-xs text-slate-500">Last saved<br/><b className="text-slate-700">{state.lastSavedAt ? new Date(state.lastSavedAt).toLocaleString("en-IN") : "Not saved yet"}</b></div>
@@ -441,6 +442,8 @@ export default function ReplenishmentBuilderPage() {
 
         <div className="mt-5 flex items-center justify-between"><button disabled={activeIndex === 0} onClick={() => setActiveStep(steps[Math.max(0, activeIndex - 1)].id)} className="module-btn-secondary disabled:opacity-40"><ChevronLeft size={16}/> Previous</button><div className="text-xs text-slate-400">Step {activeIndex + 1} of {steps.length}</div><button disabled={activeIndex === steps.length - 1} onClick={() => setActiveStep(steps[Math.min(steps.length - 1, activeIndex + 1)].id)} className="module-btn-primary disabled:opacity-40">Next <ChevronRight size={16}/></button></div>
       </main>
+
+      {workspacePreview && <aside className="hidden h-[calc(100vh-8rem)] overflow-hidden rounded-xl border border-slate-200 bg-slate-100 shadow-sm xl:sticky xl:top-4 xl:block"><div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3"><div><div className="flex items-center gap-2 text-sm font-extrabold text-[#12396b]"><Eye size={16}/> Live report preview</div><p className="mt-0.5 text-[11px] text-slate-500">Form, DSR import aur calculations instantly update</p></div><button onClick={() => setPreviewOpen(true)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-bold text-[#12396b] hover:bg-blue-50">Expand</button></div><iframe title="Inline replenishment report preview" srcDoc={reportHtml} className="h-[calc(100%-65px)] w-full bg-white"/></aside>}
     </div>
 
     {previewOpen && <div className="fixed inset-0 z-50 flex flex-col bg-slate-950/70 p-3 md:p-6"><div className="mx-auto flex w-full max-w-6xl items-center justify-between rounded-t-xl bg-white px-4 py-3"><div><b className="text-[#12396b]">Live final report preview</b><p className="text-xs text-slate-500">Current form values, selected DSR content aur calculations</p></div><div className="flex gap-2"><button onClick={() => void downloadPdf()} className="module-btn-primary"><Download size={15}/> PDF</button><button onClick={() => setPreviewOpen(false)} className="module-btn-secondary">Close</button></div></div><iframe title="Replenishment report preview" srcDoc={reportHtml} className="mx-auto h-full w-full max-w-6xl rounded-b-xl bg-white"/></div>}
