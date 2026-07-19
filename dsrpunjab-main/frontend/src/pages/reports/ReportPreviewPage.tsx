@@ -21,7 +21,7 @@ type FrontMatterState = {
   contentFile?: UploadRecord;
   prefaceFile?: UploadRecord;
 };
-type PreviewUpload = { id: string; title: string; name: string; url: string };
+export type PreviewUpload = { id: string; title: string; name: string; url: string };
 type DraftColumn = { key: string; label: string };
 const annexureSections = ["Annexure I", "Annexure II", "Annexure III", "Annexure IV", "Annexure V", "Annexure VI", "Annexure VII", "Annexure B", "Annexure C", "Annexure D", "Annexure E", "Annexure F", "Annexure G", "Annexure H", "Annexure I (Additional)", "Annexure J", "Annexure K"];
 const frameSections = ["Front Matter", "Chapters", "Cross Sections", "Plates and Maps", ...annexureSections];
@@ -42,7 +42,7 @@ function reportOrder(title: string) {
   return 5;
 }
 
-function SectionTitlePage({ title, pageNumber, district, headerText, footerText }: { title: string; pageNumber: number; district: string; headerText: string; footerText: string }) {
+export function SectionTitlePage({ title, pageNumber, district, headerText, footerText }: { title: string; pageNumber: number; district: string; headerText: string; footerText: string }) {
   return <section className="dsr-preview-page relative flex aspect-[1/1.414] w-full max-w-[794px] flex-col items-center justify-center overflow-hidden bg-white text-black shadow-xl">
     <div className="pointer-events-none absolute inset-4 border border-black" />
     <header className="absolute left-16 right-16 top-7 border-b border-black pb-2 font-serif leading-tight"><p className="text-[15px] italic">{headerText}</p><p className="text-[12px] italic">{district} District, Punjab</p></header>
@@ -51,7 +51,7 @@ function SectionTitlePage({ title, pageNumber, district, headerText, footerText 
   </section>;
 }
 
-function GeneratedSection({ table, graph, chapter, pageNumber, district, headerText, footerText }: { table?: ReportDataTable; graph?: ReportCrossSection; chapter?: ReportChapter; pageNumber: number; district: string; headerText: string; footerText: string }) {
+export function GeneratedSection({ table, graph, chapter, pageNumber, district, headerText, footerText }: { table?: ReportDataTable; graph?: ReportCrossSection; chapter?: ReportChapter; pageNumber: number; district: string; headerText: string; footerText: string }) {
   const heading = table?.title || chapter?.name || graph?.name || "Cross Section Sand Bar";
   const points = String(graph?.post || "").split(",").map(Number).filter(Number.isFinite);
   const levels = [...points, Number(graph?.red), Number(graph?.thal)].filter(Number.isFinite);
@@ -79,7 +79,7 @@ function uploadSectionLabel(file: ProjectFile) {
   return "Project Upload";
 }
 
-function UploadedSection({ upload, pageNumber, district, headerText, footerText }: { upload: PreviewUpload; pageNumber: number; district: string; headerText: string; footerText: string }) {
+export function UploadedSection({ upload, pageNumber, district, headerText, footerText }: { upload: PreviewUpload; pageNumber: number; district: string; headerText: string; footerText: string }) {
   return (
     <section className="dsr-preview-page relative flex aspect-[1/1.414] w-full max-w-[794px] flex-col overflow-hidden bg-white text-black shadow-xl">
       <div className="pointer-events-none absolute inset-4 border border-black" />
