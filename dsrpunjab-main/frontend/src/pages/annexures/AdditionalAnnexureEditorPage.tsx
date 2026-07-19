@@ -22,6 +22,41 @@ const key = (label: string) =>
     .replace(/^_|_$/g, "");
 const hasUploadSection = ["B", "C", "D", "E", "G", "H", "I", "J", "K"];
 export const additionalAnnexureTemplates: Record<string, { title: string; columns: string[] }[]> = {
+  D: [
+    {
+      title: "Sub-Divisional Committee Site Visit Observations",
+      columns: [
+        "Sr. No.",
+        "ID",
+        "Proposed Village",
+        "Area (Ha)",
+        "Area (Acre)",
+        "Area Falling Within 100m of Flood Protection Embankment (FPE)",
+        "Approx. Area Outside 100m (Ha)",
+        "Remarks",
+        "Recommended / Not Recommended",
+      ],
+    },
+  ],
+  E: [
+    {
+      title: "Specific Gravity and Bulk Density Test Data",
+      columns: [
+        "Sr. No.",
+        "Sample Description",
+        "Location / Village",
+        "River",
+        "ULR / Report No.",
+        "Date of Receipt",
+        "Date of Testing",
+        "Date of Report",
+        "Test Parameter",
+        "Test Method",
+        "Result",
+        "Unit",
+      ],
+    },
+  ],
   F: [
     {
       title: "a) Final Block Sand Ghats Coordinates",
@@ -57,7 +92,73 @@ export const additionalAnnexureTemplates: Record<string, { title: string; column
       ],
     },
   ],
+  G: [
+    {
+      title: "Detailed Lithological Section of Agriculture Sites up to 15 Feet",
+      columns: [
+        "Sr. No.",
+        "Site Name",
+        "Latitude",
+        "Longitude",
+        "Elevation (m)",
+        "Depth From",
+        "Depth To",
+        "Lithology",
+        "Photograph / Attachment Reference",
+      ],
+    },
+    {
+      title: "Site-wise Reserve Calculation",
+      columns: [
+        "Sr. No.",
+        "Site Name",
+        "Area (Ha)",
+        "Bulk Density",
+        "Mineable Depth (m)",
+        "Total Reserve (MT)",
+        "Total Mineral to be Mined (60%) (MT)",
+      ],
+    },
+  ],
   J: [
+    {
+      title: "Table 1: Cement Consumption",
+      columns: ["Sr. No.", "Year", "Quantity of Cement (MT)", "Rate of Growth (%)"],
+    },
+    {
+      title: "Table 2: Projected Demand of Sand",
+      columns: [
+        "Sr. No.", "Year", "Projected Quantity of Cement (MT)",
+        "Conversion Factor", "Projected Demand of Sand Quantity (MT)",
+      ],
+    },
+    {
+      title: "Table 3: Projected Demand of Sand and Gravel",
+      columns: [
+        "Sr. No.", "Year", "Projected Demand of Sand Quantity (MT)",
+        "Conversion Factor (x 0.7)", "Projected Demand of Gravel Quantity (MT)",
+      ],
+    },
+    {
+      title: "Table 4: Proposed National Highway/Expressway Projects",
+      columns: ["Sr. No.", "Description", "Lanes (Nos.)", "Length (KM)"],
+    },
+    {
+      title: "Table 5: Projected Demand of Gravel in Repair Work of Existing Roads",
+      columns: [
+        "Sr. No.", "Road Category", "Lanes (Nos.)", "Length (KM)",
+        "Gravel Quantity per KM per Lane (CUM)",
+        "Projected Demand of Gravel Quantity (MT)",
+      ],
+    },
+    {
+      title: "Table 6: Projected Gross Demand of Gravel",
+      columns: [
+        "Sr. No.", "Year", "Projected Demand of Sand Quantity (MT)",
+        "Gravel Demand With Cement (MT)", "Gravel Demand Without Cement (MT)",
+        "Total Projected Gravel Demand (MT)",
+      ],
+    },
     {
       title: "Projected Demand of Gravel (in MT) District Wise",
       columns: [
@@ -69,6 +170,13 @@ export const additionalAnnexureTemplates: Record<string, { title: string; column
         "2025-26",
         "2026-27",
         "2027-28",
+      ],
+    },
+    {
+      title: "Projected Demand of Sand (in MT) District Wise",
+      columns: [
+        "Sr. No.", "District Name", "2022-23", "2023-24", "2024-25",
+        "2025-26", "2026-27", "2027-28",
       ],
     },
   ],
