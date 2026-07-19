@@ -652,6 +652,8 @@ export default function CrossSectionGraphsPage() {
   const { projectId = "default" } = useParams();
   const [graphs, setGraphs] = useLocalDraft<Graph[]>("cross-sections-full", [seed]);
   const [saving, setSaving] = useState(false);
+  const [downloadPickerOpen, setDownloadPickerOpen] = useState(false);
+  const [selectedGraphIds, setSelectedGraphIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!/^\d+$/.test(projectId)) return;
@@ -700,12 +702,18 @@ export default function CrossSectionGraphsPage() {
     }
   };
 
-  const generateAllGraphsPDF = () => {
+  const openDownloadPicker = () => {
     if (!graphs.length) return toast.error('No cross-sections available to compile.');
+    setSelectedGraphIds(new Set(graphs.map((graph) => graph.id)));
+    setDownloadPickerOpen(true);
+  };
+
+  const generateGraphsPDF = (graphsToDownload: Graph[]) => {
+    if (!graphsToDownload.length) return toast.error('Select at least one cross-section to download.');
     try {
-      toast.info('Generating multi-page survey booklet, please wait...');
+      toast.info(`Generating ${graphsToDownload.length} selected cross-section${graphsToDownload.length === 1 ? '' : 's'}, please wait...`);
       const document = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-      graphs.forEach((graph, index) => {
+      graphsToDownload.forEach((graph, index) => {
         if (index) document.addPage('a4', 'landscape');
         const output = calcGraph(graph);
         const postImage = getPdfChartDataURL(graph, output, 'post');
@@ -721,8 +729,12 @@ export default function CrossSectionGraphsPage() {
         document.text(`Post-Monsoon Distance: ${graph.dist || '-'} | Elevation: ${graph.post || '-'}`, 14, 160, { maxWidth: 270 });
         if (graph.hasSubGraph) document.text(`Pre-Monsoon Distance: ${graph.subDist || '-'} | Elevation: ${graph.subElev || '-'}`, 14, 171, { maxWidth: 270 });
       });
-      document.save('All_Cross_Sections_Consolidated_Report.pdf');
-      toast.success('Unified booklet generated successfully!');
+      const filename = graphsToDownload.length === graphs.length
+        ? 'All_Cross_Sections_Consolidated_Report.pdf'
+        : 'Selected_Cross_Sections_Report.pdf';
+      document.save(filename);
+      setDownloadPickerOpen(false);
+      toast.success(`${graphsToDownload.length} cross-section${graphsToDownload.length === 1 ? '' : 's'} downloaded successfully!`);
     } catch (err) {
       console.error(err);
       toast.error('Failed to compile consolidated PDF.');
@@ -737,8 +749,8 @@ export default function CrossSectionGraphsPage() {
         description="Input elevation & distance data to generate sandbar cross-section graphs with auto-calculated volumes" 
         action={
           <div className="flex gap-2">
-            <button className="module-btn" onClick={generateAllGraphsPDF}>
-              <Download size={17} /> Download All Graphs PDF
+            <button className="module-btn" onClick={openDownloadPicker}>
+              <Download size={17} /> Select & Download PDF
             </button>
             <button className="module-btn-primary" onClick={addGraph}>
               <Plus size={17} /> Add Section
@@ -771,6 +783,61 @@ export default function CrossSectionGraphsPage() {
           rightPanel={<LivePreviewPanel graphs={graphs} />}
         />
       </div>
+
+      {downloadPickerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="download-cross-sections-title">
+          <div className="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="border-b border-slate-200 px-6 py-5">
+              <h2 id="download-cross-sections-title" className="text-lg font-bold text-slate-900">Choose cross-sections to download</h2>
+              <p className="mt-1 text-sm text-slate-500">Select one or more sections. Each selected section will be added as a separate PDF page.</p>
+            </div>
+
+            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-6 py-3 text-sm">
+              <span className="font-medium text-slate-700">{selectedGraphIds.size} of {graphs.length} selected</span>
+              <div className="flex gap-3">
+                <button type="button" className="font-semibold text-blue-700 hover:text-blue-900" onClick={() => setSelectedGraphIds(new Set(graphs.map((graph) => graph.id)))}>Select all</button>
+                <button type="button" className="font-semibold text-slate-600 hover:text-slate-900" onClick={() => setSelectedGraphIds(new Set())}>Clear</button>
+              </div>
+            </div>
+
+            <div className="max-h-[50vh] space-y-2 overflow-y-auto p-4">
+              {graphs.map((graph, index) => {
+                const checked = selectedGraphIds.has(graph.id);
+                return (
+                  <label key={graph.id} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition ${checked ? 'border-blue-400 bg-blue-50' : 'border-slate-200 hover:bg-slate-50'}`}>
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-slate-300 accent-blue-600"
+                      checked={checked}
+                      onChange={() => setSelectedGraphIds((current) => {
+                        const next = new Set(current);
+                        if (next.has(graph.id)) next.delete(graph.id); else next.add(graph.id);
+                        return next;
+                      })}
+                    />
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-slate-900">{graph.name || `Cross Section ${index + 1}`}</span>
+                      <span className="block text-xs text-slate-500">Area: {graph.area || '-'} Ha · Mining: {graph.pct || '-'}%</span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
+              <button type="button" className="module-btn" onClick={() => setDownloadPickerOpen(false)}>Cancel</button>
+              <button
+                type="button"
+                className="module-btn-primary disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={!selectedGraphIds.size}
+                onClick={() => generateGraphsPDF(graphs.filter((graph) => selectedGraphIds.has(graph.id)))}
+              >
+                <Download size={17} /> Download selected ({selectedGraphIds.size})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
