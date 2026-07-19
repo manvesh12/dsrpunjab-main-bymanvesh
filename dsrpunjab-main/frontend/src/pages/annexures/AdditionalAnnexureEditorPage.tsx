@@ -21,7 +21,7 @@ const key = (label: string) =>
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_|_$/g, "");
 const hasUploadSection = ["B", "C", "D", "E", "G", "H", "I", "J", "K"];
-const definitions: Record<string, { title: string; columns: string[] }[]> = {
+export const additionalAnnexureTemplates: Record<string, { title: string; columns: string[] }[]> = {
   F: [
     {
       title: "a) Final Block Sand Ghats Coordinates",
@@ -109,7 +109,7 @@ export default function AdditionalAnnexureEditorPage({
   letter: string;
 }) {
   const { projectId = "default" } = useParams();
-  const items = definitions[letter] ?? [];
+  const items = additionalAnnexureTemplates[letter] ?? [];
 
   const [snapshots, setSnapshots] = useState<
     Record<

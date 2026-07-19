@@ -9,6 +9,8 @@ import { projectsApi, type ProjectFile } from "../../api/projects.api";
 import { uploadsApi } from "../../api/uploads.api";
 import { appendGeneratedReportContent, appendReportSectionTitle, appendUploadedDocument, applyDsrReportFrame, createSectionPdf, saveSectionPdf, type ReportChapter, type ReportCrossSection, type ReportDataTable } from "../../utils/sectionPdf";
 import { toast } from "sonner";
+import { annexureTemplates } from "../annexures/AnnexureEditorPage";
+import { additionalAnnexureTemplates } from "../annexures/AdditionalAnnexureEditorPage";
 
 type UploadRecord = { name: string; url?: string } | null;
 type Chapter = ReportChapter & { file?: { name: string; url: string } };
@@ -100,6 +102,9 @@ export default function ReportPreviewPage() {
   const { projectId = "default" } = useParams();
   const [downloading, setDownloading] = useState(false);
   const [tables, setTables] = useState<ReportDataTable[]>([]);
+  const [draftGraphs, setDraftGraphs] = useState<ReportCrossSection[]>([]);
+  const [draftChapters, setDraftChapters] = useState<Chapter[]>([]);
+  const [draftPlates, setDraftPlates] = useState<Plate[]>([]);
   const { data: project, isLoading } = useQuery({
     queryKey: ["project", projectId, "preview"],
     queryFn: () => projectsApi.get(projectId),
@@ -114,13 +119,20 @@ export default function ReportPreviewPage() {
   const plates = Array.isArray(platesState) ? platesState : platesState?.plates || [];
   const crossSectionsState = state["cross-sections"] as { graphs?: ReportCrossSection[] } | ReportCrossSection[] | undefined;
   const graphs = Array.isArray(crossSectionsState) ? crossSectionsState : crossSectionsState?.graphs || [];
+  const reportGraphs = graphs.length ? graphs : draftGraphs;
+  const reportChapters = chapters.length ? chapters : draftChapters;
+  const reportPlates = plates.length ? plates : draftPlates;
 
   useEffect(() => {
     let active = true;
     const loadDraftTables = async () => {
       const roman = ["I", "II", "III", "IV", "V", "VI", "VII"];
       const locations = [...Array.from({ length: 7 }, (_, annexure) => ({ label: `Annexure ${roman[annexure]}`, key: String(annexure + 1), count: 8 })), ...["f", "j", "k"].map((key) => ({ label: `Annexure ${key.toUpperCase()}`, key, count: 4 }))];
-      const result: ReportDataTable[] = [];
+      const makeColumns = (labels: string[]) => labels.map((label) => ({ key: label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""), label }));
+      const result: Array<ReportDataTable & { source: string }> = [
+        ...Object.entries(annexureTemplates).flatMap(([key, template], annexureIndex) => template.items.map((item, index) => ({ source: `${key}-${index}`, title: `Annexure ${roman[annexureIndex]} - ${item.title}`, columns: makeColumns(item.columns), rows: [] }))),
+        ...Object.entries(additionalAnnexureTemplates).flatMap(([key, items]) => items.map((item, index) => ({ source: `${key.toLowerCase()}-${index}`, title: `Annexure ${key} - ${item.title}`, columns: makeColumns(item.columns), rows: [] }))),
+      ];
       for (const location of locations) for (let index = 0; index < location.count; index += 1) {
         const base = `dsr:project-${projectId}:annexure-${location.key}-${index}`;
         const [rows, title, columns] = await Promise.all([get<unknown>(base), get<unknown>(`${base}:title`), get<unknown>(`${base}:columns`)]);
@@ -128,9 +140,13 @@ export default function ReportPreviewPage() {
         const validColumns = Array.isArray(columns) ? columns.filter((column): column is DraftColumn => Boolean(column && typeof column === "object" && "key" in column && "label" in column)) : [];
         if (!validColumns.length) continue;
         const tableName = typeof title === "string" && title.trim() ? title.trim() : `Table ${index + 1}`;
-        result.push({ title: `${location.label} - ${tableName}`, columns: validColumns, rows: Array.isArray(rows) ? rows as Record<string, string>[] : [] });
+        const replacement = { source: `${location.key}-${index}`, title: `${location.label} - ${tableName}`, columns: validColumns, rows: Array.isArray(rows) ? rows as Record<string, string>[] : [] };
+        const existingIndex = result.findIndex((table) => table.source === replacement.source);
+        if (existingIndex >= 0) result[existingIndex] = replacement;
+        else result.push(replacement);
       }
-      if (active) setTables(result);
+      const [storedGraphs, storedChapters, storedPlates] = await Promise.all([get<unknown>("dsr:cross-sections-full"), get<unknown>("dsr:chapters-exact"), get<unknown>("dsr:plates-exact")]);
+      if (active) { setTables(result.map(({ source: _source, ...table }) => table)); if (Array.isArray(storedGraphs)) setDraftGraphs(storedGraphs as ReportCrossSection[]); if (Array.isArray(storedChapters)) setDraftChapters(storedChapters as Chapter[]); if (Array.isArray(storedPlates)) setDraftPlates(storedPlates as Plate[]); }
     };
     void loadDraftTables();
     return () => { active = false; };
@@ -145,10 +161,10 @@ export default function ReportPreviewPage() {
     const record = file as UploadRecord;
     return record?.url ? [{ id: String(id), title: String(title), name: record.name, url: record.url }] : [];
   });
-  chapters.forEach((chapter, index) => {
+  reportChapters.forEach((chapter, index) => {
     if (chapter.file?.url) uploads.push({ id: `chapter-${index}`, title: `Chapter - ${chapter.name}`, name: chapter.file.name, url: chapter.file.url });
   });
-  plates.forEach((plate, index) => {
+  reportPlates.forEach((plate, index) => {
     if (plate.url) uploads.push({ id: `plate-${index}`, title: `Plate - ${plate.name}`, name: plate.fileName || plate.name, url: plate.url });
   });
   (project?.files || []).forEach((file) => uploads.push({
@@ -166,8 +182,8 @@ export default function ReportPreviewPage() {
   const annexureUploads = uniqueUploads.filter((item) => reportOrder(item.title) === 6);
   const previewPages: Array<{ title?: string; upload?: PreviewUpload; table?: ReportDataTable; graph?: ReportCrossSection; chapter?: ReportChapter }> = [
     ...(frontMatterUploads.length ? [{ title: "Front Matter" }, ...frontMatterUploads.map((upload) => ({ upload }))] : []),
-    { title: "Chapters" }, ...chapters.map((chapter) => ({ chapter })), ...chapterUploads.map((upload) => ({ upload })),
-    { title: "Cross Sections" }, ...graphs.map((graph) => ({ graph })), ...crossUploads.map((upload) => ({ upload })),
+    { title: "Chapters" }, ...reportChapters.map((chapter) => ({ chapter })), ...chapterUploads.map((upload) => ({ upload })),
+    { title: "Cross Sections" }, ...reportGraphs.map((graph) => ({ graph })), ...crossUploads.map((upload) => ({ upload })),
     { title: "Plates and Maps" }, ...plateUploads.map((upload) => ({ upload })), ...otherUploads.map((upload) => ({ upload })),
     ...annexureSections.flatMap((annexure) => [{ title: annexure }, ...tables.filter((table) => annexureMatches(table.title, annexure)).map((table) => ({ table })), ...annexureUploads.filter((upload) => annexureMatches(upload.title, annexure)).map((upload) => ({ upload }))]),
   ];
@@ -191,10 +207,10 @@ export default function ReportPreviewPage() {
       const addSectionTitle = async (title: string) => { const startPage = document.getPageCount(); await appendReportSectionTitle(document, title); sections.push({ title, startPage }); };
       if (frontMatterUploads.length) { await addSectionTitle("Front Matter"); for (const upload of frontMatterUploads) await appendUpload(upload); }
       await addSectionTitle("Chapters");
-      if (chapters.length) { const startPage = document.getPageCount(); await appendGeneratedReportContent(document, { district: project?.district || "Punjab", tables: [], graphs: [], chapters }); if (document.getPageCount() > startPage) sections.push({ title: "Chapters", startPage }); }
+      if (reportChapters.length) { const startPage = document.getPageCount(); await appendGeneratedReportContent(document, { district: project?.district || "Punjab", tables: [], graphs: [], chapters: reportChapters }); if (document.getPageCount() > startPage) sections.push({ title: "Chapters", startPage }); }
       for (const upload of chapterUploads) await appendUpload(upload);
       await addSectionTitle("Cross Sections");
-      if (graphs.length) { const startPage = document.getPageCount(); await appendGeneratedReportContent(document, { district: project?.district || "Punjab", tables: [], graphs }); if (document.getPageCount() > startPage) sections.push({ title: "Cross Sections", startPage }); }
+      if (reportGraphs.length) { const startPage = document.getPageCount(); await appendGeneratedReportContent(document, { district: project?.district || "Punjab", tables: [], graphs: reportGraphs }); if (document.getPageCount() > startPage) sections.push({ title: "Cross Sections", startPage }); }
       for (const upload of crossUploads) await appendUpload(upload);
       await addSectionTitle("Plates and Maps");
       for (const upload of [...plateUploads, ...otherUploads]) await appendUpload(upload);
