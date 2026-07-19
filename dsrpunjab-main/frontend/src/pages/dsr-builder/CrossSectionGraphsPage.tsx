@@ -67,7 +67,7 @@ type Graph = {
   subElev?: string;
   subRed?: string;
   subThal?: string;
-  pdfLayout?: number;
+  pdfLayout?: 1 | 2;
 };
 
 const seed: Graph = {
@@ -351,59 +351,163 @@ const getPdfChartDataURL = (g: Graph, o: any, type: 'pre' | 'post'): string => {
 
 const getFormat2PdfChartDataURL = (g: Graph, o: any, type: 'pre' | 'post'): string => {
   const canvas = document.createElement('canvas');
-  canvas.width = 960 * 2;
-  canvas.height = 280 * 2;
-  
+  canvas.width = 1920;
+  canvas.height = 560;
   const isPre = type === 'pre';
-  const dists = isPre ? o.subDist : o.dist;
-  const elevs = isPre ? o.subElev : o.post;
-  const redArr = isPre ? dists.map(() => o.subRed) : dists.map(() => o.red);
-  const thalArr = isPre ? dists.map(() => o.subThal) : dists.map(() => o.thal);
-
-  const yData = [...elevs, ...redArr, ...thalArr].filter((v: number) => !isNaN(v));
-  const { min: yMin, max: yMax } = getYBounds(yData);
-
-  const titleText = isPre ? `Site${g.name}Pre Monsoon` : `Site${g.name}Post Monsoon`;
-  const dataLabel = isPre ? 'Pre Monsoon' : 'Post Monsoon';
+  const distances = isPre ? o.subDist : o.dist;
+  const elevations = isPre ? o.subElev : o.post;
+  const redLine = isPre ? o.subRed : o.red;
+  const thalweg = isPre ? o.subThal : o.thal;
+  const { min, max } = getYBounds([...elevations, redLine, thalweg].filter((value: number) => Number.isFinite(value)));
+  const season = isPre ? 'Pre Monsoon' : 'Post Monsoon';
 
   const chart = new ChartJS(canvas, {
     type: 'line',
     data: {
-      labels: dists,
+      labels: distances,
       datasets: [
-        { label: dataLabel, data: elevs, borderColor: '#1f77b4', backgroundColor: '#1f77b4', pointBackgroundColor: '#1f77b4', tension: 0, pointRadius: 6, borderWidth: 3, fill: false },
-        { label: isPre ? 'Red Line (Pre-monsoon)' : 'Red Line (Post-monsoon)', data: redArr, borderColor: '#ff7f0e', pointBackgroundColor: '#ff7f0e', borderWidth: 3, pointRadius: 6, fill: false },
-        { label: isPre ? 'Thalweg Line (Pre-monsoon)' : 'Thalweg Line (Post-monsoon)', data: thalArr, borderColor: '#7f7f7f', pointBackgroundColor: '#7f7f7f', borderWidth: 3, pointRadius: 6, fill: false }
-      ]
+        { label: season, data: elevations, borderColor: '#1f77b4', backgroundColor: '#1f77b4', pointRadius: 6, borderWidth: 3, tension: 0, fill: false },
+        { label: `Red Line (${isPre ? 'Pre' : 'Post'}-monsoon)`, data: distances.map(() => redLine), borderColor: '#ff7f0e', backgroundColor: '#ff7f0e', pointRadius: 5, borderWidth: 3, fill: false },
+        { label: `Thalweg Line (${isPre ? 'Pre' : 'Post'}-monsoon)`, data: distances.map(() => thalweg), borderColor: '#7f7f7f', backgroundColor: '#7f7f7f', pointRadius: 5, borderWidth: 3, fill: false },
+      ],
     },
     options: {
       animation: false,
       responsive: false,
-      layout: { padding: { top: 20, right: 40, bottom: 20, left: 20 } },
-      plugins: { 
-        legend: { display: true, position: 'right', labels: { font: { size: 24, family: 'Arial' }, padding: 30 } },
-        title: { display: true, text: titleText, font: { size: 32, family: 'Arial', weight: 'bold' }, padding: { bottom: 20 } }
+      layout: { padding: { top: 15, right: 30, bottom: 15, left: 15 } },
+      plugins: {
+        legend: { display: true, position: 'right', labels: { font: { size: 24, family: 'Arial' }, padding: 24 } },
+        title: { display: true, text: `Site: ${g.name || 'Cross Section'} - ${season}`, font: { size: 30, family: 'Arial', weight: 'bold' }, padding: { bottom: 12 } },
       },
       scales: {
-        x: { 
-          title: { display: true, text: 'Distance (m)', font: { size: 28, family: 'Arial' } },
-          ticks: { color: '#000', font: { family: 'Arial', size: 24 }, padding: 10 }, 
-          grid: { color: '#e5e5e5', lineWidth: 1 } 
-        },
-        y: { 
-          title: { display: true, text: 'Elevation (m)', font: { size: 28, family: 'Arial' } },
-          min: yMin, max: yMax, 
-          ticks: { color: '#000', font: { family: 'Arial', size: 24 }, padding: 10 }, 
-          grid: { color: '#e5e5e5', lineWidth: 1 } 
-        }
-      }
-    }
-  });
-
+        x: { title: { display: true, text: 'Distance (m)', font: { size: 25 } }, ticks: { color: '#000', font: { size: 22 } }, grid: { color: '#e5e7eb' } },
+        y: { min, max, title: { display: true, text: 'Elevation (m)', font: { size: 25 } }, ticks: { color: '#000', font: { size: 22 } }, grid: { color: '#e5e7eb' } },
+      },
+     },
+   });
   const url = canvas.toDataURL('image/png');
   chart.destroy();
   return url;
 };
+
+function renderGraphPdfPage(document: jsPDF, graph: Graph, pageNumber: number) {
+  const output = calcGraph(graph);
+  const isFormat2 = (graph.pdfLayout || 1) === 2;
+  const postImage = isFormat2 ? getFormat2PdfChartDataURL(graph, output, 'post') : getPdfChartDataURL(graph, output, 'post');
+  const preImage = graph.hasSubGraph
+    ? (isFormat2 ? getFormat2PdfChartDataURL(graph, output, 'pre') : getPdfChartDataURL(graph, output, 'pre'))
+    : '';
+
+  document.setTextColor(0, 0, 0);
+  if (isFormat2) {
+    document.setFont('helvetica', 'normal');
+    document.setFontSize(10);
+    document.text(`Site: ${graph.name || 'Cross Section'}`, 148.5, 9, { align: 'center' });
+    if (preImage) {
+      document.setDrawColor(190, 190, 190);
+      document.roundedRect(9, 14, 279, 80, 1, 1);
+      document.addImage(preImage, 'PNG', 12, 17, 273, 74);
+    }
+    document.setDrawColor(190, 190, 190);
+    document.roundedRect(9, preImage ? 99 : 30, 279, preImage ? 80 : 145, 1, 1);
+    document.addImage(postImage, 'PNG', 12, preImage ? 102 : 33, 273, preImage ? 74 : 139);
+  } else {
+    document.setDrawColor(0, 0, 0);
+    document.rect(8, 8, 281, 194);
+    document.setFont('times', 'normal');
+    document.setFontSize(12);
+    document.text('Cross Section Sand Bar', 171, 17, { align: 'center' });
+    document.setFont('times', 'bold');
+    document.text(graph.name || 'Cross Section', 171, 24, { align: 'center' });
+
+    document.setFont('times', 'normal');
+    document.setFontSize(8);
+    const leftX = 12;
+    document.text(['Source- Primary Data generated', 'by DGPS', 'Hi- Target DGPS (Model No.', 'V30plus)'], leftX, 30);
+    document.setFont('times', 'bold');
+    document.setFontSize(11);
+    document.text('Calculation', leftX, 48);
+    document.setFont('times', 'normal');
+    document.setFontSize(8);
+    const calculationLines = [
+      `- Total Area: ${graph.area || '-'} Ha. (Source: Table no. 7.2)`,
+      `- No mining area: ${graph.noMine || '0'} Ha.`,
+      `   Potential area: ${graph.area || '0'} - ${graph.noMine || '0'} = ${output.pArea.toFixed(2)} Ha.`,
+      `- Potential Area (Ha.): ${output.pArea.toFixed(2)}`,
+      `- Average Thickness: ${output.activeCalcThick.toFixed(2)}`,
+      `- Bulk Density: ${graph.bulk || '-'}`,
+      `${output.pArea.toFixed(2)} x 10000 x ${output.activeCalcThick.toFixed(2)} x ${graph.bulk || '0'} = ${output.tonnes.toFixed(2)} Tonnes`,
+      `- Total excavation (${graph.pct || '0'}% as per EMGSM 2020) = ${output.allowed.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+    ];
+    document.text(calculationLines, leftX, 58, { lineHeightFactor: 1.65, maxWidth: 92 });
+
+    const chartX = 108;
+    const chartWidth = 112;
+    document.addImage(postImage, 'PNG', chartX, 27, chartWidth, graph.hasSubGraph ? 60 : 108);
+    if (preImage) {
+      document.setFont('times', 'bold');
+      document.setFontSize(10);
+      document.text(graph.subName || 'Pre Monsoon', 164, 94, { align: 'center' });
+      document.addImage(preImage, 'PNG', chartX, 98, chartWidth, 60);
+    }
+
+    document.setFont('times', 'normal');
+    document.setFontSize(8);
+    document.text(`Post Monsoon\nAverage Thickness: ${output.avgThickPost.toFixed(2)}`, 232, 35);
+    if (graph.hasSubGraph) document.text(`Pre Monsoon\nAverage Thickness: ${output.avgThickPre.toFixed(2)}`, 232, 142);
+
+    const maxRows = Math.max(output.thickPost.length, graph.hasSubGraph ? output.thickPre.length : 0);
+    const tableX = 234;
+    const tableY = 58;
+    const cellW = graph.hasSubGraph ? 22 : 34;
+    const cellH = 7;
+    document.setFillColor(232, 235, 244);
+    document.rect(tableX, tableY, cellW, cellH, 'F');
+    document.text('Post', tableX + cellW / 2, tableY + 4.5, { align: 'center' });
+    if (graph.hasSubGraph) {
+      document.rect(tableX + cellW, tableY, cellW, cellH, 'F');
+      document.text('Pre', tableX + cellW * 1.5, tableY + 4.5, { align: 'center' });
+    }
+    for (let index = 0; index < maxRows; index++) {
+      const y = tableY + cellH * (index + 1);
+      document.setFillColor(242, 244, 249);
+      document.rect(tableX, y, cellW, cellH, 'F');
+      document.text(output.thickPost[index]?.toFixed(2) || '-', tableX + cellW / 2, y + 4.5, { align: 'center' });
+      if (graph.hasSubGraph) {
+        document.rect(tableX + cellW, y, cellW, cellH, 'F');
+        document.text(output.thickPre[index]?.toFixed(2) || '-', tableX + cellW * 1.5, y + 4.5, { align: 'center' });
+      }
+    }
+    const averageY = tableY + cellH * (maxRows + 1);
+    document.setFont('times', 'bold');
+    document.setFillColor(232, 235, 244);
+    document.rect(tableX, averageY, cellW, cellH, 'F');
+    document.text(output.avgThickPost.toFixed(2), tableX + cellW / 2, averageY + 4.5, { align: 'center' });
+    if (graph.hasSubGraph) {
+      document.rect(tableX + cellW, averageY, cellW, cellH, 'F');
+      document.text(output.avgThickPre.toFixed(2), tableX + cellW * 1.5, averageY + 4.5, { align: 'center' });
+    }
+
+    document.setFont('times', 'normal');
+    document.setFontSize(8);
+    document.text('Distance of the sand bar from river bank towards river (m)', 169, 166, { align: 'center' });
+    const legends = [['Red Line', 220, 59, 59], ['Post monsoon Elevation', 218, 109, 63], ['Pre monsoon Elevation', 238, 190, 48], ['Thalweg line', 59, 130, 186]] as const;
+    legends.forEach(([label, red, green, blue], index) => {
+      const y = 176 + index * 7;
+      document.setDrawColor(red, green, blue);
+      document.setLineWidth(0.7);
+      document.line(16, y, 30, y);
+      document.setTextColor(0, 0, 0);
+      document.text(label, 33, y + 1.5);
+    });
+    document.setFontSize(7);
+    document.text('Note: The levels given in the cross-section as observed in the field have been checked and found nearly matching with the office record.', 180, 190, { align: 'center', maxWidth: 145 });
+  }
+  document.setFont('helvetica', 'normal');
+  document.setFontSize(9);
+  document.setTextColor(60, 60, 60);
+  document.text(String(pageNumber), 286, 198, { align: 'right' });
+}
 
 // ------------- GRAPH BLOCK COMPONENT --------------
 function GraphBlock({ graph: g, updateG, onDelete }: { graph: Graph; updateG: (k: keyof Graph, v: any) => void; onDelete: () => void }) {
@@ -448,18 +552,7 @@ function GraphBlock({ graph: g, updateG, onDelete }: { graph: Graph; updateG: (k
     try {
       toast.info('Assembling PDF, please wait...');
       const document = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-      const imgPost = getPdfChartDataURL(g, o, 'post');
-      const imgPre = g.hasSubGraph ? getPdfChartDataURL(g, o, 'pre') : '';
-      document.setFont('helvetica', 'bold');
-      document.setFontSize(15);
-      document.text(g.name || 'Cross Section Graph', 148.5, 14, { align: 'center' });
-      document.addImage(imgPost, 'PNG', 10, 24, g.hasSubGraph ? 135 : 277, 112);
-      if (imgPre) document.addImage(imgPre, 'PNG', 152, 24, 135, 112);
-      document.setFont('helvetica', 'normal');
-      document.setFontSize(9);
-      document.text(`Area: ${g.area || '-'} Ha   No-Mine: ${g.noMine || '-'} Ha   Bulk Density: ${g.bulk || '-'} g/cc   Mining: ${g.pct || '-'}%`, 14, 151);
-      document.text(`Post-Monsoon Distance: ${g.dist || '-'} | Elevation: ${g.post || '-'}`, 14, 160, { maxWidth: 270 });
-      if (g.hasSubGraph) document.text(`Pre-Monsoon Distance: ${g.subDist || '-'} | Elevation: ${g.subElev || '-'}`, 14, 171, { maxWidth: 270 });
+      renderGraphPdfPage(document, g, 1);
       const filename = `${(g.hasSubGraph ? g.subName : g.name).replace(/\s+/g, '_')}_Report.pdf`;
       document.save(filename);
       toast.success('PDF downloaded successfully!');
@@ -480,17 +573,17 @@ function GraphBlock({ graph: g, updateG, onDelete }: { graph: Graph; updateG: (k
             onChange={(e) => updateG('name', e.target.value)} 
             className="rounded-lg border px-3 py-1.5 font-bold outline-none focus:border-blue-500 text-sm w-64"
           />
-          <div className="flex items-center gap-2 ml-4">
-            <span className="text-xs font-semibold text-slate-500">PDF Format:</span>
-            <select 
-              value={g.pdfLayout || 1} 
-              onChange={(e) => updateG('pdfLayout', Number(e.target.value))}
-              className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm outline-none focus:border-blue-500"
+          <label className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+            Report format
+            <select
+              value={g.pdfLayout || 1}
+              onChange={(event) => updateG('pdfLayout', Number(event.target.value) as 1 | 2)}
+              className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-medium text-slate-800 outline-none focus:border-blue-500"
             >
-              <option value={1}>Format 1 (Calculation + Graphs)</option>
-              <option value={2}>Format 2 (Stacked Graphs Only)</option>
+              <option value={1}>Format 1 - Calculation + graphs</option>
+              <option value={2}>Format 2 - Stacked graphs</option>
             </select>
-          </div>
+          </label>
         </div>
         <div className="flex gap-2">
           <button className="rounded-lg bg-red-50 text-red-600 px-3 py-1.5 text-xs font-semibold hover:bg-red-100 transition" onClick={downloadPDF}>Download PDF Report</button>
@@ -642,17 +735,18 @@ function LivePreviewPanel({ graphs }: { graphs: Graph[] }) {
               { label: 'Thalweg', data: o.subDist.map(() => o.subThal), borderColor: '#3b8bba', borderWidth: 1.2, pointRadius: 2, fill: false },
             ],
           };
-          const chartOpts = (yMin: number, yMax: number) => ({
+          const isFormat2 = (g.pdfLayout || 1) === 2;
+          const chartOpts = (yMin: number, yMax: number, stacked = false) => ({
             responsive: true,
             maintainAspectRatio: false,
             animation: false as const,
             plugins: {
-              legend: { display: false },
+              legend: { display: stacked, position: 'right' as const, labels: { boxWidth: 14, font: { size: 7 }, padding: 8 } },
               tooltip: { enabled: false },
             },
             scales: {
-              x: { ticks: { color: '#374151', font: { size: 7 } }, grid: { color: '#f3f4f6' } },
-              y: { min: yMin, max: yMax, ticks: { color: '#374151', font: { size: 7 } }, grid: { color: '#f3f4f6' } },
+              x: { title: { display: stacked, text: 'Distance (m)', font: { size: 7 } }, ticks: { color: '#374151', font: { size: 7 } }, grid: { color: '#f3f4f6' } },
+              y: { min: yMin, max: yMax, title: { display: stacked, text: 'Elevation (m)', font: { size: 7 } }, ticks: { color: '#374151', font: { size: 7 } }, grid: { color: '#f3f4f6' } },
             },
           });
 
@@ -668,12 +762,31 @@ function LivePreviewPanel({ graphs }: { graphs: Graph[] }) {
                   )}
                 </div>
                 <div className="flex gap-2 text-[9px] text-slate-500">
+                  <span className="rounded bg-blue-50 px-1.5 py-0.5 font-bold text-blue-700">Format {isFormat2 ? 2 : 1}</span>
                   <span className="bg-slate-100 px-1.5 py-0.5 rounded font-mono">Area: {g.area} Ha</span>
                   <span className="bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-mono font-bold">{new Intl.NumberFormat().format(Math.floor(o.allowed))} MT</span>
                 </div>
               </div>
 
               {/* Charts */}
+              {isFormat2 ? (
+                <div className="mb-3 space-y-3 rounded border-2 border-slate-300 p-2">
+                  {g.hasSubGraph && (
+                    <div className="rounded border border-slate-200 bg-white p-1">
+                      <p className="text-center text-[9px] font-bold text-slate-900">Site: {g.name} - Pre Monsoon</p>
+                      <div className="h-[155px]">
+                        <Line data={preData} options={chartOpts(preYMin, preYMax, true)} />
+                      </div>
+                    </div>
+                  )}
+                  <div className="rounded border border-slate-200 bg-white p-1">
+                    <p className="text-center text-[9px] font-bold text-slate-900">Site: {g.name} - Post Monsoon</p>
+                    <div className="h-[155px]">
+                      <Line data={postData} options={chartOpts(postYMin, postYMax, true)} />
+                    </div>
+                  </div>
+                </div>
+              ) : <>
               <div className={`grid gap-3 mb-3 ${g.hasSubGraph ? 'grid-cols-2' : 'grid-cols-1'}`}>
                 <div>
                   <p className="text-[8px] font-bold text-blue-700 mb-1 uppercase">Post-Monsoon — {g.name}</p>
@@ -727,6 +840,7 @@ function LivePreviewPanel({ graphs }: { graphs: Graph[] }) {
                   </div>
                 ))}
               </div>
+              </>}
             </section>
           );
         })}
@@ -794,19 +908,7 @@ export default function CrossSectionGraphsPage() {
       const document = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
       graphs.forEach((graph, index) => {
         if (index) document.addPage('a4', 'landscape');
-        const output = calcGraph(graph);
-        const postImage = getPdfChartDataURL(graph, output, 'post');
-        const preImage = graph.hasSubGraph ? getPdfChartDataURL(graph, output, 'pre') : '';
-        document.setFont('helvetica', 'bold');
-        document.setFontSize(15);
-        document.text(graph.name || `Cross Section ${index + 1}`, 148.5, 14, { align: 'center' });
-        document.addImage(postImage, 'PNG', 10, 24, graph.hasSubGraph ? 135 : 277, 112);
-        if (preImage) document.addImage(preImage, 'PNG', 152, 24, 135, 112);
-        document.setFont('helvetica', 'normal');
-        document.setFontSize(9);
-        document.text(`Area: ${graph.area || '-'} Ha   No-Mine: ${graph.noMine || '-'} Ha   Bulk Density: ${graph.bulk || '-'} g/cc   Mining: ${graph.pct || '-'}%`, 14, 151);
-        document.text(`Post-Monsoon Distance: ${graph.dist || '-'} | Elevation: ${graph.post || '-'}`, 14, 160, { maxWidth: 270 });
-        if (graph.hasSubGraph) document.text(`Pre-Monsoon Distance: ${graph.subDist || '-'} | Elevation: ${graph.subElev || '-'}`, 14, 171, { maxWidth: 270 });
+        renderGraphPdfPage(document, graph, index + 1);
       });
       document.save('All_Cross_Sections_Consolidated_Report.pdf');
       toast.success('Unified booklet generated successfully!');
