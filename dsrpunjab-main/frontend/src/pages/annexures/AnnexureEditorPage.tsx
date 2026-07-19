@@ -213,12 +213,24 @@ export const annexureTemplates: Record<
     ],
   },
   "5": {
-    title: "Annexure V - Sand Mining Report",
-    description: "Detailed proposed mining inventory",
+    title: "Annexure V - Bench Mark, CORS & Mining Leases",
+    description: "Bench mark control points and final mining lease schedules",
     items: [
       {
-        title: "Sand Mining Sites",
-        description: "EMGSM 2020 excavation schedule",
+        title: "Annexure V - Bench Mark & CORS",
+        description: "Survey reference points used for bench mark and CORS control",
+        columns: [
+          "Point Name",
+          "Type",
+          "Latitude",
+          "Longitude",
+          "Elevation (m)",
+          "Remarks",
+        ],
+      },
+      {
+        title: "Annexure V - Mining Leases",
+        description: "River mining lease schedule (same official format as Annexure II)",
         columns: [
           "Sl No.",
           "River Details",
@@ -237,6 +249,33 @@ export const annexureTemplates: Record<
           "Mineral to be mined",
           "Existing / Proposed",
           "Remarks",
+        ],
+      },
+      {
+        title: "Annexure V - Patta Lands",
+        description: "Patta lands / Khatedari land lease schedule",
+        columns: [
+          "Sl. No.", "Owner", "Sy. No. (Khasra No.)", "Area (Ha)",
+          "Latitude", "Longitude", "District", "Tehsil", "Village",
+          "Total Reserve (MT)", "Total Mineral (60% MT)",
+          "Existing/Proposed", "Remarks",
+        ],
+      },
+      {
+        title: "Annexure V - De-siltation",
+        description: "Reservoir, pond and dam de-siltation schedule",
+        columns: [
+          "Name of Reservoir/Dams", "Maintain/Controlled by State Govt./PSU etc.",
+          "Latitude", "Longitude", "District", "Tehsil", "Village", "Size (Ha)",
+          "Quantity (MT/Year)", "Existing/Proposed",
+        ],
+      },
+      {
+        title: "Annexure V - M-Sand Plants",
+        description: "Manufactured sand plant schedule",
+        columns: [
+          "Plant Name", "Owner", "District", "Tehsil", "Village", "Geo-location",
+          "Quantity (Tonnes/Annum)", "Existing/Proposed",
         ],
       },
     ],
@@ -469,7 +508,7 @@ export default function AnnexureEditorPage({ annexure }: { annexure: string }) {
                       embedded
                       editableStructure
                       showLivePreview={false}
-                      storageKey={`project-${projectId}:annexure-${annexure}-${originalIndex}`}
+                      storageKey={`project-${projectId}:annexure-${annexure === "5" ? "5-v2" : annexure}-${originalIndex}`}
                       title={item.title}
                       description={item.description}
                       columns={col(item.columns)}

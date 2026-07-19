@@ -149,14 +149,14 @@ export default function ReportPreviewPage() {
     let active = true;
     const loadDraftTables = async () => {
       const roman = ["I", "II", "III", "IV", "V", "VI", "VII"];
-      const locations = [...Array.from({ length: 7 }, (_, annexure) => ({ label: `Annexure ${roman[annexure]}`, key: String(annexure + 1), count: 8 })), ...["f", "j", "k"].map((key) => ({ label: `Annexure ${key.toUpperCase()}`, key, count: 4 }))];
+      const locations = [...Array.from({ length: 7 }, (_, annexure) => ({ label: `Annexure ${roman[annexure]}`, key: String(annexure + 1), storageKey: annexure === 4 ? "5-v2" : String(annexure + 1), count: 8 })), ...["f", "j", "k"].map((key) => ({ label: `Annexure ${key.toUpperCase()}`, key, storageKey: key, count: 4 }))];
       const makeColumns = (labels: string[]) => labels.map((label) => ({ key: label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""), label }));
       const result: Array<ReportDataTable & { source: string }> = [
         ...Object.entries(annexureTemplates).flatMap(([key, template], annexureIndex) => template.items.map((item, index) => ({ source: `${key}-${index}`, title: `Annexure ${roman[annexureIndex]} - ${item.title}`, columns: makeColumns(item.columns), rows: [] }))),
         ...Object.entries(additionalAnnexureTemplates).flatMap(([key, items]) => items.map((item, index) => ({ source: `${key.toLowerCase()}-${index}`, title: `Annexure ${key} - ${item.title}`, columns: makeColumns(item.columns), rows: [] }))),
       ];
       for (const location of locations) for (let index = 0; index < location.count; index += 1) {
-        const base = `dsr:project-${projectId}:annexure-${location.key}-${index}`;
+        const base = `dsr:project-${projectId}:annexure-${location.storageKey}-${index}`;
         const [rows, title, columns] = await Promise.all([get<unknown>(base), get<unknown>(`${base}:title`), get<unknown>(`${base}:columns`)]);
         if (!Array.isArray(rows) && !Array.isArray(columns)) continue;
         const validColumns = Array.isArray(columns) ? columns.filter((column): column is DraftColumn => Boolean(column && typeof column === "object" && "key" in column && "label" in column)) : [];
