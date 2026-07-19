@@ -42,16 +42,16 @@ function reportOrder(title: string) {
   return 5;
 }
 
-function SectionTitlePage({ title, pageNumber, district }: { title: string; pageNumber: number; district: string }) {
+function SectionTitlePage({ title, pageNumber, district, headerText, footerText }: { title: string; pageNumber: number; district: string; headerText: string; footerText: string }) {
   return <section className="dsr-preview-page relative flex aspect-[1/1.414] w-full max-w-[794px] flex-col items-center justify-center overflow-hidden bg-white text-black shadow-xl">
     <div className="pointer-events-none absolute inset-4 border border-black" />
-    <header className="absolute left-16 right-16 top-7 border-b border-black pb-2 font-serif leading-tight"><p className="text-[15px] italic">District Survey Report</p><p className="text-[12px] italic">{district} District, Punjab</p></header>
+    <header className="absolute left-16 right-16 top-7 border-b border-black pb-2 font-serif leading-tight"><p className="text-[15px] italic">{headerText}</p><p className="text-[12px] italic">{district} District, Punjab</p></header>
     <h1 className="mx-16 border-b border-black pb-4 text-center font-serif text-3xl font-bold uppercase">{title}</h1>
-    <footer className="absolute bottom-7 left-16 right-16 flex items-center justify-between border-t border-slate-300 pt-2 font-serif text-[9px]"><span className="font-bold uppercase">Prepared by: District Survey Report Committee</span><span>Page {pageNumber}</span></footer>
+    <footer className="absolute bottom-7 left-16 right-16 flex items-center justify-between border-t border-slate-300 pt-2 font-serif text-[9px]"><span className="font-bold uppercase">{footerText}</span><span>Page {pageNumber}</span></footer>
   </section>;
 }
 
-function GeneratedSection({ table, graph, chapter, pageNumber, district }: { table?: ReportDataTable; graph?: ReportCrossSection; chapter?: ReportChapter; pageNumber: number; district: string }) {
+function GeneratedSection({ table, graph, chapter, pageNumber, district, headerText, footerText }: { table?: ReportDataTable; graph?: ReportCrossSection; chapter?: ReportChapter; pageNumber: number; district: string; headerText: string; footerText: string }) {
   const heading = table?.title || chapter?.name || graph?.name || "Cross Section Sand Bar";
   const points = String(graph?.post || "").split(",").map(Number).filter(Number.isFinite);
   const levels = [...points, Number(graph?.red), Number(graph?.thal)].filter(Number.isFinite);
@@ -60,11 +60,11 @@ function GeneratedSection({ table, graph, chapter, pageNumber, district }: { tab
   const svgPoints = points.map((value, index) => `${20 + index * (250 / Math.max(points.length - 1, 1))},${110 - ((value - min) / Math.max(max - min, .1)) * 82}`).join(" ");
   return <section className="dsr-preview-page relative flex aspect-[1/1.414] w-full max-w-[794px] flex-col overflow-hidden bg-white text-black shadow-xl">
     <div className="pointer-events-none absolute inset-4 border border-black" />
-    <header className="mx-16 mt-7 border-b border-black pb-2 font-serif leading-tight"><p className="text-[15px] italic">District Survey Report</p><p className="text-[12px] italic">{district} District, Punjab</p><p className="mt-1 text-[10px]">{heading}</p></header>
+    <header className="mx-16 mt-7 border-b border-black pb-2 font-serif leading-tight"><p className="text-[15px] italic">{headerText}</p><p className="text-[12px] italic">{district} District, Punjab</p><p className="mt-1 text-[10px]">{heading}</p></header>
     <div className="relative mx-14 mb-12 mt-4 min-h-0 flex-1 overflow-auto font-serif">
       {table ? <><h2 className="mb-3 text-center text-sm font-bold">{table.title}</h2><table className="w-full border-collapse text-[8px]"><thead><tr>{table.columns.map((column) => <th key={column.key} className="border border-black bg-slate-100 p-1 text-left">{column.label}</th>)}</tr></thead><tbody>{table.rows.length ? table.rows.map((row, index) => <tr key={index}>{table.columns.map((column) => <td key={column.key} className="border border-slate-400 p-1">{row[column.key] || "-"}</td>)}</tr>) : <tr><td className="border p-3 text-center text-slate-500" colSpan={Math.max(table.columns.length, 1)}>No data entered yet</td></tr>}</tbody></table></> : chapter ? <><h2 className="mb-8 text-center text-xl font-bold uppercase">{chapter.name}</h2><div className="border-t border-black pt-6 text-[13px] leading-7 whitespace-pre-wrap">{chapter.summary || "Chapter content will appear here once it is entered and saved in the chapter editor."}</div></> : <><h2 className="mb-2 text-center text-sm font-bold">CROSS SECTION SAND BAR</h2><p className="text-center text-xs font-bold">{heading}</p><svg viewBox="0 0 290 140" className="mx-auto mt-5 w-full max-w-md border border-slate-300"><line x1="20" y1="110" x2="270" y2="110" stroke="#64748b"/><line x1="20" y1="20" x2="20" y2="110" stroke="#64748b"/><polyline points={svgPoints} fill="none" stroke="#b86d32" strokeWidth="2"/>{Number.isFinite(Number(graph?.red)) && <line x1="20" y1={110 - ((Number(graph?.red) - min) / Math.max(max - min, .1)) * 82} x2="270" y2={110 - ((Number(graph?.red) - min) / Math.max(max - min, .1)) * 82} stroke="#dc2626"/>}{Number.isFinite(Number(graph?.thal)) && <line x1="20" y1={110 - ((Number(graph?.thal) - min) / Math.max(max - min, .1)) * 82} x2="270" y2={110 - ((Number(graph?.thal) - min) / Math.max(max - min, .1)) * 82} stroke="#2563eb"/>}</svg><div className="mt-4 grid grid-cols-2 gap-2 text-[10px]"><p>Area: {graph?.area || "-"} Ha</p><p>Bulk density: {graph?.bulk || "-"}</p><p>Post monsoon: {graph?.post || "-"}</p><p>Mining: {graph?.pct || "-"}%</p></div></>}
     </div>
-    <footer className="absolute bottom-7 left-16 right-16 flex items-center justify-between border-t border-slate-300 pt-2 font-serif text-[9px]"><span className="font-bold uppercase">Prepared by: District Survey Report Committee</span><span>Page {pageNumber}</span></footer>
+    <footer className="absolute bottom-7 left-16 right-16 flex items-center justify-between border-t border-slate-300 pt-2 font-serif text-[9px]"><span className="font-bold uppercase">{footerText}</span><span>Page {pageNumber}</span></footer>
   </section>;
 }
 
@@ -79,12 +79,12 @@ function uploadSectionLabel(file: ProjectFile) {
   return "Project Upload";
 }
 
-function UploadedSection({ upload, pageNumber, district }: { upload: PreviewUpload; pageNumber: number; district: string }) {
+function UploadedSection({ upload, pageNumber, district, headerText, footerText }: { upload: PreviewUpload; pageNumber: number; district: string; headerText: string; footerText: string }) {
   return (
     <section className="dsr-preview-page relative flex aspect-[1/1.414] w-full max-w-[794px] flex-col overflow-hidden bg-white text-black shadow-xl">
       <div className="pointer-events-none absolute inset-4 border border-black" />
       <header className="mx-16 mt-7 border-b border-black pb-2 font-serif leading-tight">
-        <p className="text-[15px] italic">District Survey Report</p>
+        <p className="text-[15px] italic">{headerText}</p>
         <p className="max-w-[520px] text-[12px] italic">{district} District, Punjab</p>
         <p className="mt-1 text-[10px]">{upload.title}</p>
       </header>
@@ -92,7 +92,7 @@ function UploadedSection({ upload, pageNumber, district }: { upload: PreviewUplo
         <UploadedFilePreview src={upload.url} title={upload.title} alt={upload.title} className="h-full w-full bg-white" imageStyle={{ objectFit: "contain" }} />
       </div>
       <footer className="absolute bottom-7 left-16 right-16 flex items-center justify-between border-t border-slate-300 pt-2 font-serif text-[9px]">
-        <span className="font-bold uppercase">Prepared by: District Survey Report Committee</span>
+        <span className="font-bold uppercase">{footerText}</span>
         <span>Page {pageNumber}</span>
       </footer>
     </section>
@@ -201,13 +201,14 @@ export default function ReportPreviewPage() {
   const plateUploads = uniqueUploads.filter((item) => reportOrder(item.title) === 4);
   const otherUploads = uniqueUploads.filter((item) => reportOrder(item.title) === 5);
   const annexureUploads = uniqueUploads.filter((item) => reportOrder(item.title) === 6);
-  const previewPages: Array<{ title?: string; upload?: PreviewUpload; table?: ReportDataTable; graph?: ReportCrossSection; chapter?: ReportChapter }> = [
-    ...(frontMatterUploads.length ? [{ title: "Front Matter" }, ...frontMatterUploads.map((upload) => ({ upload }))] : []),
-    { title: "Chapters" }, ...reportChapters.map((chapter) => ({ chapter })), ...chapterUploads.map((upload) => ({ upload })),
-    { title: "Cross Sections" }, ...reportGraphs.map((graph) => ({ graph })), ...crossUploads.map((upload) => ({ upload })),
-    { title: "Plates and Maps" }, ...plateUploads.map((upload) => ({ upload })), ...otherUploads.map((upload) => ({ upload })),
-    ...annexureSections.flatMap((annexure) => [{ title: annexure }, ...tables.filter((table) => annexureMatches(table.title, annexure)).map((table) => ({ table })), ...annexureUploads.filter((upload) => annexureMatches(upload.title, annexure)).map((upload) => ({ upload }))]),
+  const previewPages: Array<{ section: string; title?: string; upload?: PreviewUpload; table?: ReportDataTable; graph?: ReportCrossSection; chapter?: ReportChapter }> = [
+    ...(frontMatterUploads.length ? [{ section: "Front Matter", title: "Front Matter" }, ...frontMatterUploads.map((upload) => ({ section: "Front Matter", upload }))] : []),
+    { section: "Chapters", title: "Chapters" }, ...reportChapters.map((chapter) => ({ section: "Chapters", chapter })), ...chapterUploads.map((upload) => ({ section: "Chapters", upload })),
+    { section: "Cross Sections", title: "Cross Sections" }, ...reportGraphs.map((graph) => ({ section: "Cross Sections", graph })), ...crossUploads.map((upload) => ({ section: "Cross Sections", upload })),
+    { section: "Plates and Maps", title: "Plates and Maps" }, ...plateUploads.map((upload) => ({ section: "Plates and Maps", upload })), ...otherUploads.map((upload) => ({ section: "Plates and Maps", upload })),
+    ...annexureSections.flatMap((annexure) => [{ section: annexure, title: annexure }, ...tables.filter((table) => annexureMatches(table.title, annexure)).map((table) => ({ section: annexure, table })), ...annexureUploads.filter((upload) => annexureMatches(upload.title, annexure)).map((upload) => ({ section: annexure, upload }))]),
   ];
+  const previewFrame = (section: string) => ({ headerText: frameSettings.sectionOverrides?.[section]?.headerText || frameSettings.headerText || "District Survey Report", footerText: frameSettings.sectionOverrides?.[section]?.footerText || frameSettings.footerText || "Prepared by: District Survey Report Committee" });
 
   const downloadFinalPdf = async () => {
     setDownloading(true);
@@ -215,31 +216,31 @@ export default function ReportPreviewPage() {
       const { document } = await createSectionPdf();
       const skipped: string[] = [];
       const sections: Array<{ title: string; startPage: number }> = [];
-      const appendUpload = async (upload: PreviewUpload) => {
+      const appendUpload = async (upload: PreviewUpload, sectionTitle: string) => {
         try {
           const startPage = document.getPageCount();
           await appendUploadedDocument(document, upload);
-          if (document.getPageCount() > startPage) sections.push({ title: upload.title, startPage });
+          if (document.getPageCount() > startPage) sections.push({ title: sectionTitle, startPage });
         } catch (error) {
           console.warn(`Skipping unreadable final-report upload: ${upload.name}`, error);
           skipped.push(upload.name);
         }
       };
       const addSectionTitle = async (title: string) => { const startPage = document.getPageCount(); await appendReportSectionTitle(document, title); sections.push({ title, startPage }); };
-      if (frontMatterUploads.length) { await addSectionTitle("Front Matter"); for (const upload of frontMatterUploads) await appendUpload(upload); }
+      if (frontMatterUploads.length) { await addSectionTitle("Front Matter"); for (const upload of frontMatterUploads) await appendUpload(upload, "Front Matter"); }
       await addSectionTitle("Chapters");
       if (reportChapters.length) { const startPage = document.getPageCount(); await appendGeneratedReportContent(document, { district: project?.district || "Punjab", tables: [], graphs: [], chapters: reportChapters }); if (document.getPageCount() > startPage) sections.push({ title: "Chapters", startPage }); }
-      for (const upload of chapterUploads) await appendUpload(upload);
+      for (const upload of chapterUploads) await appendUpload(upload, "Chapters");
       await addSectionTitle("Cross Sections");
       if (reportGraphs.length) { const startPage = document.getPageCount(); await appendGeneratedReportContent(document, { district: project?.district || "Punjab", tables: [], graphs: reportGraphs }); if (document.getPageCount() > startPage) sections.push({ title: "Cross Sections", startPage }); }
-      for (const upload of crossUploads) await appendUpload(upload);
+      for (const upload of crossUploads) await appendUpload(upload, "Cross Sections");
       await addSectionTitle("Plates and Maps");
-      for (const upload of [...plateUploads, ...otherUploads]) await appendUpload(upload);
+      for (const upload of [...plateUploads, ...otherUploads]) await appendUpload(upload, "Plates and Maps");
       for (const annexure of annexureSections) {
         await addSectionTitle(annexure);
         const annexureTables = tables.filter((table) => annexureMatches(table.title, annexure));
         if (annexureTables.length) { const startPage = document.getPageCount(); await appendGeneratedReportContent(document, { district: project?.district || "Punjab", tables: annexureTables, graphs: [] }); if (document.getPageCount() > startPage) sections.push({ title: annexure, startPage }); }
-        for (const upload of annexureUploads.filter((item) => annexureMatches(item.title, annexure))) await appendUpload(upload);
+        for (const upload of annexureUploads.filter((item) => annexureMatches(item.title, annexure))) await appendUpload(upload, annexure);
       }
       if (document.getPageCount() === 0) throw new Error("No readable uploaded documents found");
       await applyDsrReportFrame(document, sections, project?.district || "Punjab", frameSettings);
@@ -286,7 +287,10 @@ export default function ReportPreviewPage() {
             <div className="flex min-h-[500px] items-center justify-center text-center text-lg text-slate-500">
               {isLoading ? "Loading uploaded documents..." : "No uploaded documents found. Upload section or annexure files to build the final PDF."}
             </div>
-          ) : previewPages.map((page, index) => page.title ? <SectionTitlePage key={`section-${page.title}-${index}`} title={page.title} pageNumber={index + 1} district={project?.district || "Punjab"} /> : page.upload ? <UploadedSection key={page.upload.id} upload={page.upload} pageNumber={index + 1} district={project?.district || "Punjab"} /> : <GeneratedSection key={page.table ? `table-${index}` : page.chapter ? `chapter-${index}` : `graph-${index}`} table={page.table} graph={page.graph} chapter={page.chapter} pageNumber={index + 1} district={project?.district || "Punjab"} />)}
+          ) : previewPages.map((page, index) => {
+            const frame = previewFrame(page.section);
+            return page.title ? <SectionTitlePage key={`section-${page.title}-${index}`} title={page.title} pageNumber={index + 1} district={project?.district || "Punjab"} {...frame} /> : page.upload ? <UploadedSection key={page.upload.id} upload={page.upload} pageNumber={index + 1} district={project?.district || "Punjab"} {...frame} /> : <GeneratedSection key={page.table ? `table-${index}` : page.chapter ? `chapter-${index}` : `graph-${index}`} table={page.table} graph={page.graph} chapter={page.chapter} pageNumber={index + 1} district={project?.district || "Punjab"} {...frame} />;
+          })}
         </article>
       </main>
     </>
