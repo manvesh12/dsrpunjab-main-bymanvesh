@@ -1,4 +1,4 @@
-import { Download, Printer, Save, Settings2 } from "lucide-react";
+import { Download, List, Printer, Save, Settings2 } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -210,6 +210,40 @@ export default function ReportPreviewPage() {
     ...annexureSections.flatMap((annexure) => [{ sectionName: annexure, title: annexure }, ...tables.filter((table) => annexureMatches(table.title, annexure)).map((table) => ({ sectionName: annexure, table })), ...annexureUploads.filter((upload) => annexureMatches(upload.title, annexure)).map((upload) => ({ sectionName: annexure, upload }))]),
   ];
 
+  const reportSections = previewPages.flatMap((page) => page.title
+    ? [{ id: `report-section-${page.sectionName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`, label: sectionDisplayName(page.sectionName) }]
+    : []);
+  const reportSectionIds = reportSections.map(({ id }) => id).join("|");
+
+  const [activeSection, setActiveSection] = useState("");
+
+  useEffect(() => {
+    if (!reportSections.length) return;
+    setActiveSection((current) => reportSections.some(({ id }) => id === current) ? current : reportSections[0].id);
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (visible) setActiveSection(visible.target.id);
+      },
+      { rootMargin: "-15% 0px -70% 0px", threshold: 0 },
+    );
+
+    reportSections.forEach(({ id }) => {
+      const element = document.getElementById(id);
+      if (element) observer.observe(element);
+    });
+
+    return () => observer.disconnect();
+  }, [reportSectionIds]);
+
+  const goToSection = (sectionId: string) => {
+    setActiveSection(sectionId);
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const downloadFinalPdf = async () => {
     setDownloading(true);
     try {
@@ -282,8 +316,25 @@ export default function ReportPreviewPage() {
           <label className="text-xs text-slate-600">{selectedFrameSection} footer<input value={selectedOverride.footerText || ""} onChange={(event) => setSelectedOverride("footerText", event.target.value)} placeholder="Uses default footer if empty" className="mt-1 w-full rounded-lg border px-3 py-2" /></label>
         </div>
       </section>
-      <main className="overflow-y-auto rounded-2xl border border-slate-200 bg-slate-100 p-4 md:p-8">
-        <article id="report-preview-article" className="mx-auto flex min-h-screen w-full max-w-[1200px] flex-col items-center gap-12 bg-white px-4 py-16 shadow-xl md:px-12">
+      <main className="rounded-2xl border border-slate-200 bg-slate-100 p-4 md:p-8">
+        {reportSections.length > 0 && (
+          <div className="sticky top-3 z-20 mb-4 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-md backdrop-blur lg:hidden">
+            <label htmlFor="report-section-select" className="mb-1.5 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500"><List size={15} /> Jump to section</label>
+            <select id="report-section-select" value={activeSection} onChange={(event) => goToSection(event.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+              {reportSections.map((section) => <option key={section.id} value={section.id}>{section.label}</option>)}
+            </select>
+          </div>
+        )}
+        <div className="mx-auto flex max-w-[1500px] items-start gap-6">
+          {reportSections.length > 0 && (
+            <aside className="sticky top-4 hidden w-64 shrink-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-md lg:block">
+              <div className="mb-3 flex items-center gap-2 border-b border-slate-100 pb-3 font-bold text-slate-800"><List size={18} className="text-blue-600" /> Report sections</div>
+              <nav aria-label="Report sections" className="max-h-[calc(100vh-8rem)] space-y-1 overflow-y-auto pr-1">
+                {reportSections.map((section) => <button key={section.id} type="button" onClick={() => goToSection(section.id)} aria-current={activeSection === section.id ? "location" : undefined} className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${activeSection === section.id ? "bg-blue-600 font-semibold text-white" : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"}`}>{section.label}</button>)}
+              </nav>
+            </aside>
+          )}
+        <article id="report-preview-article" className="flex min-h-screen min-w-0 flex-1 flex-col items-center gap-12 bg-white px-4 py-16 shadow-xl md:px-12">
           {!previewPages.length ? (
             <div className="flex min-h-[500px] items-center justify-center text-center text-lg text-slate-500">
             {isLoading ? "Loading uploaded documents..." : "No uploaded documents found. Upload section or annexure files to build the final PDF."}
@@ -293,9 +344,12 @@ export default function ReportPreviewPage() {
             const headerText = override?.headerText || frameSettings.headerText || "District Survey Report";
             const footerText = override?.footerText || frameSettings.footerText || "Prepared by: District Survey Report Committee";
             
-            return page.title ? <SectionTitlePage key={`section-${page.title}-${index}`} title={sectionDisplayName(page.title)} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} /> : page.upload ? <UploadedSection key={page.upload.id} upload={page.upload} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} /> : <GeneratedSection key={page.table ? `table-${index}` : page.chapter ? `chapter-${index}` : `graph-${index}`} table={page.table} graph={page.graph} chapter={page.chapter} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} />;
+            const sectionId = page.title ? `report-section-${page.sectionName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}` : undefined;
+            const content = page.title ? <SectionTitlePage title={sectionDisplayName(page.title)} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} /> : page.upload ? <UploadedSection upload={page.upload} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} /> : <GeneratedSection table={page.table} graph={page.graph} chapter={page.chapter} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} />;
+            return <div key={page.title ? `section-${page.title}-${index}` : page.upload?.id || `generated-${index}`} id={sectionId} className="flex w-full scroll-mt-24 justify-center">{content}</div>;
           })}
         </article>
+        </div>
       </main>
     </>
   );
