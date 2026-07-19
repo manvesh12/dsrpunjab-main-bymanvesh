@@ -1543,28 +1543,31 @@ function PreviewPanel({
         </span>
       </div>
       <div ref={previewScrollRef} className="min-h-0 flex-1 overflow-y-auto p-4">
-        {selectedSections.length === 0 && uploadedPreviews.length === 0 && (
-          <div className="flex min-h-[500px] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm font-semibold text-slate-500">
-            Select sections on the left to show their content in the live preview.
-          </div>
-        )}
-        {selectedSections.length > 0 && (
-          <iframe
-            title="Selected Model DSR sections"
-            srcDoc={previewHtml}
-            className="h-[560px] w-full rounded-xl border border-slate-200 bg-white shadow-sm"
-          />
-        )}
-        {showGeneratedPreface && <PreviewTextPage title="Preface" text={frontData.preface || ""} />}
-        {showAcknowledgement && <PreviewTextPage title="Acknowledgement" text={frontData.acknowledgement || ""} />}
+        {/* Render Title Page */}
+        <section className="mb-5 shadow-sm border border-slate-200 bg-white">
+          <iframe srcDoc={previewHtml} className="w-full h-[900px] border-none" title="Report Title Page" />
+        </section>
+
         {checkedSet.has("chapters") && content.chapters.length > 0 && (
-          <PreviewContentPage title="Chapters" items={content.chapters.map((chapter) => ({ title: chapter.name, text: chapter.summary || "" }))} />
+          <PreviewContentPage title="Chapters" items={content.chapters.map(c => ({ title: c.name, text: c.summary }))} />
         )}
+        
         {checkedSet.has("plates") && content.plates.length > 0 && (
-          <PreviewContentPage title="Plates and Maps" items={content.plates.map((plate) => ({ title: plate.name, text: plate.summary || "" }))} />
+          <PreviewContentPage title="Plates and Maps" items={content.plates.map(p => ({ title: p.name, text: p.summary }))} />
         )}
-        {selectedSections.filter((section) => /annexure/i.test(section.type)).length > 0 && (
-          <PreviewContentPage title="Selected Annexures" items={selectedSections.filter((section) => /annexure/i.test(section.type)).map((section) => ({ title: section.name, text: `${section.type} selected for the Model DSR report.` }))} />
+
+        {showGeneratedPreface && (
+          <PreviewTextPage title="Preface" text={frontData.preface || ""} />
+        )}
+
+        {showAcknowledgement && (
+          <PreviewTextPage title="Acknowledgement" text={frontData.acknowledgement || ""} />
+        )}
+
+        {uploadedPreviews.length === 0 && !checkedSet.has("chapters") && !checkedSet.has("plates") && !showGeneratedPreface && !showAcknowledgement && (
+          <div className="mt-5 flex min-h-[300px] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm font-semibold text-slate-500">
+            No uploaded documents or text sections available for the selected sections. Upload a PDF or select text sections to show them in the live preview.
+          </div>
         )}
         {uploadedPreviews.map((upload) => (
           <section key={upload.id} className="mt-5">
