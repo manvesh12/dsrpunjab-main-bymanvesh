@@ -841,10 +841,8 @@ export default function AnnexureEditorPage({ annexure }: { annexure: string }) {
                 {order.map((originalIndex, pos) => {
                   const fallback = data.items[originalIndex];
                   const snap = snapshots[originalIndex];
-                  const labels =
-                    snap?.columns.map((c) => c.label) ??
-                    fallback?.columns ??
-                    [];
+                  const previewColumns =
+                    snap?.columns ?? col(fallback?.columns ?? []);
                   return (
                     <section key={originalIndex} className="mt-7">
                       <h2 className="border-b pb-2 text-sm font-bold">
@@ -855,7 +853,10 @@ export default function AnnexureEditorPage({ annexure }: { annexure: string }) {
                           fallback?.title ??
                           `New Table ${originalIndex + 1}`}
                       </h2>
-                      <PreviewSection labels={labels} rows={snap?.rows ?? []} />
+                      <PreviewSection
+                        columns={previewColumns}
+                        rows={snap?.rows ?? []}
+                      />
                     </section>
                   );
                 })}
@@ -869,29 +870,23 @@ export default function AnnexureEditorPage({ annexure }: { annexure: string }) {
 }
 
 function PreviewSection({
-  labels,
+  columns,
   rows,
 }: {
-  labels: string[];
+  columns: EditorColumn[];
   rows: Record<string, string>[];
 }) {
-  const keys = labels.map((label) =>
-    label
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^_|_$/g, ""),
-  );
   return (
     <div className="mt-3 overflow-x-auto">
       <table className="w-full border-collapse text-[8px]">
         <thead>
           <tr>
-            {labels.map((label) => (
+            {columns.map((column) => (
               <th
-                key={label}
+                key={column.key}
                 className="border border-slate-400 bg-slate-100 p-1 text-left align-top"
               >
-                {label}
+                {column.label}
               </th>
             ))}
           </tr>
@@ -900,9 +895,12 @@ function PreviewSection({
           {rows.length ? (
             rows.map((row, i) => (
               <tr key={i}>
-                {keys.map((k) => (
-                  <td key={k} className="border border-slate-300 p-1">
-                    {row[k] || "—"}
+                {columns.map((column) => (
+                  <td
+                    key={column.key}
+                    className="border border-slate-300 p-1"
+                  >
+                    {row[column.key] || "—"}
                   </td>
                 ))}
               </tr>
@@ -910,7 +908,7 @@ function PreviewSection({
           ) : (
             <tr>
               <td
-                colSpan={labels.length}
+                colSpan={columns.length}
                 className="border p-3 text-center text-slate-400"
               >
                 No entries
