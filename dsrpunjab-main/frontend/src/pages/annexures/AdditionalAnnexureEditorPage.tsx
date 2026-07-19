@@ -110,6 +110,12 @@ export default function AdditionalAnnexureEditorPage({
 }) {
   const { projectId = "default" } = useParams();
   const items = additionalAnnexureTemplates[letter] ?? [];
+  const defaultAnnexureTitle = `Annexure ${letter}`;
+  const [annexureTitle, setAnnexureTitle] = useLocalDraft<string>(
+    `project-${projectId}:annexure-${letter.toLowerCase()}:heading`,
+    defaultAnnexureTitle,
+  );
+  const resolvedAnnexureTitle = annexureTitle.trim() || defaultAnnexureTitle;
 
   const [snapshots, setSnapshots] = useState<
     Record<
@@ -160,7 +166,19 @@ export default function AdditionalAnnexureEditorPage({
     <>
       <PageHeader
         backLink={`/projects/${projectId}`}
-        title={`Annexure ${letter}`}
+        title={
+          <input
+            aria-label={`Edit ${defaultAnnexureTitle} heading`}
+            className="w-full min-w-0 border-b border-dashed border-blue-300 bg-transparent font-inherit text-inherit outline-none transition focus:border-solid focus:border-blue-600"
+            value={annexureTitle}
+            onChange={(event) => setAnnexureTitle(event.target.value)}
+            style={{ font: "inherit", color: "inherit" }}
+            onBlur={() => {
+              if (!annexureTitle.trim()) setAnnexureTitle(defaultAnnexureTitle);
+            }}
+            title="Click to edit annexure heading"
+          />
+        }
         description={
           hasUploadSection.includes(letter)
             ? `Upload and manage Annexure ${letter} PDFs, images, and data`
@@ -172,7 +190,7 @@ export default function AdditionalAnnexureEditorPage({
               className="module-btn"
               onClick={() =>
                 exportAnnexureExcel(
-                  `Annexure ${letter}`,
+                  resolvedAnnexureTitle,
                   Object.values(snapshots),
                 )
               }
@@ -184,7 +202,7 @@ export default function AdditionalAnnexureEditorPage({
               className="module-btn"
               onClick={() =>
                 exportAnnexurePdf(
-                  `Annexure ${letter}`,
+                  resolvedAnnexureTitle,
                   Object.values(snapshots),
                   uploadedFiles,
                 )
@@ -307,7 +325,7 @@ export default function AdditionalAnnexureEditorPage({
                   Government of Punjab
                 </p>
                 <h1 className="mt-3 border-b-2 pb-5 text-center text-xl font-bold uppercase">
-                  Annexure {letter}
+                  {resolvedAnnexureTitle}
                 </h1>
 
                 {/* Preview respects drag-drop order */}
