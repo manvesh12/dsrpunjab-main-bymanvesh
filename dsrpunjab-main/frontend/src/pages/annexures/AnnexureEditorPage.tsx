@@ -323,6 +323,11 @@ type Snapshot = {
 export default function AnnexureEditorPage({ annexure }: { annexure: string }) {
   const { projectId = "default" } = useParams();
   const data = annexureTemplates[annexure] ?? annexureTemplates["1"];
+  const [annexureTitle, setAnnexureTitle] = useLocalDraft<string>(
+    `project-${projectId}:annexure-${annexure}:heading`,
+    data.title,
+  );
+  const resolvedAnnexureTitle = annexureTitle.trim() || data.title;
   const [snapshots, setSnapshots] = useState<Record<number, Snapshot>>({});
   const [customTables, setCustomTables] = useLocalDraft<number>(
     `project-${projectId}:annexure-${annexure}:custom-tables`,
@@ -388,14 +393,26 @@ export default function AnnexureEditorPage({ annexure }: { annexure: string }) {
     <>
       <PageHeader
         backLink={`/projects/${projectId}`}
-        title={data.title}
+        title={
+          <input
+            aria-label={`Edit ${data.title} heading`}
+            className="w-full min-w-0 border-b border-dashed border-blue-300 bg-transparent font-inherit text-inherit outline-none transition focus:border-solid focus:border-blue-600"
+            value={annexureTitle}
+            onChange={(event) => setAnnexureTitle(event.target.value)}
+            style={{ font: "inherit", color: "inherit" }}
+            onBlur={() => {
+              if (!annexureTitle.trim()) setAnnexureTitle(data.title);
+            }}
+            title="Click to edit annexure heading"
+          />
+        }
         description={data.description}
         action={
           <div className="flex flex-wrap gap-2">
             <button
               className="module-btn"
               onClick={() =>
-                exportAnnexureExcel(data.title, Object.values(snapshots))
+                exportAnnexureExcel(resolvedAnnexureTitle, Object.values(snapshots))
               }
             >
               <FileSpreadsheet size={17} />
@@ -404,7 +421,7 @@ export default function AnnexureEditorPage({ annexure }: { annexure: string }) {
             <button
               className="module-btn"
               onClick={() =>
-                exportAnnexurePdf(data.title, Object.values(snapshots))
+                exportAnnexurePdf(resolvedAnnexureTitle, Object.values(snapshots))
               }
             >
               <Download size={17} />
@@ -552,7 +569,7 @@ export default function AnnexureEditorPage({ annexure }: { annexure: string }) {
                     Government of Punjab
                   </p>
                   <h1 className="mt-3 text-xl font-bold uppercase">
-                    {data.title}
+                    {resolvedAnnexureTitle}
                   </h1>
                   <p className="mt-1 text-xs text-slate-500">
                     District Survey Report
