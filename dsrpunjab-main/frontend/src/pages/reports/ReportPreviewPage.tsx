@@ -118,7 +118,8 @@ export default function ReportPreviewPage() {
   useEffect(() => {
     let active = true;
     const loadDraftTables = async () => {
-      const locations = [...Array.from({ length: 7 }, (_, annexure) => ({ label: `Annexure ${annexure + 1}`, key: String(annexure + 1), count: 8 })), ...["f", "j", "k"].map((key) => ({ label: `Annexure ${key.toUpperCase()}`, key, count: 4 }))];
+      const roman = ["I", "II", "III", "IV", "V", "VI", "VII"];
+      const locations = [...Array.from({ length: 7 }, (_, annexure) => ({ label: `Annexure ${roman[annexure]}`, key: String(annexure + 1), count: 8 })), ...["f", "j", "k"].map((key) => ({ label: `Annexure ${key.toUpperCase()}`, key, count: 4 }))];
       const result: ReportDataTable[] = [];
       for (const location of locations) for (let index = 0; index < location.count; index += 1) {
         const base = `dsr:project-${projectId}:annexure-${location.key}-${index}`;
@@ -126,7 +127,8 @@ export default function ReportPreviewPage() {
         if (!Array.isArray(rows) && !Array.isArray(columns)) continue;
         const validColumns = Array.isArray(columns) ? columns.filter((column): column is DraftColumn => Boolean(column && typeof column === "object" && "key" in column && "label" in column)) : [];
         if (!validColumns.length) continue;
-        result.push({ title: typeof title === "string" ? title : `${location.label} - Table ${index + 1}`, columns: validColumns, rows: Array.isArray(rows) ? rows as Record<string, string>[] : [] });
+        const tableName = typeof title === "string" && title.trim() ? title.trim() : `Table ${index + 1}`;
+        result.push({ title: `${location.label} - ${tableName}`, columns: validColumns, rows: Array.isArray(rows) ? rows as Record<string, string>[] : [] });
       }
       if (active) setTables(result);
     };
