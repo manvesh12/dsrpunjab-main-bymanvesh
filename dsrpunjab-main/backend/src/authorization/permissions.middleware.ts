@@ -1,39 +1,47 @@
 import { Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { ApiError } from '../common/exceptions/api-error.js';
-
-const prisma = new PrismaClient();
+import { prisma } from '../database/prisma.client.js';
 
 // Simple in-memory cache for role permissions to avoid DB hits on every request
 const rolePermissionsCache = new Map<string, Set<string>>();
 let cacheLastUpdated = 0;
+let refreshInFlight: Promise<void> | null = null;
 const CACHE_TTL = 1000 * 60 * 5; // 5 minutes
 
 /**
  * Refresh the permissions cache from the database
  */
-export async function refreshPermissionsCache() {
-  const rolePermissions = await prisma.rolePermission.findMany({
-    include: {
-      role: true,
-      permission: true
+export function refreshPermissionsCache(): Promise<void> {
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = (async () => {
+    const rolePermissions = await prisma.rolePermission.findMany({
+      select: {
+        role: { select: { name: true } },
+        permission: { select: { action: true } }
+      }
+    });
+
+    const refreshed = new Map<string, Set<string>>();
+    for (const rp of rolePermissions) {
+      const roleName = rp.role.name;
+      const actions = refreshed.get(roleName) ?? new Set<string>();
+      actions.add(rp.permission.action);
+      refreshed.set(roleName, actions);
     }
+
+    rolePermissionsCache.clear();
+    for (const [roleName, actions] of refreshed) {
+      rolePermissionsCache.set(roleName, actions);
+    }
+
+    cacheLastUpdated = Date.now();
+    console.log('[RBAC] Permissions cache refreshed.');
+  })().finally(() => {
+    refreshInFlight = null;
   });
 
-  rolePermissionsCache.clear();
-  
-  for (const rp of rolePermissions) {
-    const roleName = rp.role.name;
-    const action = rp.permission.action;
-    
-    if (!rolePermissionsCache.has(roleName)) {
-      rolePermissionsCache.set(roleName, new Set());
-    }
-    rolePermissionsCache.get(roleName)!.add(action);
-  }
-
-  cacheLastUpdated = Date.now();
-  console.log('[RBAC] Permissions cache refreshed.');
+  return refreshInFlight;
 }
 
 /**

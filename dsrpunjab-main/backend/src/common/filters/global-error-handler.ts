@@ -5,8 +5,14 @@ import { logger } from "../logging/logger.js";
 
 export function globalErrorHandler(error: Error, req: Request, res: Response, _next: NextFunction) {
   const apiError = error instanceof ApiError ? error : null;
-  const status = apiError?.status || 500;
-  const message = apiError?.message || "Internal server error";
+  const parserError = error as Error & { status?: number; type?: string };
+  const payloadTooLarge =
+    parserError.status === 413 || parserError.type === "entity.too.large";
+  const status = apiError?.status || (payloadTooLarge ? 413 : 500);
+  const message = apiError?.message ||
+    (payloadTooLarge ? "Request payload is too large" : "Internal server error");
+  const code = apiError?.code ||
+    (payloadTooLarge ? "PAYLOAD_TOO_LARGE" : "INTERNAL_ERROR");
 
   logger.error("request_failed", {
     requestId: req.requestId,
@@ -20,7 +26,7 @@ export function globalErrorHandler(error: Error, req: Request, res: Response, _n
 
   res.status(status).json({
     error: message,
-    code: apiError?.code || "INTERNAL_ERROR",
+    code,
     requestId: req.requestId,
     ...(apiError?.details === undefined ? {} : { details: apiError.details })
   });
