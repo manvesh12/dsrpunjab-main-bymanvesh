@@ -350,56 +350,36 @@ export const annexureTemplates: Record<
   },
   "7": {
     title: "Annexure VII - Transportation Routes",
-    description: "Final sandbar, benchmark and CORS route formats",
+    description: "Individual lease and cluster transportation route schedules",
     items: [
       {
-        title: "Final Block Sand Ghats Coordinates",
-        description: "Sandbar and lease coordinates",
+        title: "Annexure VII - Individual Routes",
+        description: "Transportation routes for individual leases",
         columns: [
-          "Sl. No.",
-          "River Details",
-          "Sand Bar Code",
-          "Lease Details",
-          "Area (Ha.)",
-          "Latitude",
-          "Longitude",
-        ],
-      },
-      {
-        title: "Permanent Bench Marks",
-        description: "Permanent survey benchmark schedule",
-        columns: [
-          "Sl. No.",
-          "Permanent Bench Mark",
-          "Coordinates",
-          "Elevation",
-          "Sandbars Code",
-        ],
-      },
-      {
-        title: "Survey of India CORS Stations",
-        description: "CORS station schedule",
-        columns: [
-          "Sl. No.",
-          "CORS Station Name",
-          "Lat",
-          "Lon",
-          "Height",
-          "Station Code",
-        ],
-      },
-      {
-        title: "Final Cluster Routes",
-        description: "Final approved transportation routes shared by lease clusters",
-        columns: [
-          "Cluster No.",
+          "Sl.No.",
+          "Lease No.",
           "Transportation Route No.",
-          "Number of Tippers/Day of Cluster",
-          "Number of Tippers/Day of All Clusters on Route",
-          "Length of Route (KM)",
+          "Number of Tippers/day (of lease)",
+          "Number of tippers/day (of all Leases on route)",
+          "Length of Route (Km)",
           "Type of Road",
-          "Recommendation for Road",
-          "Road Constructed by",
+          "Recommendation for road",
+          "The road will be constructed by",
+          "Route Map & Location",
+        ],
+      },
+      {
+        title: "Annexure VII - Cluster Routes",
+        description: "Transportation routes shared by lease clusters",
+        columns: [
+          "Cluster No",
+          "Transportation Route No.",
+          "Number of tippers/day (of Cluster)",
+          "Number of Tippers/day (of all clusters on route)",
+          "Length of Route in KM",
+          "Type of Road",
+          "Recommendation for road",
+          "The road will be constructed by",
           "Route Map & Location",
         ],
       },
@@ -417,6 +397,8 @@ type Snapshot = {
 export default function AnnexureEditorPage({ annexure }: { annexure: string }) {
   const { projectId = "default" } = useParams();
   const data = annexureTemplates[annexure] ?? annexureTemplates["1"];
+  const templateStorageVersion =
+    annexure === "5" ? "5-v2" : annexure === "7" ? "7-v2" : annexure;
   const [annexureTitle, setAnnexureTitle] = useLocalDraft<string>(
     `project-${projectId}:annexure-${annexure}:heading`,
     data.title,
@@ -428,7 +410,7 @@ export default function AnnexureEditorPage({ annexure }: { annexure: string }) {
   const resolvedAnnexureTitle = annexureTitle.trim() || data.title;
   const [snapshots, setSnapshots] = useState<Record<number, Snapshot>>({});
   const [customTables, setCustomTables] = useLocalDraft<number>(
-    `project-${projectId}:annexure-${annexure}:custom-tables`,
+    `project-${projectId}:annexure-${templateStorageVersion}:custom-tables`,
     0,
   );
 
@@ -616,7 +598,7 @@ export default function AnnexureEditorPage({ annexure }: { annexure: string }) {
                       embedded
                       editableStructure
                       showLivePreview={false}
-                      storageKey={`project-${projectId}:annexure-${annexure === "5" ? "5-v2" : annexure}-${originalIndex}`}
+                      storageKey={`project-${projectId}:annexure-${templateStorageVersion}-${originalIndex}`}
                       title={item.title}
                       description={item.description}
                       columns={col(item.columns)}
