@@ -42,7 +42,7 @@ const contiguous = [
   "Area Of Cluster (Ha)",
   "Total Mineral Excavation (MT) (Considering 60% as per EMGSM, 2020)",
 ];
-const sections: Record<
+export const annexureTemplates: Record<
   string,
   { title: string; description: string; items: Section[] }
 > = {
@@ -310,7 +310,7 @@ type Snapshot = {
 
 export default function AnnexureEditorPage({ annexure }: { annexure: string }) {
   const { projectId = "default" } = useParams();
-  const data = sections[annexure] ?? sections["1"];
+  const data = annexureTemplates[annexure] ?? annexureTemplates["1"];
   const [snapshots, setSnapshots] = useState<Record<number, Snapshot>>({});
   const [customTables, setCustomTables] = useLocalDraft<number>(
     `project-${projectId}:annexure-${annexure}:custom-tables`,
