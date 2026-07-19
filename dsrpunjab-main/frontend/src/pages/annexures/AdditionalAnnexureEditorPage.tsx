@@ -4,7 +4,7 @@ import ModuleEditor from "../../components/ui/ModuleEditor";
 import type { EditorColumn } from "../../components/ui/ModuleEditor";
 import { useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Download, FileSpreadsheet, GripVertical, Trash2 } from "lucide-react";
+import { Download, FileSpreadsheet, GripVertical, Trash2, Plus, Copy } from "lucide-react";
 import {
   exportAnnexureExcel,
   exportAnnexurePdf,
@@ -129,9 +129,69 @@ export default function AdditionalAnnexureEditorPage({
   );
 
   /* ── Drag-and-drop order ── */
-  const [order, setOrder] = useState<number[]>(() =>
-    Array.from({ length: items.length }, (_, i) => i),
+  const [customTables, setCustomTables] = useLocalDraft<number>(
+    `project-${projectId}:annexure-${letter.toLowerCase()}:custom-tables`,
+    0,
   );
+  
+  const [orderDraft, setOrderDraft] = useLocalDraft<number[] | null>(
+    `project-${projectId}:annexure-${letter.toLowerCase()}:table-order`,
+    null,
+  );
+
+  const order =
+    orderDraft ??
+    Array.from({ length: items.length + customTables }, (_, i) => i);
+    
+  const setOrder = (newOrder: number[] | ((prev: number[]) => number[])) => {
+    if (typeof newOrder === "function") {
+      setOrderDraft((prev) =>
+        newOrder(
+          prev ??
+            Array.from(
+              { length: items.length + customTables },
+              (_, i) => i,
+            ),
+        ),
+      );
+    } else {
+      setOrderDraft(newOrder);
+    }
+  };
+
+  const handleDuplicate = (originalIndex: number, pos: number) => {
+    const newIndex = items.length + customTables;
+    setCustomTables((c) => c + 1);
+
+    const sourceKey = `draft:project-${projectId}:annexure-${letter.toLowerCase()}-${originalIndex}`;
+    const targetKey = `draft:project-${projectId}:annexure-${letter.toLowerCase()}-${newIndex}`;
+
+    const sourceData = localStorage.getItem(sourceKey);
+    if (sourceData) {
+      localStorage.setItem(targetKey, sourceData);
+    }
+
+    setOrder((prev) => {
+      const arr = [...prev];
+      arr.splice(pos + 1, 0, newIndex);
+      return arr;
+    });
+  };
+
+  const handleDelete = (originalIndex: number, pos: number) => {
+    setOrder((prev) => prev.filter((idx) => idx !== originalIndex));
+  };
+
+  const handleAddTableAt = (pos: number) => {
+    const newIndex = items.length + customTables;
+    setCustomTables((c) => c + 1);
+
+    setOrder((prev) => {
+      const arr = [...prev];
+      arr.splice(pos + 1, 0, newIndex);
+      return arr;
+    });
+  };
   const dragIndexRef = useRef<number | null>(null); // position in order array
   const [dragOverPos, setDragOverPos] = useState<number | null>(null);
 
@@ -211,6 +271,17 @@ export default function AdditionalAnnexureEditorPage({
               <Download size={17} />
               PDF
             </button>
+            <button
+              className="module-btn-primary"
+              onClick={() => {
+                const newIndex = items.length + customTables;
+                setCustomTables((value) => value + 1);
+                setOrder((prev) => [...prev, newIndex]);
+              }}
+            >
+              <Plus size={17} />
+              Create New Table
+            </button>
           </div>
         }
       />
@@ -223,9 +294,12 @@ export default function AdditionalAnnexureEditorPage({
               {hasUploadSection.includes(letter) && (
                 <UploadPanel letter={letter} projectId={projectId} files={uploadedFiles} onChange={setUploadedFiles} />
               )}{" "}
-              {items.length > 0 &&
+              {(items.length > 0 || customTables > 0) &&
                 order.map((originalIndex, pos) => {
-                  const item = items[originalIndex];
+                  const item = items[originalIndex] ?? {
+                    title: `New Table ${originalIndex - items.length + 1}`,
+                    columns: ["Column 1", "Column 2"],
+                  };
                   if (!item) return null;
                   const isDragOver =
                     dragOverPos === pos &&
@@ -258,9 +332,45 @@ export default function AdditionalAnnexureEditorPage({
                         <span className="text-xs font-semibold text-slate-500 group-hover:text-blue-600 transition-colors truncate">
                           {item.title}
                         </span>
-                        <span className="ml-auto text-[10px] text-slate-400 font-mono shrink-0">
+                        <span className="text-[10px] text-slate-400 font-mono shrink-0">
                           #{pos + 1}
                         </span>
+                        
+                        <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAddTableAt(pos);
+                            }}
+                            className="p-1 hover:bg-blue-100 rounded text-blue-600 cursor-pointer"
+                            title="Add table below"
+                            type="button"
+                          >
+                            <Plus size={14} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDuplicate(originalIndex, pos);
+                            }}
+                            className="p-1 hover:bg-blue-100 rounded text-blue-600 cursor-pointer"
+                            title="Duplicate table"
+                            type="button"
+                          >
+                            <Copy size={14} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(originalIndex, pos);
+                            }}
+                            className="p-1 hover:bg-red-100 rounded text-red-600 cursor-pointer"
+                            title="Delete table"
+                            type="button"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </div>
 
                       <ModuleEditor
@@ -329,9 +439,12 @@ export default function AdditionalAnnexureEditorPage({
                 </h1>
 
                 {/* Preview respects drag-drop order */}
-                {items.length ? (
+                {(items.length > 0 || customTables > 0) ? (
                   order.map((originalIndex, pos) => {
-                    const item = items[originalIndex];
+                    const item = items[originalIndex] ?? {
+                      title: `New Table ${originalIndex - items.length + 1}`,
+                      columns: ["Column 1", "Column 2"],
+                    };
                     if (!item) return null;
                     const snap = snapshots[originalIndex];
                     const columns =

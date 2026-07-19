@@ -11,6 +11,8 @@ import {
   FileSpreadsheet,
   GripVertical,
   Plus,
+  Copy,
+  Trash2,
 } from "lucide-react";
 import { useLocalDraft } from "../../hooks/useLocalDraft";
 import {
@@ -407,17 +409,68 @@ export default function AnnexureEditorPage({ annexure }: { annexure: string }) {
 
   const total = data.items.length + customTables;
 
-  // order array: indices 0..total-1, can be reordered by drag-drop
-  const [order, setOrder] = useState<number[]>(() =>
-    Array.from({ length: total }, (_, i) => i),
+  const [orderDraft, setOrderDraft] = useLocalDraft<number[] | null>(
+    `project-${projectId}:annexure-${annexure}:table-order`,
+    null,
   );
 
-  // Keep order in sync when total changes (new table added)
-  const prevTotal = useRef(total);
-  if (total !== prevTotal.current) {
-    prevTotal.current = total;
-    setOrder(Array.from({ length: total }, (_, i) => i));
-  }
+  const order =
+    orderDraft ??
+    Array.from({ length: data.items.length + customTables }, (_, i) => i);
+    
+  const setOrder = useCallback(
+    (newOrder: number[] | ((prev: number[]) => number[])) => {
+      if (typeof newOrder === "function") {
+        setOrderDraft((prev) =>
+          newOrder(
+            prev ??
+              Array.from(
+                { length: data.items.length + customTables },
+                (_, i) => i,
+              ),
+          ),
+        );
+      } else {
+        setOrderDraft(newOrder);
+      }
+    },
+    [data.items.length, customTables, setOrderDraft],
+  );
+
+  const handleDuplicate = (originalIndex: number, pos: number) => {
+    const newIndex = data.items.length + customTables;
+    setCustomTables((c) => c + 1);
+
+    const storageKeySuffix = annexure === "5" ? "5-v2" : annexure;
+    const sourceKey = `draft:project-${projectId}:annexure-${storageKeySuffix}-${originalIndex}`;
+    const targetKey = `draft:project-${projectId}:annexure-${storageKeySuffix}-${newIndex}`;
+
+    const sourceData = localStorage.getItem(sourceKey);
+    if (sourceData) {
+      localStorage.setItem(targetKey, sourceData);
+    }
+
+    setOrder((prev) => {
+      const arr = [...prev];
+      arr.splice(pos + 1, 0, newIndex);
+      return arr;
+    });
+  };
+
+  const handleDelete = (originalIndex: number, pos: number) => {
+    setOrder((prev) => prev.filter((idx) => idx !== originalIndex));
+  };
+
+  const handleAddTableAt = (pos: number) => {
+    const newIndex = data.items.length + customTables;
+    setCustomTables((c) => c + 1);
+
+    setOrder((prev) => {
+      const arr = [...prev];
+      arr.splice(pos + 1, 0, newIndex);
+      return arr;
+    });
+  };
 
   const update = useCallback(
     (index: number, snapshot: Snapshot) =>
@@ -520,7 +573,11 @@ export default function AnnexureEditorPage({ annexure }: { annexure: string }) {
             </button>
             <button
               className="module-btn-primary"
-              onClick={() => setCustomTables((value) => value + 1)}
+              onClick={() => {
+                const newIndex = data.items.length + customTables;
+                setCustomTables((value) => value + 1);
+                setOrder((prev) => [...prev, newIndex]);
+              }}
             >
               <Plus size={17} />
               Create New Table
@@ -579,9 +636,45 @@ export default function AnnexureEditorPage({ annexure }: { annexure: string }) {
                       <span className="text-xs font-semibold text-slate-500 group-hover:text-blue-600 transition-colors truncate">
                         {item.title}
                       </span>
-                      <span className="ml-auto text-[10px] text-slate-400 font-mono shrink-0">
+                      <span className="text-[10px] text-slate-400 font-mono shrink-0">
                         #{pos + 1}
                       </span>
+                      
+                      <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAddTableAt(pos);
+                          }}
+                          className="p-1 hover:bg-blue-100 rounded text-blue-600 cursor-pointer"
+                          title="Add table below"
+                          type="button"
+                        >
+                          <Plus size={14} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDuplicate(originalIndex, pos);
+                          }}
+                          className="p-1 hover:bg-blue-100 rounded text-blue-600 cursor-pointer"
+                          title="Duplicate table"
+                          type="button"
+                        >
+                          <Copy size={14} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(originalIndex, pos);
+                          }}
+                          className="p-1 hover:bg-red-100 rounded text-red-600 cursor-pointer"
+                          title="Delete table"
+                          type="button"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
 
                     <ModuleEditor
