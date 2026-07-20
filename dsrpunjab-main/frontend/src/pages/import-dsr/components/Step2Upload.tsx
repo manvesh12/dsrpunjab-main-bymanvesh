@@ -2,7 +2,7 @@ import React, { useState, useRef } from "react";
 import { UploadCloud, FileType, X, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 
 interface Step2UploadProps {
-  onUploadComplete: () => void;
+  onUploadComplete: (file: File) => void;
   onCancel: () => void;
 }
 
@@ -34,7 +34,7 @@ export default function Step2Upload({ onUploadComplete, onCancel }: Step2UploadP
           clearInterval(interval);
           setUploadStatus("success");
           setTimeout(() => {
-            onUploadComplete();
+            onUploadComplete(selectedFile);
           }, 1000);
           return 100;
         }
@@ -180,7 +180,7 @@ export default function Step2Upload({ onUploadComplete, onCancel }: Step2UploadP
                     <RefreshCw size={16} />
                     Replace File
                   </button>
-                  <button onClick={onUploadComplete} className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 dark:bg-blue-500">
+                  <button onClick={() => file && onUploadComplete(file)} className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 dark:bg-blue-500">
                     Begin Parsing
                   </button>
                 </div>

@@ -4,13 +4,13 @@ import Step1Options from "./components/Step1Options";
 import Step2Upload from "./components/Step2Upload";
 import Step3Processing from "./components/Step3Processing";
 import Step4Summary from "./components/Step4Summary";
-import Step5Review from "./components/Step5Review";
-import NextStepDialog from "./components/NextStepDialog";
+import { type ParsedDsrResults } from "../../utils/dsrParser";
 
 export default function ImportDsrPage() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState<number>(1);
-  const [showNextStepDialog, setShowNextStepDialog] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [parsedResults, setParsedResults] = useState<ParsedDsrResults | null>(null);
 
   const handleSelectOption = (option: "upload" | "skip") => {
     if (option === "upload") {
@@ -20,51 +20,37 @@ export default function ImportDsrPage() {
     }
   };
 
-  const handleUploadComplete = () => {
-    setCurrentStep(3);
-  };
-
-  const handleProcessingComplete = () => {
-    setCurrentStep(4);
-  };
-
-  const handleContinueToReview = () => {
-    setCurrentStep(5);
-  };
-
-  const handleImportComplete = () => {
-    // Show final dialog instead of navigating immediately
-    setShowNextStepDialog(true);
-  };
-
-  const handleReviewImportedData = () => {
-    setShowNextStepDialog(false);
-    navigate("/projects/create"); // In a real app, navigate to a specific review flow
-  };
-
-  const handleReplacePdf = () => {
-    setShowNextStepDialog(false);
-    setCurrentStep(2);
-  };
-
-  const handleCancelImport = () => {
-    setShowNextStepDialog(false);
-    navigate("/dashboard");
-  };
-
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      {currentStep === 1 && <Step1Options onSelectOption={handleSelectOption} />}
-      {currentStep === 2 && <Step2Upload onUploadComplete={handleUploadComplete} onCancel={() => setCurrentStep(1)} />}
-      {currentStep === 3 && <Step3Processing onProcessingComplete={handleProcessingComplete} />}
-      {currentStep === 4 && <Step4Summary onContinueToReview={handleContinueToReview} />}
-      {currentStep === 5 && <Step5Review onImportComplete={handleImportComplete} />}
-
-      {showNextStepDialog && (
-        <NextStepDialog
-          onReview={handleReviewImportedData}
-          onReplace={handleReplacePdf}
-          onCancel={handleCancelImport}
+      {currentStep === 1 && (
+        <Step1Options onSelectOption={handleSelectOption} />
+      )}
+      
+      {currentStep === 2 && (
+        <Step2Upload 
+          onUploadComplete={(uploadedFile) => {
+            setFile(uploadedFile);
+            setCurrentStep(3);
+          }} 
+          onCancel={() => setCurrentStep(1)} 
+        />
+      )}
+      
+      {currentStep === 3 && file && (
+        <Step3Processing 
+          file={file}
+          onProcessingComplete={(results) => {
+            setParsedResults(results);
+            setCurrentStep(4);
+          }} 
+        />
+      )}
+      
+      {currentStep === 4 && file && parsedResults && (
+        <Step4Summary 
+          file={file}
+          parsedResults={parsedResults}
+          onCancel={() => setCurrentStep(2)}
         />
       )}
     </div>

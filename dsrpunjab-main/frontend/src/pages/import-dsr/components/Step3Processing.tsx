@@ -1,53 +1,68 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, Loader2, Sparkles } from "lucide-react";
+import { parseDsrPdf, type ParsedDsrResults } from "../../../utils/dsrParser";
 
 interface Step3ProcessingProps {
-  onProcessingComplete: () => void;
+  file: File;
+  onProcessingComplete: (results: ParsedDsrResults) => void;
 }
 
 const processingSteps = [
-  { id: "ocr", label: "Running OCR & Text Extraction", time: 2000 },
-  { id: "tables", label: "Extracting Tables & Annexures", time: 2500 },
-  { id: "maps", label: "Detecting Maps & Coordinates", time: 2000 },
-  { id: "classification", label: "Classifying Data into Portal Modules", time: 3000 },
+  { id: "ocr", label: "Running OCR & Text Extraction" },
+  { id: "tables", label: "Extracting Chapters & Sections" },
+  { id: "maps", label: "Detecting District & Metadata" },
+  { id: "classification", label: "Classifying Data into Portal Modules" },
 ];
 
-export default function Step3Processing({ onProcessingComplete }: Step3ProcessingProps) {
+export default function Step3Processing({ file, onProcessingComplete }: Step3ProcessingProps) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [overallProgress, setOverallProgress] = useState(0);
+  const [statusMessage, setStatusMessage] = useState("Initializing document parser...");
 
   useEffect(() => {
-    let progressInterval: ReturnType<typeof setInterval>;
-    
-    if (currentStepIndex < processingSteps.length) {
-      const step = processingSteps[currentStepIndex];
-      const stepStartTime = Date.now();
-      
-      progressInterval = setInterval(() => {
-        const elapsed = Date.now() - stepStartTime;
-        const stepProgress = Math.min(elapsed / step.time, 1);
-        
-        // Calculate overall progress based on steps
-        const completedStepsProgress = (currentStepIndex / processingSteps.length) * 100;
-        const currentStepContribution = (stepProgress * (1 / processingSteps.length)) * 100;
-        
-        setOverallProgress(Math.min(completedStepsProgress + currentStepContribution, 100));
+    let active = true;
 
-        if (stepProgress >= 1) {
-          clearInterval(progressInterval);
-          setCurrentStepIndex(prev => prev + 1);
+    async function runParser() {
+      try {
+        const results = await parseDsrPdf(file, (stepMsg, percent) => {
+          if (!active) return;
+          setStatusMessage(stepMsg);
+          setOverallProgress(percent);
+
+          // Map percent to step index
+          if (percent < 40) {
+            setCurrentStepIndex(0);
+          } else if (percent < 75) {
+            setCurrentStepIndex(1);
+          } else if (percent < 90) {
+            setCurrentStepIndex(2);
+          } else {
+            setCurrentStepIndex(3);
+          }
+        });
+
+        if (active) {
+          setCurrentStepIndex(4);
+          setOverallProgress(100);
+          setStatusMessage("Parser finished successfully!");
+          setTimeout(() => {
+            if (active) onProcessingComplete(results);
+          }, 1000);
         }
-      }, 50);
-    } else {
-      setOverallProgress(100);
-      const finishTimeout = setTimeout(() => {
-        onProcessingComplete();
-      }, 1000);
-      return () => clearTimeout(finishTimeout);
+      } catch (err) {
+        console.error("PDF Parsing failed:", err);
+        if (active) {
+          setStatusMessage("Parsing failed. Please verify file format.");
+        }
+      }
     }
 
-    return () => clearInterval(progressInterval);
-  }, [currentStepIndex, onProcessingComplete]);
+    runParser();
+
+    return () => {
+      active = false;
+    };
+  }, [file, onProcessingComplete]);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-16 text-center">
@@ -56,8 +71,13 @@ export default function Step3Processing({ onProcessingComplete }: Step3Processin
       </div>
       
       <h2 className="mb-2 text-3xl font-bold text-slate-900 dark:text-white">AI Document Parser</h2>
-      <p className="mb-12 text-lg text-slate-600 dark:text-slate-400">
+      <p className="mb-4 text-lg text-slate-600 dark:text-slate-400">
         Extracting and structuring data from your DSR document...
+      </p>
+      
+      {/* Real-time status message */}
+      <p className="mb-12 text-sm text-slate-500 font-mono bg-slate-100 dark:bg-slate-900 py-2 px-4 rounded-lg inline-block border border-slate-200 dark:border-slate-800">
+        {statusMessage}
       </p>
 
       <div className="mx-auto mb-10 max-w-md text-left">
