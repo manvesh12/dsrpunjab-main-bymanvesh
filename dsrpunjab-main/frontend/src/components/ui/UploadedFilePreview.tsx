@@ -30,7 +30,7 @@ export default function UploadedFilePreview({
   imageClassName,
   imageStyle,
 }: UploadedFilePreviewProps) {
-  const [previewSrc, setPreviewSrc] = useState(src);
+  const [previewSrc, setPreviewSrc] = useState(() => isLocalPreview(src) ? src : "");
   const [contentType, setContentType] = useState("");
   const [failed, setFailed] = useState(false);
 

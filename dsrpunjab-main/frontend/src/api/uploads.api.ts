@@ -15,6 +15,11 @@ export function resolveUploadUrl(url?: string): string {
   if (!url) return "";
   if (/^(blob:|data:)/i.test(url)) return url;
 
+  if (url.startsWith("file-") || url.startsWith("/file-")) {
+    const id = url.startsWith("/") ? url.slice(1) : url;
+    return resolveUploadUrl(`/api/files/download/${id}`);
+  }
+
   if (/^https?:\/\//i.test(url)) {
     try {
       const parsed = new URL(url);
