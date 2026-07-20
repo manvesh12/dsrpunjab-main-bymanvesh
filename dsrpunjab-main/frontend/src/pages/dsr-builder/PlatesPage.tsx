@@ -262,7 +262,7 @@ export default function PlatesPage() {
                 }
                 catch (e) {
                   console.error("Plates PDF generation failed:", e);
-                  toast.error("PDF download failed. Missing uploaded file ko re-upload karein.");
+                  toast.error("PDF download failed. Please re-upload the missing file.");
                 }
                 finally { setDownloading(false); }
               }}

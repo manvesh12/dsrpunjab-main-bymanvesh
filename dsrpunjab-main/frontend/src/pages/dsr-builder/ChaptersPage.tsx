@@ -256,7 +256,7 @@ export default function ChaptersPage() {
                   toast.success("Chapters PDF downloaded");
                 } catch (error) {
                   console.error("Chapters PDF generation failed:", error);
-                  toast.error("PDF download failed. Missing uploaded file ko re-upload karein.");
+                  toast.error("PDF download failed. Please re-upload the missing file.");
                 }
               }}
             >

@@ -367,7 +367,7 @@ export default function FrontMatterPage(){
                 }
                 catch(e) {
                   console.error("Front Matter PDF generation failed:", e);
-                  toast.error("PDF download failed. Missing uploaded file ko re-upload karke try karein.");
+                  toast.error("PDF download failed. Please re-upload the missing file and try again.");
                 }
                 finally { setDownloading(false); }
               }}
