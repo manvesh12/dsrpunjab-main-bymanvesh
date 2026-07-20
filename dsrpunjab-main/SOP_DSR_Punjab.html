@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOP - DSR Punjab Portal</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;1,700&display=swap');
+        
+        :root {
+            --primary: #0b315d;
+            --primary-light: #1e4a7d;
+            --secondary: #e9a319;
+            --secondary-light: #fef3c7;
+            --text-dark: #1e293b;
+            --text-muted: #64748b;
+            --bg-light: #f8fafc;
+            --border: #cbd5e1;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            color: var(--text-dark);
+            line-height: 1.6;
+            background-color: var(--bg-light);
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
+        /* --- Print Styles --- */
+        @media print {
+            body {
+                background: white;
+                color: black;
+            }
+            .container {
+                box-shadow: none;
+                max-width: 100%;
+                margin: 0;
+            }
+            .page-break {
+                page-break-before: always;
+                break-before: page;
+            }
+            .no-print {
+                display: none;
+            }
+        }
+
+        /* --- Cover Page --- */
+        .cover-page {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 80px 60px;
+            border-top: 15px solid var(--secondary);
+            background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+            page-break-after: always;
+            break-after: page;
+        }
+
+        .emblem-container {
+            text-align: center;
+        }
+
+        .emblem-img {
+            height: 120px;
+            width: auto;
+            margin-bottom: 20px;
+        }
+
+        .govt-title {
+            font-size: 16px;
+            font-weight: 800;
+            letter-spacing: 0.15em;
+            color: var(--primary);
+            text-transform: uppercase;
+        }
+
+        .dept-title {
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            color: #b45309;
+            text-transform: uppercase;
+            margin-top: 5px;
+        }
+
+        .cover-main {
+            margin: 60px 0;
+        }
+
+        .document-type {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            margin-bottom: 15px;
+        }
+
+        .document-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 44px;
+            font-weight: 700;
+            color: var(--primary);
+            line-height: 1.2;
+            margin-bottom: 25px;
+        }
+
+        .document-subtitle {
+            font-size: 18px;
+            color: var(--text-muted);
+            max-width: 600px;
+        }
+
+        .cover-footer {
+            border-top: 2px solid var(--border);
+            padding-top: 30px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .meta-group h4 {
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 5px;
+        }
+
+        /* --- Headings --- */
+        h1, h2, h3, h4 {
+            font-family: 'Inter', sans-serif;
+            color: var(--primary);
+            font-weight: 700;
+        }
+
+        .section-title {
+            font-size: 28px;
+            border-bottom: 3px solid var(--secondary);
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+            margin-top: 60px;
+            text-transform: uppercase;
+            page-break-before: always;
+            break-before: page;
+        }
+
+        .subsection-title {
+            font-size: 20px;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 5px;
+        }
+
+        .step-title {
+            font-size: 16px;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            color: var(--primary-light);
+        }
+
+        p {
+            margin-bottom: 15px;
+        }
+
+        /* --- Content Layout --- */
+        .content-body {
+            padding: 60px;
+        }
+
+        .toc-list {
+            list-style: none;
+            margin-top: 30px;
+        }
+
+        .toc-item {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px dashed var(--border);
+            padding: 8px 0;
+            font-weight: 500;
+        }
+
+        .toc-item a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .toc-item span {
+            color: var(--text-muted);
+        }
+
+        /* --- Screenshot Placeholder Box --- */
+        .screenshot-box {
+            border: 2px dashed var(--primary-light);
+            background-color: var(--bg-light);
+            border-radius: 8px;
+            padding: 25px;
+            margin: 25px 0;
+            text-align: center;
+            position: relative;
+        }
+
+        .screenshot-box::before {
+            content: "📷 SCREENSHOT PLACEHOLDER";
+            display: block;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            color: var(--primary-light);
+            margin-bottom: 15px;
+        }
+
+        .screenshot-box .desc {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+
+        .screenshot-box .elements {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            display: inline-block;
+            padding: 8px 15px;
+            font-size: 12px;
+            font-family: monospace;
+            text-align: left;
+        }
+
+        /* --- Callout Box --- */
+        .callout {
+            border-left: 5px solid var(--secondary);
+            background-color: var(--secondary-light);
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .callout-title {
+            font-weight: 700;
+            color: #b45309;
+            margin-bottom: 5px;
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+
+        /* --- Tables --- */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th, td {
+            border: 1px solid var(--border);
+            padding: 12px;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        th {
+            background-color: var(--primary);
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:nth-child(even) {
+            background-color: var(--bg-light);
+        }
+
+        /* --- Code Block --- */
+        pre {
+            background: #1e293b;
+            color: #f8fafc;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 13px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Cover Page -->
+        <div class="cover-page">
+            <div class="emblem-container">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_Punjab%2C_India.svg" alt="Punjab Emblem" class="emblem-img">
+                <div class="govt-title">Government of Punjab</div>
+                <div class="dept-title">Department of Mines & Geology</div>
+            </div>
+            
+            <div class="cover-main">
+                <div class="document-type">Standard Operating Procedure</div>
+                <h1 class="document-title">District Survey Report (DSR)<br>Portal User Manual</h1>
+                <p class="document-subtitle">A comprehensive, step-by-step departmental guide to authentication, project management, data entry, review flow, and final report generation.</p>
+            </div>
+            
+            <div class="cover-footer">
+                <div class="meta-group">
+                    <h4>Document ID</h4>
+                    <p>DSR-PB-SOP-2026-V1</p>
+                </div>
+                <div class="meta-group">
+                    <h4>Published</h4>
+                    <p>July 2026</p>
+                </div>
+                <div class="meta-group">
+                    <h4>Department</h4>
+                    <p>Directorate of Mining, Chandigarh</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-body">
+            <!-- Table of Contents -->
+            <h1 class="subsection-title">Table of Contents</h1>
+            <ul class="toc-list">
+                <li class="toc-item"><a href="#intro">1. Introduction & Workflow Architecture</a> <span>Page 3</span></li>
+                <li class="toc-item"><a href="#auth">2. Portal Authentication & User Roles</a> <span>Page 5</span></li>
+                <li class="toc-item"><a href="#projects">3. Dashboard Navigation & Project Selection</a> <span>Page 8</span></li>
+                <li class="toc-item"><a href="#front-matter">4. Module 1: Front Matter Upload</a> <span>Page 11</span></li>
+                <li class="toc-item"><a href="#chapters">5. Module 2: Core Chapters Compilation</a> <span>Page 14</span></li>
+                <li class="toc-item"><a href="#plates">6. Module 3: Plates and Map Attachments</a> <span>Page 18</span></li>
+                <li class="toc-item"><a href="#cross-sections">7. Module 4: River Cross-Section Data</a> <span>Page 22</span></li>
+                <li class="toc-item"><a href="#annexures">8. Module 5: Annexures I-VII & B-K Tables</a> <span>Page 26</span></li>
+                <li class="toc-item"><a href="#replenishment">9. Module 6: Replenishment Calculations</a> <span>Page 31</span></li>
+                <li class="toc-item"><a href="#reviewer">10. Module 7: Workflow Review & Approval</a> <span>Page 34</span></li>
+                <li class="toc-item"><a href="#generator">11. Module 8: Final Report Compilation & PDF Generation</a> <span>Page 37</span></li>
+            </ul>
+
+            <!-- Section 1 -->
+            <h1 id="intro" class="section-title">1. Introduction & Workflow Architecture</h1>
+            <p>The District Survey Report (DSR) is a critical statutory document mandatory for environmental clearance of mining leases under the Sustainable Sand Mining Management Guidelines. The DSR Punjab Portal coordinates the workflow of drafting, verifying, and publishing these reports across various administrative levels in Punjab.</p>
+            
+            <div class="callout">
+                <div class="callout-title">Statutory Rule</div>
+                <p>Every district must establish and maintain an updated DSR for sand and minor minerals. This portal establishes full lineage tracking and prevents unauthorized modification of data during review cycles.</p>
+            </div>
+
+            <p>The workflow follows a strict sequential lifecycle to ensure audit-ready tracking. Below is the system flow mapping the administrative levels:</p>
+            
+            <div class="screenshot-box">
+                <div class="desc">Please capture the Workflow Diagram panel on the dashboard showing active stages and review logs.</div>
+                <div class="elements">
+                    Dashboard > Workflow Overview Panel > Stage Progress Bar
+                </div>
+            </div>
+
+            <!-- Section 2 -->
+            <h1 id="auth" class="section-title">2. Portal Authentication & User Roles</h1>
+            <p>Access control to the portal is aligned with standard departmental designations. Users are categorized under specific roles that grant permissions to edit, review, or approve sections of a District Survey Report.</p>
+            
+            <h2 class="subsection-title">2.1 Dual Authentication Screen</h2>
+            <p>The portal has two authentication screens designed for security requirements:</p>
+            
+            <div class="screenshot-box">
+                <div class="desc">Capture the Login page showing the active "Staff Login" and "Authority Login" tabs.</div>
+                <div class="elements">
+                    Vite App > /login Route > Account Tabs
+                </div>
+            </div>
+
+            <h3 class="step-title">A. Department Staff / Geologist Login</h3>
+            <p>Department staff and field geologists use their email address and passwords. Steps to sign in:</p>
+            <ol style="margin-left: 25px; margin-bottom: 15px;">
+                <li>Verify the <strong>Staff</strong> tab is highlighted.</li>
+                <li>Enter your departmental email (e.g., <code>geologist.asr@punjab.gov.in</code>).</li>
+                <li>Enter your password and click the <strong>Login</strong> button.</li>
+            </ol>
+
+            <h3 class="step-title">B. Authority / Director Login</h3>
+            <p>Senior officials and members of the DSR Committee sign in using their NIC credentials:</p>
+            <ol style="margin-left: 25px; margin-bottom: 15px;">
+                <li>Click on the <strong>Authority</strong> tab.</li>
+                <li>Input your numeric <strong>NIC ID</strong>.</li>
+                <li>Input your 4-to-6 digit secure <strong>PIN</strong>.</li>
+                <li>Click <strong>Login</strong> to enter.</li>
+            </ol>
+
+            <!-- Section 3 -->
+            <h1 id="projects" class="section-title">3. Dashboard Navigation & Project Selection</h1>
+            <p>Upon login, you are routed to the central workspace dashboard. The header displays active project files, system notices, and quick-access indicators.</p>
+
+            <div class="screenshot-box">
+                <div class="desc">Capture the central projects table list showing search parameters and status filters.</div>
+                <div class="elements">
+                    Projects Grid > Search Input > Status Filter Tags ("Draft", "Under Review", "Approved")
+                </div>
+            </div>
+
+            <h2 class="subsection-title">3.1 Selecting an Existing Project Workspace</h2>
+            <p>To enter a district survey workspace:</p>
+            <ol style="margin-left: 25px; margin-bottom: 15px;">
+                <li>Go to the <strong>Projects</strong> tab via the top menu.</li>
+                <li>Use the search box to type your target district name (e.g., <em>Ferozepur</em>).</li>
+                <li>Click on the row or card containing the project to navigate to the <strong>Project Details Dashboard</strong>.</li>
+            </ol>
+
+            <!-- Section 4 -->
+            <h1 id="front-matter" class="section-title">4. Module 1: Front Matter Upload</h1>
+            <p>The Front Matter module is the entry point of the DSR document hierarchy, handling files that establish authenticity.</p>
+
+            <div class="screenshot-box">
+                <div class="desc">Capture the Front Matter Editor screen with Cover Page, Compliance Certificate, and Preface file inputs.</div>
+                <div class="elements">
+                    Front Matter Panel > File Input Drag-Zones > File Names List
+                </div>
+            </div>
+
+            <h2 class="subsection-title">4.1 Upload Instructions</h2>
+            <p>Follow these steps to upload front matter components:</p>
+            <ol style="margin-left: 25px; margin-bottom: 15px;">
+                <li>Click on <strong>Front Matter</strong> in the project details list.</li>
+                <li>Locate the upload box for the <strong>Cover Page</strong>. Drag your PDF file here.</li>
+                <li>Provide files for the <strong>Certificate of Compliance</strong> and <strong>Preface</strong> similarly.</li>
+                <li>Click the <strong>Save</strong> button to update the state of the document.</li>
+            </ol>
+
+            <!-- Section 5 -->
+            <h1 id="chapters" class="section-title">5. Module 2: Core Chapters Compilation</h1>
+            <p>DSR Punjab mandates ten structured chapters covering everything from physical geography to mineral potential and environmental safeguards.</p>
+
+            <div class="screenshot-box">
+                <div class="desc">Capture the Chapters Editor showing the tabbed list of chapters (1-10) and the rich text editor pane.</div>
+                <div class="elements">
+                    Chapters Panel > Left Sidebar Tabs > Content Editor Workspace
+                </div>
+            </div>
+
+            <h2 class="subsection-title">5.1 Compiling Chapters</h2>
+            <p>Geologists can draft chapters directly using the online editor or upload prepared documents:</p>
+            <ol style="margin-left: 25px; margin-bottom: 15px;">
+                <li>Select the chapter from the list (e.g., <em>Chapter 4: Mineral Wealth of District</em>).</li>
+                <li>Write or copy-paste text inside the rich text editing box.</li>
+                <li>Use the toolbar to insert tables, headings, and bold text.</li>
+                <li>Set the status to <strong>Completed</strong> and click <strong>Save Chapter</strong>.</li>
+            </ol>
+
+            <!-- Section 6 -->
+            <h1 id="plates" class="section-title">6. Module 3: Plates and Map Attachments</h1>
+            <p>High-resolution maps and geological plates must be attached to the DSR to visually reference mineral deposits and coordinates.</p>
+
+            <div class="screenshot-box">
+                <div class="desc">Capture the Plates Upload module displaying uploaded geological map previews and captions.</div>
+                <div class="elements">
+                    Plates & Maps Panel > File Preview Grid > Caption Inputs
+                </div>
+            </div>
+
+            <h2 class="subsection-title">6.1 Uploading Map Plates</h2>
+            <p>To register a plate:</p>
+            <ol style="margin-left: 25px; margin-bottom: 15px;">
+                <li>Open <strong>Plates & Maps</strong>.</li>
+                <li>Click the <strong>Add Plate</strong> button.</li>
+                <li>Choose a map file (PDF, PNG, or JPEG format).</li>
+                <li>Enter the Plate details including:
+                    <ul>
+                        <li><strong>Plate Title</strong> (e.g., <em>Plate 1 - Drainage Map of District Ludhiana</em>)</li>
+                        <li><strong>Scale</strong> (e.g., <em>1:50,000</em>)</li>
+                    </ul>
+                </li>
+                <li>Click <strong>Upload Plate</strong> to append.</li>
+            </ol>
+
+            <!-- Section 7 -->
+            <h1 id="cross-sections" class="section-title">7. Module 4: River Cross-Section Data</h1>
+            <p>Cross-section profiles help estimate sand extraction depth limits and identify baseline river bed contours.</p>
+
+            <div class="screenshot-box">
+                <div class="desc">Capture the Cross Section Profile page with the live elevation profile chart.</div>
+                <div class="elements">
+                    Cross Sections Panel > Coordinates Input Grid > SVG Graph Display
+                </div>
+            </div>
+
+            <h2 class="subsection-title">7.1 Generating Cross-Section Graphs</h2>
+            <p>To insert profile data:</p>
+            <ol style="margin-left: 25px; margin-bottom: 15px;">
+                <li>Go to the <strong>Cross Sections</strong> builder page.</li>
+                <li>For each surveyed cross-section point:
+                    <ul>
+                        <li>Input <strong>Chainage Distance</strong> (meters).</li>
+                        <li>Input <strong>Elevation Levels</strong> (meters above MSL).</li>
+                    </ul>
+                </li>
+                <li>The system will automatically plot the data points on the SVG chart.</li>
+                <li>Click <strong>Save Graphs</strong>.</li>
+            </ol>
+
+            <!-- Section 8 -->
+            <h1 id="annexures" class="section-title">8. Module 5: Annexures I-VII & B-K Tables</h1>
+            <p>Annexures contain tabular database parameters detailing the list of leases, lease durations, sand quantities, and leaseholder names.</p>
+
+            <div class="screenshot-box">
+                <div class="desc">Capture the Annexure Editor showing the interactive data grid and the Excel import trigger.</div>
+                <div class="elements">
+                    Annexures Panel > Active Table Grid > "Import Excel" Button
+                </div>
+            </div>
+
+            <h2 class="subsection-title">8.1 Upload and Edit Instructions</h2>
+            <p>Tables can be populated using the built-in grid tool or spreadsheet template files:</p>
+            <ol style="margin-left: 25px; margin-bottom: 15px;">
+                <li>Go to the <strong>Annexures</strong> section.</li>
+                <li>Choose the Target Annexure ID (e.g., <em>Annexure I</em>).</li>
+                <li>Click **Import Excel** and upload your spreadsheet file to fill the table fields automatically.</li>
+                <li>Review the fields for validation errors (highlighted in red).</li>
+                <li>Click <strong>Save Annexure</strong> to commit the data.</li>
+            </ol>
+
+            <!-- Section 9 -->
+            <h1 id="replenishment" class="section-title">9. Module 6: Replenishment Calculations</h1>
+            <p>Replenishment calculations help determine the sustainability of the mining lease by estimating sand deposit rates after monsoons.</p>
+
+            <div class="screenshot-box">
+                <div class="desc">Capture the Replenishment Builder page displaying pre-monsoon and post-monsoon inputs and calculated volumes.</div>
+                <div class="elements">
+                    Replenishment Panel > Input Form > Calculations Summary Card
+                </div>
+            </div>
+
+            <h2 class="subsection-title">9.1 Inputting Replenishment Parameters</h2>
+            <p>To calculate replenishment rates:</p>
+            <ol style="margin-left: 25px; margin-bottom: 15px;">
+                <li>Navigate to <strong>Replenishment</strong>.</li>
+                <li>Enter the pre-monsoon sand levels.</li>
+                <li>Enter the post-monsoon sand levels.</li>
+                <li>Click the **Calculate** button to calculate the volume variance.</li>
+                <li>Save the parameters to attach this calculation sheet to the final report.</li>
+            </ol>
+
+            <!-- Section 10 -->
+            <h1 id="reviewer" class="section-title">10. Module 7: Workflow Review & Approval</h1>
+            <p>Every report must move through the review pipeline to log approvals and observations from inspectors and directors.</p>
+
+            <div class="screenshot-box">
+                <div class="desc">Capture the Reviewer workflow interface showing audit trails, comments log, and approval triggers.</div>
+                <div class="elements">
+                    Workflow & Review Panel > Comments list > Action Buttons ("Approve", "Return")
+                </div>
+            </div>
+
+            <h2 class="subsection-title">10.1 Steps for Reviewing Officers</h2>
+            <ol style="margin-left: 25px; margin-bottom: 15px;">
+                <li>Navigate to the **Reviewer & Workflow** section.</li>
+                <li>Inspect each document component listed.</li>
+                <li>If errors are found, click **Return to Draft** and write your comment.</li>
+                <li>If the document is correct, select **Approve Section**.</li>
+                <li>Enter your review details to sign off on the report stage.</li>
+            </ol>
+
+            <!-- Section 11 -->
+            <h1 id="generator" class="section-title">11. Module 8: Final Report Compilation & PDF Generation</h1>
+            <p>The PDF generation engine compiles all approved chapters, annexure grids, front matter attachments, and map plates into a print-ready document.</p>
+
+            <div class="screenshot-box">
+                <div class="desc">Capture the Report Preview and PDF Compilation screen with header/footer settings and the download button.</div>
+                <div class="elements">
+                    Report Preview Screen > Header/Footer Settings Form > "Download Final PDF" Button
+                </div>
+            </div>
+
+            <h2 class="subsection-title">11.1 Generating and Downloading DSR</h2>
+            <ol style="margin-left: 25px; margin-bottom: 15px;">
+                <li>Select **Report Preview** or **Generate PDF** from the project menu.</li>
+                <li>Review the compiled pages in the live viewer.</li>
+                <li>Configure the header and footer margins and names.</li>
+                <li>Click **Download Final PDF** to save the document to your local storage.</li>
+            </ol>
+
+            <div class="callout" style="border-left-color: #dc2626; background-color: #fee2e2;">
+                <div class="callout-title" style="color: #991b1b;">Important Checklist before downloading</div>
+                <p style="color: #7f1d1d;">Ensure all sections are marked as "Approved" in the workflow page. Unapproved sections will trigger validation warnings or export with watermarks.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
