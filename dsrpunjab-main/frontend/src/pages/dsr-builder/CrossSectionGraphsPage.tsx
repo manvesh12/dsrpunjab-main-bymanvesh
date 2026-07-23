@@ -566,8 +566,8 @@ function GraphBlock({ graph: g, updateG, onDelete }: { graph: Graph; updateG: (k
   return (
     <div className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 bg-slate-50/80 p-4">
-        <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-end 2xl:justify-between">
-          <div className="grid min-w-0 flex-1 gap-4 lg:grid-cols-[minmax(220px,1fr)_minmax(330px,auto)]">
+        <div className="space-y-4">
+          <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))] gap-4">
             <label className="min-w-0">
               <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">Post-monsoon section name</span>
               <input
@@ -603,11 +603,11 @@ function GraphBlock({ graph: g, updateG, onDelete }: { graph: Graph; updateG: (k
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 2xl:justify-end">
-            <button type="button" className="module-btn whitespace-nowrap" onClick={downloadPDF}>
+          <div className="flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3 sm:justify-end">
+            <button type="button" className="module-btn min-w-0 flex-1 justify-center whitespace-nowrap sm:flex-none" onClick={downloadPDF}>
               <Download size={15} /> Download section PDF
             </button>
-            <button type="button" className="inline-flex items-center gap-2 whitespace-nowrap rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50" onClick={onDelete}>
+            <button type="button" className="inline-flex min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50 sm:flex-none" onClick={onDelete}>
               <Trash2 size={15} /> Delete section
             </button>
           </div>
