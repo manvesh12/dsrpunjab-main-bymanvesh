@@ -14,6 +14,7 @@ import { environment } from "./config/environment.js";
 import { dashboardRouter } from "./dashboard/dashboard.routes.js";
 import { healthRouter } from "./health/health.routes.js";
 import { modelDsrRouter } from "./model-dsr/model-dsr.routes.js";
+import { notificationsRouter } from "./notifications/notifications.routes.js";
 import { streamRouter } from "./notifications/progress-stream.routes.js";
 import { pdfRouter } from "./pdf/pdf.routes.js";
 import { projectsRouter } from "./projects/projects.routes.js";
@@ -60,6 +61,7 @@ export function createApp() {
   app.use("/api/reports", requireAuth, auditMutations, reportsRouter);
   app.use("/api/users", requireAuth, auditMutations, usersRouter);
   app.use("/api/model-dsrs", requireAuth, auditMutations, modelDsrRouter);
+  app.use("/api/notifications", requireAuth, notificationsRouter);
   app.use("/api/settings", settingsRouter);
   app.use("/api/search", requireAuth, auditMutations, searchRouter);
   app.use("/api/stream", requireAuth, streamRouter);

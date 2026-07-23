@@ -6,7 +6,6 @@ import PortalLayout from "../components/layout/PortalLayout";
 import DashboardPage from "../pages/dashboard/DashboardPage";
 import CreateProjectPage from "../pages/projects/CreateProjectPage";
 import ProjectsPage from "../pages/projects/ProjectsPage";
-import ModuleEditor from "../components/ui/ModuleEditor";
 import AnnexureEditorPage from "../pages/annexures/AnnexureEditorPage";
 import AdditionalAnnexureEditorPage from "../pages/annexures/AdditionalAnnexureEditorPage";
 import ProjectDetailsPage from "../pages/projects/ProjectDetailsPage";
@@ -30,18 +29,8 @@ import ReportsPage from "../pages/reports/ReportsPage";
 import DistrictsPage from "../pages/districts/DistrictsPage";
 import AnalyticsPage from "../pages/analytics/AnalyticsPage";
 import ImportDsrPage from "../pages/import-dsr/ImportDsrPage";
+import NotificationsPage from "../pages/notifications/NotificationsPage";
 import { Permission } from "../security/access";
-const portalModules = {
-  workflow: { title:"Workflow", description:"Track review, observations and approval stages", columns:[{key:"report",label:"Report"},{key:"stage",label:"Current Stage"},{key:"assignee",label:"Assigned To"},{key:"due",label:"Due Date",type:"date" as const},{key:"status",label:"Status"}] },
-  districts: { title:"Districts", description:"Punjab district information and DSR coverage", columns:[{key:"district",label:"District"},{key:"rivers",label:"Rivers"},{key:"projects",label:"DSR Projects",type:"number" as const},{key:"officer",label:"District Officer"},{key:"status",label:"Status"}] },
-  reports: { title:"Reports", description:"Generated drafts, review copies and final reports", columns:[{key:"title",label:"Report Title"},{key:"district",label:"District"},{key:"version",label:"Version"},{key:"generated",label:"Generated On",type:"date" as const},{key:"status",label:"Status"}] },
-  analytics: { title:"Analytics Data", description:"Project, mineral and district performance indicators", columns:[{key:"metric",label:"Metric"},{key:"district",label:"District"},{key:"period",label:"Period"},{key:"value",label:"Value",type:"number" as const},{key:"trend",label:"Trend"}] },
-  notifications: { title:"Notifications", description:"Portal alerts and review updates", columns:[{key:"subject",label:"Subject"},{key:"message",label:"Message"},{key:"date",label:"Date",type:"date" as const},{key:"priority",label:"Priority"},{key:"status",label:"Status"}] },
-  users: { title:"Users & Roles", description:"Manage portal users, districts and permissions", columns:[{key:"name",label:"Name"},{key:"email",label:"Email"},{key:"role",label:"Role"},{key:"district",label:"District"},{key:"status",label:"Status"}] },
-  audit: { title:"Audit Logs", description:"Review all important portal activity", columns:[{key:"user",label:"User"},{key:"action",label:"Action"},{key:"module",label:"Module"},{key:"time",label:"Date & Time"},{key:"ip",label:"IP Address"}] },
-  settings: { title:"Portal Settings", description:"Configure organization and report defaults", columns:[{key:"setting",label:"Setting"},{key:"value",label:"Value"},{key:"group",label:"Group"},{key:"updatedBy",label:"Updated By"}] },
-};
-
 export default function AppRoutes() {
   return (
     <Routes>
@@ -124,7 +113,7 @@ export default function AppRoutes() {
 
         <Route
           path="/notifications"
-          element={<ModuleEditor storageKey="notifications" {...portalModules.notifications} />}
+          element={<NotificationsPage />}
         />
 
         <Route

@@ -1,5 +1,8 @@
-import { Bell, Menu, Search, User, LogOut, Landmark } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Bell, Check, CheckCheck, ChevronRight, FileCheck2, Landmark, LogOut, Menu, Search, User, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { notificationHref, notificationsApi, type PortalNotification } from "../../api/notifications.api";
 import { useAuth } from "../../security/auth.context";
 import ThemeToggle from "../ui/ThemeToggle";
 
@@ -10,11 +13,53 @@ type HeaderProps = {
 export default function Header({ onMenuClick }: HeaderProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const queryClient = useQueryClient();
+  const notificationMenuRef = useRef<HTMLDivElement>(null);
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const { data: notificationInbox, isLoading: notificationsLoading } = useQuery({
+    queryKey: ["notifications", "inbox"],
+    queryFn: () => notificationsApi.list(8),
+    enabled: Boolean(user),
+    refetchInterval: 30_000,
+    staleTime: 10_000,
+  });
+  const markRead = useMutation({
+    mutationFn: notificationsApi.markRead,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+  const markAllRead = useMutation({
+    mutationFn: notificationsApi.markAllRead,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+
+  useEffect(() => {
+    if (!notificationOpen) return;
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (!notificationMenuRef.current?.contains(event.target as Node)) setNotificationOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setNotificationOpen(false);
+    };
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [notificationOpen]);
 
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
+
+  const openNotification = (notification: PortalNotification) => {
+    if (!notification.read) markRead.mutate(notification.id);
+    setNotificationOpen(false);
+    navigate(notificationHref(notification));
+  };
+
+  const unreadCount = notificationInbox?.unreadCount || 0;
 
   return (
     <header className="gov-header sticky top-0 z-20 bg-white dark:bg-slate-900">
@@ -47,13 +92,84 @@ export default function Header({ onMenuClick }: HeaderProps) {
       <div className="ml-auto flex items-center gap-2">
         <ThemeToggle />
 
-        <button
-          type="button"
-          className="relative rounded-sm border border-slate-300 p-2.5 text-[#12396b] hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors"
-        >
-          <Bell size={21} />
-          <span className="absolute right-2 top-2 size-2 rounded-full bg-red-500" />
-        </button>
+        <div ref={notificationMenuRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setNotificationOpen((open) => !open)}
+            aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
+            aria-expanded={notificationOpen}
+            className="relative rounded-sm border border-slate-300 p-2.5 text-[#12396b] transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            <Bell size={21} />
+            {unreadCount > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-600 px-1 text-[10px] font-bold leading-none text-white dark:border-slate-900">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+          </button>
+
+          {notificationOpen && (
+            <div className="fixed inset-x-3 top-[112px] z-50 overflow-hidden border border-slate-300 bg-white shadow-xl sm:absolute sm:inset-auto sm:right-0 sm:top-[calc(100%+10px)] sm:w-[390px] dark:border-slate-700 dark:bg-slate-900">
+              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-700">
+                <div>
+                  <h2 className="text-sm font-extrabold text-slate-900 dark:text-white">Notifications</h2>
+                  <p className="text-xs text-slate-500">{unreadCount ? `${unreadCount} unread` : "You're all caught up"}</p>
+                </div>
+                <div className="flex items-center gap-1">
+                  {unreadCount > 0 && (
+                    <button type="button" onClick={() => markAllRead.mutate()} title="Mark all as read" className="rounded p-2 text-slate-500 hover:bg-slate-100 hover:text-[#12396b] dark:hover:bg-slate-800">
+                      <CheckCheck size={17} />
+                    </button>
+                  )}
+                  <button type="button" onClick={() => setNotificationOpen(false)} title="Close notifications" className="rounded p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
+                    <X size={17} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="max-h-[420px] overflow-y-auto">
+                {notificationsLoading ? (
+                  <div className="px-4 py-10 text-center text-sm text-slate-500">Loading notifications...</div>
+                ) : notificationInbox?.items.length ? (
+                  notificationInbox.items.map((notification) => (
+                    <button
+                      key={notification.id}
+                      type="button"
+                      onClick={() => openNotification(notification)}
+                      className={`flex w-full items-start gap-3 border-b border-slate-100 px-4 py-3 text-left transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800 ${notification.read ? "" : "bg-blue-50/70 dark:bg-blue-950/20"}`}
+                    >
+                      <span className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full ${notification.type.includes("APPROVE") ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-[#12396b]"}`}>
+                        {notification.type.includes("APPROVE") ? <Check size={15} /> : <FileCheck2 size={15} />}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold leading-5 text-slate-800 dark:text-slate-200">{notification.message}</span>
+                        <span className="mt-1 block text-[11px] text-slate-500">{new Date(notification.createdAt).toLocaleString("en-IN")}</span>
+                      </span>
+                      <ChevronRight size={15} className="mt-2 shrink-0 text-slate-400" />
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-5 py-12 text-center">
+                    <Bell size={28} className="mx-auto mb-3 text-slate-300" />
+                    <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">No notifications yet</p>
+                    <p className="mt-1 text-xs text-slate-400">Role-specific workflow updates will appear here.</p>
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setNotificationOpen(false);
+                  navigate("/notifications");
+                }}
+                className="flex w-full items-center justify-center gap-2 border-t border-slate-200 px-4 py-3 text-xs font-bold text-[#12396b] hover:bg-slate-50 dark:border-slate-700 dark:text-blue-300 dark:hover:bg-slate-800"
+              >
+                View all notifications <ChevronRight size={14} />
+              </button>
+            </div>
+          )}
+        </div>
 
         <button
           type="button"

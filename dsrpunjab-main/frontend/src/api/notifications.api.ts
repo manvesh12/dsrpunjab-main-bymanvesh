@@ -1,68 +1,55 @@
 import { apiClient } from "./client";
 
-/**
- * NOTE: The backend currently has a progress-stream service for SSE notifications.
- * A full Notification entity on the User model exists in the Prisma schema.
- * This API module is prepared for when the backend exposes a /notifications endpoint.
- * Until then, it gracefully handles 404 errors.
- */
-
-export interface Notification {
-  id: string | number;
+export interface PortalNotification {
+  id: number;
+  type: string;
   message: string;
-  type: "info" | "warning" | "error" | "success";
   read: boolean;
   createdAt: string;
-  link?: string;
+}
+
+export interface NotificationInbox {
+  items: PortalNotification[];
+  unreadCount: number;
 }
 
 export const notificationsApi = {
-  /** Fetch all notifications for the current user */
-  list: async (): Promise<Notification[]> => {
-    try {
-      const { data } = await apiClient.get<Notification[]>("/notifications");
-      return data;
-    } catch (err: any) {
-      if (err?.response?.status === 404) return [];
-      throw err;
-    }
+  list: async (limit = 30): Promise<NotificationInbox> => {
+    const { data } = await apiClient.get<NotificationInbox>("/notifications", { params: { limit } });
+    return data;
   },
 
-  /** Mark a single notification as read */
-  markRead: async (id: string | number): Promise<void> => {
-    try {
-      await apiClient.patch(`/notifications/${id}/read`);
-    } catch (err: any) {
-      if (err?.response?.status === 404) return;
-      throw err;
-    }
+  markRead: async (id: number) => {
+    const { data } = await apiClient.patch<{ success: boolean }>(`/notifications/${id}/read`);
+    return data;
   },
 
-  /** Mark all notifications as read */
-  markAllRead: async (): Promise<void> => {
-    try {
-      await apiClient.patch("/notifications/read-all");
-    } catch (err: any) {
-      if (err?.response?.status === 404) return;
-      throw err;
-    }
+  markAllRead: async () => {
+    const { data } = await apiClient.patch<{ success: boolean; updated: number }>("/notifications/read-all");
+    return data;
   },
 
-  /**
-   * Subscribe to a Server-Sent Events stream for real-time job progress.
-   * Used in Import DSR and DSR generation flows.
-   */
+  clearRead: async () => {
+    const { data } = await apiClient.delete<{ success: boolean; deleted: number }>("/notifications/read");
+    return data;
+  },
+
   streamJobProgress: (jobId: string, onMessage: (data: unknown) => void): EventSource => {
     const baseUrl = apiClient.defaults.baseURL || "http://localhost:8080/api";
     const token = localStorage.getItem("dsr:auth_token") || "";
-    const es = new EventSource(`${baseUrl}/stream/job/${jobId}?token=${token}`);
-    es.onmessage = (e) => {
+    const eventSource = new EventSource(`${baseUrl}/stream/job/${jobId}?token=${token}`);
+    eventSource.onmessage = (event) => {
       try {
-        onMessage(JSON.parse(e.data));
+        onMessage(JSON.parse(event.data));
       } catch {
-        onMessage(e.data);
+        onMessage(event.data);
       }
     };
-    return es;
+    return eventSource;
   },
 };
+
+export function notificationHref(notification: PortalNotification) {
+  const projectId = notification.type.match(/PROJECT_(\d+)/)?.[1];
+  return projectId ? `/projects/${projectId}` : "/notifications";
+}

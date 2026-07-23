@@ -3,6 +3,7 @@ import { assertProjectDistrictAccess } from "../authorization/project-access.pol
 import { ApiError } from "../common/exceptions/api-error.js";
 import { logger } from "../common/logging/logger.js";
 import type { AuthUser } from "../authentication/auth-user.js";
+import { notificationsService } from "../notifications/notifications.service.js";
 import { storageService, type StorageService } from "../storage/storage.service.js";
 import { MAX_SYNCABLE_PROJECT_STATE_BYTES } from "./replenishment.constants.js";
 import { replenishmentRepository, type ReplenishmentRepositoryContract } from "./replenishment.repository.js";
@@ -253,10 +254,14 @@ export class ReplenishmentService {
       updatedStatus = ReportStatus.UNDER_REVIEW;
     }
     
-    return this.repository.update(id, { 
+    const updated = await this.repository.update(id, {
       approvalState: requestedState,
-      status: updatedStatus 
+      status: updatedStatus
     });
+    await notificationsService.notifyWorkflow(requestedState, user, project!, body?.remarks).catch((error) => {
+      logger.warn("replenishment_notification_failed", { projectId: existing.projectId.toString(), error: String(error) });
+    });
+    return updated;
   }
 
   async generateAi(id: string, body: any, user: AuthUser) {

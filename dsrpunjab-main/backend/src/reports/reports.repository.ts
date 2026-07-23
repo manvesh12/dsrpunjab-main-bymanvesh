@@ -15,7 +15,12 @@ export class ReportsRepository {
     return this.database.report.update({ where: { id }, data: { status } });
   }
 
-  findProject(id: bigint) { return this.database.project.findUnique({ where: { id } }); }
+  findProject(id: bigint) {
+    return this.database.project.findUnique({
+      where: { id },
+      select: { id: true, projectName: true, title: true, districtId: true, createdBy: true },
+    });
+  }
 
   createWorkflow(input: ReportWorkflowDto, performedBy: bigint) {
     return this.database.workflowHistory.create({

@@ -1,7 +1,9 @@
 import { ApiError } from "../common/exceptions/api-error.js";
+import { logger } from "../common/logging/logger.js";
 import type { AuthUser } from "../authentication/auth-user.js";
 import { canReview, canUpload } from "../authorization/role.policy.js";
 import { projectName } from "../projects/projects.mapper.js";
+import { notificationsService } from "../notifications/notifications.service.js";
 import type { CreateReportDto, ReportWorkflowDto, UpdateReportStatusDto } from "./reports.dto.js";
 import { reportsRepository, type ReportsRepositoryContract } from "./reports.repository.js";
 
@@ -27,6 +29,11 @@ export class ReportsService {
 
     const project = await this.repository.findProject(input.reportId).catch(() => null);
     const entry = await this.repository.createWorkflow(input, user.id);
+    if (project) {
+      await notificationsService.notifyWorkflow(input.action, user, project, input.remarks).catch((error) => {
+        logger.warn("workflow_notification_failed", { projectId: project.id.toString(), error: String(error) });
+      });
+    }
     return {
       ...entry,
       projectId: Number(input.reportId),
