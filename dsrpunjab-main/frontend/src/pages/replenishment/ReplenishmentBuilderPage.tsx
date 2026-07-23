@@ -54,6 +54,12 @@ type GridRow = {
   postRl: string;
 };
 
+type GridTable = {
+  id: string;
+  title: string;
+  grids: GridRow[];
+};
+
 type StudyDetails = {
   reportFormat: "official" | "book";
   headerText: string;
@@ -84,6 +90,7 @@ type BuilderState = {
   details: StudyDetails;
   sections: ReportSection[];
   grids: GridRow[];
+  gridTables?: GridTable[];
   inherited?: Record<string, unknown>;
   importedKeys: string[];
   lastSavedAt?: string;
@@ -150,6 +157,28 @@ const defaultSections: ReportSection[] = [
 
 const defaultGrid = (): GridRow => ({ id: crypto.randomUUID(), grid: "", area: "", preRl: "", postRl: "" });
 
+const defaultGridTable = (index = 1): GridTable => ({
+  id: crypto.randomUUID(),
+  title: `Grid-wise calculation ${index}`,
+  grids: [defaultGrid()],
+});
+
+function normaliseGridTables(saved: Partial<BuilderState>): GridTable[] {
+  if (Array.isArray(saved.gridTables) && saved.gridTables.length) {
+    return saved.gridTables.map((table, index) => ({
+      id: table.id || crypto.randomUUID(),
+      title: table.title || `Grid-wise calculation ${index + 1}`,
+      grids: Array.isArray(table.grids) && table.grids.length ? table.grids : [defaultGrid()],
+    }));
+  }
+  const legacyGrids = Array.isArray(saved.grids) && saved.grids.length ? saved.grids : [defaultGrid()];
+  return [{ id: crypto.randomUUID(), title: "Grid-wise calculation 1", grids: legacyGrids }];
+}
+
+function flattenGridTables(tables: GridTable[]) {
+  return tables.flatMap((table) => table.grids);
+}
+
 const evidenceRequirements: EvidenceRequirement[] = [
   { id: "environmental-clearance", title: "Environmental Clearance", hint: "EC letter with conditions", required: true, accept: ".pdf" },
   { id: "approved-mining-plan", title: "Approved Mining Plan", hint: "Relevant approved pages or complete plan", required: true, accept: ".pdf" },
@@ -204,15 +233,25 @@ function fileSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+function calculateGridRows(rows: GridRow[], bulkDensity: string) {
+  return rows.map((row) => {
+    const gain = Math.max(0, numberValue(row.postRl) - numberValue(row.preRl));
+    const volume = numberValue(row.area) * gain;
+    return { ...row, gain, volume, quantity: volume * numberValue(bulkDensity) };
+  });
+}
+
 function normaliseState(study: ReplenishmentStudy): BuilderState {
   const saved = study.reportState as Partial<BuilderState> & { inherited?: Record<string, unknown> };
   if (saved.type === "replenishment_builder_v2") {
+    const gridTables = normaliseGridTables(saved);
     return {
       type: "replenishment_builder_v2",
       schemaVersion: 2,
       details: { ...defaultDetails, ...saved.details },
       sections: Array.isArray(saved.sections) ? saved.sections : defaultSections,
-      grids: Array.isArray(saved.grids) && saved.grids.length ? saved.grids : [defaultGrid()],
+      grids: flattenGridTables(gridTables),
+      gridTables,
       inherited: saved.inherited || {},
       importedKeys: Array.isArray(saved.importedKeys) ? saved.importedKeys : [],
       lastSavedAt: saved.lastSavedAt,
@@ -229,6 +268,7 @@ function normaliseState(study: ReplenishmentStudy): BuilderState {
     },
     sections: defaultSections,
     grids: [defaultGrid()],
+    gridTables: [defaultGridTable()],
     inherited: saved.inherited || {},
     importedKeys: [],
   };
@@ -268,20 +308,20 @@ function buildReportHtml(state: BuilderState, study: ReplenishmentStudy | null, 
 
 function buildFormalReportHtml(state: BuilderState, _study: ReplenishmentStudy | null, files: ReplenishmentFile[]) {
   const details = state.details;
-  const rows = state.grids.map((row) => {
-    const difference = Math.max(0, numberValue(row.postRl) - numberValue(row.preRl));
-    const volume = numberValue(row.area) * difference;
-    const quantity = volume * numberValue(details.bulkDensity);
-    return { ...row, difference, volume, quantity };
-  });
-  const totalVolume = rows.reduce((sum, row) => sum + row.volume, 0);
-  const totalQuantity = rows.reduce((sum, row) => sum + row.quantity, 0);
+  const calculationTables = (state.gridTables?.length ? state.gridTables : normaliseGridTables(state)).map((table) => ({ ...table, rows: calculateGridRows(table.grids, details.bulkDensity) }));
+  const totalVolume = calculationTables.reduce((sum, table) => sum + table.rows.reduce((tableSum, row) => tableSum + row.volume, 0), 0);
+  const totalQuantity = calculationTables.reduce((sum, table) => sum + table.rows.reduce((tableSum, row) => tableSum + row.quantity, 0), 0);
   const approved = numberValue(details.approvedQuantity);
   const replenishment = approved ? (totalQuantity / approved) * 100 : 0;
   const sections = state.sections.filter((section) => section.included);
   const cleanTitle = (title: string) => safe(title).replace(/^\d+(\.\d+)?\s*/, "");
   const toc = sections.map((section, index) => `<tr><td>${index + 1}.0</td><td>${cleanTitle(section.title)}</td><td></td></tr>`).join("");
-  const body = sections.map((section, index) => `<section class="chapter"><h2>${index + 1}.0 ${cleanTitle(section.title)}</h2><div class="narrative">${safe(section.content).replace(/\n/g, "<br>")}</div>${section.id === "calculation" ? `<h3>Grid-wise Volume and Quantity Calculation</h3><table><thead><tr><th>Grid / Chainage</th><th>Area (sq m)</th><th>Pre RL (m)</th><th>Post RL (m)</th><th>Gain (m)</th><th>Volume (cum)</th><th>Quantity (MT)</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${safe(row.grid || "-")}</td><td>${safe(row.area || "-")}</td><td>${safe(row.preRl || "-")}</td><td>${safe(row.postRl || "-")}</td><td>${formatNumber(row.difference)}</td><td>${formatNumber(row.volume)}</td><td>${formatNumber(row.quantity)}</td></tr>`).join("")}<tr class="total"><td colspan="5">Total assessed replenishment</td><td>${formatNumber(totalVolume)}</td><td>${formatNumber(totalQuantity)}</td></tr></tbody></table>` : ""}</section>`).join("");
+  const calculationHtml = calculationTables.map((table, tableIndex) => {
+    const tableVolume = table.rows.reduce((sum, row) => sum + row.volume, 0);
+    const tableQuantity = table.rows.reduce((sum, row) => sum + row.quantity, 0);
+    return `<h3>Table ${tableIndex + 1}: Grid-wise Volume and Quantity Calculation</h3><table><thead><tr><th>Grid / Chainage</th><th>Area (sq m)</th><th>Pre RL (m)</th><th>Post RL (m)</th><th>Gain (m)</th><th>Volume (cum)</th><th>Quantity (MT)</th></tr></thead><tbody>${table.rows.map((row) => `<tr><td>${safe(row.grid || "-")}</td><td>${safe(row.area || "-")}</td><td>${safe(row.preRl || "-")}</td><td>${safe(row.postRl || "-")}</td><td>${formatNumber(row.gain)}</td><td>${formatNumber(row.volume)}</td><td>${formatNumber(row.quantity)}</td></tr>`).join("")}<tr class="total"><td colspan="5">Total assessed replenishment</td><td>${formatNumber(tableVolume)}</td><td>${formatNumber(tableQuantity)}</td></tr></tbody></table>`;
+  }).join("");
+  const body = sections.map((section, index) => `<section class="chapter"><h2>${index + 1}.0 ${cleanTitle(section.title)}</h2><div class="narrative">${safe(section.content).replace(/\n/g, "<br>")}</div>${section.id === "calculation" ? calculationHtml : ""}</section>`).join("");
   const evidenceRows = evidenceRequirements.map((requirement, index) => {
     const matches = files.filter((file) => file.sectionId === requirement.id);
     return `<tr><td>${index + 1}</td><td>${safe(requirement.title)}</td><td>${requirement.required ? "Required" : "Optional"}</td><td>${matches.length ? matches.map((file) => safe(file.fileName)).join("<br>") : "Not uploaded"}</td><td>${matches.length ? "Attached" : "Pending"}</td></tr>`;
@@ -308,11 +348,85 @@ function Card({ children, className = "" }: { children: React.ReactNode; classNa
   return <div className={`rounded-xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}>{children}</div>;
 }
 
+function GridCalculationCard({
+  table,
+  tableNumber,
+  canRemove,
+  onAddRow,
+  onRemoveTable,
+  onUpdateRow,
+  onRemoveRow,
+}: {
+  table: GridTable & { rows: ReturnType<typeof calculateGridRows> };
+  tableNumber: number;
+  canRemove: boolean;
+  onAddRow: () => void;
+  onRemoveTable: () => void;
+  onUpdateRow: (rowId: string, key: keyof GridRow, value: string) => void;
+  onRemoveRow: (rowId: string) => void;
+}) {
+  const tableVolume = table.rows.reduce((sum, row) => sum + row.volume, 0);
+  const tableQuantity = table.rows.reduce((sum, row) => sum + row.quantity, 0);
+  return (
+    <Card>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-extrabold text-[#12396b]">Grid-wise calculation {tableNumber}</h3>
+          <p className="text-sm text-slate-500">Additional replenishment calculation table.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={onAddRow} className="module-btn-secondary"><Plus size={16}/> Add grid</button>
+          <button disabled={!canRemove} onClick={onRemoveTable} className="module-btn-secondary text-red-600 disabled:opacity-40"><Trash2 size={16}/> Remove table</button>
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[850px] text-sm">
+          <thead>
+            <tr className="bg-[#12396b] text-white">
+              <th className="p-2 text-left">Grid / chainage</th>
+              <th className="p-2 text-left">Area (m²)</th>
+              <th className="p-2 text-left">Pre RL (m)</th>
+              <th className="p-2 text-left">Post RL (m)</th>
+              <th className="p-2 text-right">Gain</th>
+              <th className="p-2 text-right">Volume</th>
+              <th className="p-2 text-right">Quantity (MT)</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {table.rows.map((row) => (
+              <tr key={row.id} className="border-b border-slate-200">
+                {(["grid", "area", "preRl", "postRl"] as const).map((key) => (
+                  <td key={key} className="p-1.5">
+                    <input value={row[key]} onChange={(event) => onUpdateRow(row.id, key, event.target.value)} className="w-full rounded border border-slate-300 px-2 py-2 outline-none focus:border-[#12396b]"/>
+                  </td>
+                ))}
+                <td className="p-2 text-right font-medium">{formatNumber(row.gain)}</td>
+                <td className="p-2 text-right font-medium">{formatNumber(row.volume)}</td>
+                <td className="p-2 text-right font-bold text-[#12396b]">{formatNumber(row.quantity)}</td>
+                <td className="p-2"><button disabled={table.rows.length === 1} onClick={() => onRemoveRow(row.id)} className="text-red-500 disabled:text-slate-300"><Trash2 size={16}/></button></td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="bg-amber-50 font-bold">
+              <td colSpan={5} className="p-3">Total assessed replenishment</td>
+              <td className="p-3 text-right">{formatNumber(tableVolume)} m³</td>
+              <td className="p-3 text-right text-[#12396b]">{formatNumber(tableQuantity)} MT</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
 export default function ReplenishmentBuilderPage() {
   const { projectId } = useParams();
   const [activeStep, setActiveStep] = useState<StepId>("setup");
   const [study, setStudy] = useState<ReplenishmentStudy | null>(null);
-  const [state, setState] = useState<BuilderState>({ type: "replenishment_builder_v2", schemaVersion: 2, details: defaultDetails, sections: defaultSections, grids: [defaultGrid()], inherited: {}, importedKeys: [] });
+  const [state, setState] = useState<BuilderState>({ type: "replenishment_builder_v2", schemaVersion: 2, details: defaultDetails, sections: defaultSections, grids: [defaultGrid()], gridTables: [defaultGridTable()], inherited: {}, importedKeys: [] });
   const [files, setFiles] = useState<ReplenishmentFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -326,7 +440,8 @@ export default function ReplenishmentBuilderPage() {
     setLoading(true);
     try {
       const studies = await replenishmentApi.list(projectId);
-      const active = studies.find((item) => item.reportState?.type === "replenishment_builder_v2") || studies[0] || await replenishmentApi.create(projectId, { title: defaultDetails.reportTitle, reportState: { type: "replenishment_builder_v2", schemaVersion: 2, details: defaultDetails, sections: defaultSections, grids: [defaultGrid()], importedKeys: [] } });
+      const firstTable = defaultGridTable();
+      const active = studies.find((item) => item.reportState?.type === "replenishment_builder_v2") || studies[0] || await replenishmentApi.create(projectId, { title: defaultDetails.reportTitle, reportState: { type: "replenishment_builder_v2", schemaVersion: 2, details: defaultDetails, sections: defaultSections, grids: firstTable.grids, gridTables: [firstTable], importedKeys: [] } });
       setStudy(active);
       setState(normaliseState(active));
       setFiles(await replenishmentApi.listFiles(active.id));
@@ -343,13 +458,11 @@ export default function ReplenishmentBuilderPage() {
     void load();
   }, [load]);
 
-  const gridResults = useMemo(() => state.grids.map((row) => {
-    const gain = Math.max(0, numberValue(row.postRl) - numberValue(row.preRl));
-    const volume = numberValue(row.area) * gain;
-    return { ...row, gain, volume, quantity: volume * numberValue(state.details.bulkDensity) };
-  }), [state.grids, state.details.bulkDensity]);
-  const totalVolume = gridResults.reduce((sum, row) => sum + row.volume, 0);
-  const totalQuantity = gridResults.reduce((sum, row) => sum + row.quantity, 0);
+  const calculationTables = useMemo(() => (state.gridTables?.length ? state.gridTables : normaliseGridTables(state)).map((table) => ({ ...table, rows: calculateGridRows(table.grids, state.details.bulkDensity) })), [state.gridTables, state.grids, state.details.bulkDensity]);
+  const primaryTable = calculationTables[0];
+  const gridResults = primaryTable?.rows || [];
+  const totalVolume = calculationTables.reduce((sum, table) => sum + table.rows.reduce((tableSum, row) => tableSum + row.volume, 0), 0);
+  const totalQuantity = calculationTables.reduce((sum, table) => sum + table.rows.reduce((tableSum, row) => tableSum + row.quantity, 0), 0);
   const requiredUploaded = evidenceRequirements.filter((item) => item.required && files.some((file) => file.sectionId === item.id)).length;
   const requiredCount = evidenceRequirements.filter((item) => item.required).length;
   const coreFields = [state.details.district, state.details.river, state.details.studyYear, state.details.preSurveyDate, state.details.postSurveyDate, state.details.bulkDensity];
@@ -358,14 +471,23 @@ export default function ReplenishmentBuilderPage() {
 
   const updateDetails = (key: keyof StudyDetails, value: string) => setState((current) => ({ ...current, details: { ...current.details, [key]: value } }));
   const updateSection = (id: string, patch: Partial<ReportSection>) => setState((current) => ({ ...current, sections: current.sections.map((section) => section.id === id ? { ...section, ...patch } : section) }));
-  const updateGrid = (id: string, key: keyof GridRow, value: string) => setState((current) => ({ ...current, grids: current.grids.map((row) => row.id === id ? { ...row, [key]: value } : row) }));
+  const updateGridTables = (updater: (tables: GridTable[]) => GridTable[]) => setState((current) => {
+    const gridTables = updater(current.gridTables?.length ? current.gridTables : normaliseGridTables(current));
+    return { ...current, gridTables, grids: flattenGridTables(gridTables) };
+  });
+  const addGridTable = () => updateGridTables((tables) => [...tables, defaultGridTable(tables.length + 1)]);
+  const removeGridTable = (tableId: string) => updateGridTables((tables) => tables.length === 1 ? tables : tables.filter((table) => table.id !== tableId));
+  const addGridRow = (tableId: string) => updateGridTables((tables) => tables.map((table) => table.id === tableId ? { ...table, grids: [...table.grids, defaultGrid()] } : table));
+  const updateGridInTable = (tableId: string, rowId: string, key: keyof GridRow, value: string) => updateGridTables((tables) => tables.map((table) => table.id === tableId ? { ...table, grids: table.grids.map((row) => row.id === rowId ? { ...row, [key]: value } : row) } : table));
+  const updateGrid = (rowId: string, key: keyof GridRow, value: string) => primaryTable && updateGridInTable(primaryTable.id, rowId, key, value);
+  const removeGridRow = (tableId: string, rowId: string) => updateGridTables((tables) => tables.map((table) => table.id === tableId ? { ...table, grids: table.grids.length === 1 ? table.grids : table.grids.filter((row) => row.id !== rowId) } : table));
 
   const save = async () => {
     if (!study) return;
     setSaving(true);
     try {
       const next = { ...state, lastSavedAt: new Date().toISOString() };
-      const saved = await replenishmentApi.update(study.id, { title: state.details.reportTitle, river: state.details.river, miningBlock: state.details.block, reportState: next, surveyData: { details: state.details, grids: state.grids } });
+      const saved = await replenishmentApi.update(study.id, { title: state.details.reportTitle, river: state.details.river, miningBlock: state.details.block, reportState: next, surveyData: { details: state.details, grids: state.grids, gridTables: state.gridTables } });
       setStudy(saved);
       setState(normaliseState(saved));
       toast.success("Replenishment study saved successfully");
@@ -469,7 +591,7 @@ export default function ReplenishmentBuilderPage() {
 
         {activeStep === "content" && <div className="space-y-4"><Card><div className="flex items-center justify-between gap-3"><div><h3 className="text-lg font-extrabold text-[#12396b]">Report chapters</h3><p className="text-sm text-slate-500">Live preview updates automatically as you type. You can also include or exclude specific sections.</p></div><button onClick={() => setState((current) => ({ ...current, sections: [...current.sections, { id: crypto.randomUUID(), title: `Custom Section ${current.sections.length + 1}`, category: "Custom", content: "", included: true, source: "manual" }] }))} className="module-btn-secondary"><Plus size={16}/> Add section</button></div></Card>{state.sections.map((section) => <Card key={section.id}><div className="mb-3 flex flex-wrap items-center gap-3"><input type="checkbox" checked={section.included} onChange={(event) => updateSection(section.id, { included: event.target.checked })} className="h-4 w-4 accent-[#12396b]"/><input value={section.title} onChange={(event) => updateSection(section.id, { title: event.target.value, source: "manual" })} className="min-w-[260px] flex-1 border-0 bg-transparent text-base font-bold text-[#12396b] outline-none"/><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${section.source === "dsr" ? "bg-blue-50 text-blue-700" : section.source === "manual" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"}`}>{section.source === "dsr" ? "DSR + edited" : section.source}</span>{section.category === "Custom" && <button onClick={() => setState((current) => ({ ...current, sections: current.sections.filter((item) => item.id !== section.id) }))} className="rounded p-1.5 text-red-500 hover:bg-red-50"><Trash2 size={16}/></button>}</div><textarea disabled={!section.included} value={section.content} onChange={(event) => updateSection(section.id, { content: event.target.value, source: "manual" })} rows={6} className="w-full resize-y rounded-lg border border-slate-300 p-3 text-sm leading-6 outline-none focus:border-[#12396b] focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-400"/></Card>)}</div>}
 
-        {activeStep === "survey" && <div className="space-y-5"><Card><h3 className="mb-1 text-lg font-extrabold text-[#12396b]">Survey inputs</h3><p className="mb-5 text-sm text-slate-500">Enter verified pre/post monsoon survey observations using a common datum and same grid extent.</p><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><Field label="Lease area" suffix="ha" value={state.details.leaseArea} onChange={(value) => updateDetails("leaseArea", value)} /><Field label="Mineable area" suffix="ha" value={state.details.mineableArea} onChange={(value) => updateDetails("mineableArea", value)} /><Field label="Pre-monsoon survey" type="date" value={state.details.preSurveyDate} onChange={(value) => updateDetails("preSurveyDate", value)} /><Field label="Post-monsoon survey" type="date" value={state.details.postSurveyDate} onChange={(value) => updateDetails("postSurveyDate", value)} /><Field label="Bulk density" suffix="MT/m³" value={state.details.bulkDensity} onChange={(value) => updateDetails("bulkDensity", value)} /><Field label="Approved annual quantity" suffix="MT" value={state.details.approvedQuantity} onChange={(value) => updateDetails("approvedQuantity", value)} /><Field label="Extracted quantity" suffix="MT" value={state.details.extractedQuantity} onChange={(value) => updateDetails("extractedQuantity", value)} /><Field label="Rainfall during period" suffix="mm" value={state.details.rainfall} onChange={(value) => updateDetails("rainfall", value)} /></div></Card><Card><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-lg font-extrabold text-[#12396b]">Grid-wise calculation</h3><p className="text-sm text-slate-500">Positive RL gain × eligible area × bulk density.</p></div><button onClick={() => setState((current) => ({ ...current, grids: [...current.grids, defaultGrid()] }))} className="module-btn-secondary"><Plus size={16}/> Add grid</button></div><div className="overflow-x-auto"><table className="w-full min-w-[850px] text-sm"><thead><tr className="bg-[#12396b] text-white"><th className="p-2 text-left">Grid / chainage</th><th className="p-2 text-left">Area (m²)</th><th className="p-2 text-left">Pre RL (m)</th><th className="p-2 text-left">Post RL (m)</th><th className="p-2 text-right">Gain</th><th className="p-2 text-right">Volume</th><th className="p-2 text-right">Quantity (MT)</th><th></th></tr></thead><tbody>{gridResults.map((row) => <tr key={row.id} className="border-b border-slate-200">{(["grid", "area", "preRl", "postRl"] as const).map((key) => <td key={key} className="p-1.5"><input value={row[key]} onChange={(event) => updateGrid(row.id, key, event.target.value)} className="w-full rounded border border-slate-300 px-2 py-2 outline-none focus:border-[#12396b]"/></td>)}<td className="p-2 text-right font-medium">{formatNumber(row.gain)}</td><td className="p-2 text-right font-medium">{formatNumber(row.volume)}</td><td className="p-2 text-right font-bold text-[#12396b]">{formatNumber(row.quantity)}</td><td className="p-2"><button disabled={state.grids.length === 1} onClick={() => setState((current) => ({ ...current, grids: current.grids.filter((item) => item.id !== row.id) }))} className="text-red-500 disabled:text-slate-300"><Trash2 size={16}/></button></td></tr>)}</tbody><tfoot><tr className="bg-amber-50 font-bold"><td colSpan={5} className="p-3">Total assessed replenishment</td><td className="p-3 text-right">{formatNumber(totalVolume)} m³</td><td className="p-3 text-right text-[#12396b]">{formatNumber(totalQuantity)} MT</td><td></td></tr></tfoot></table></div></Card><Card><label className="block"><span className="mb-1.5 block text-xs font-bold text-slate-600">Study remarks and calculation assumptions</span><textarea rows={4} value={state.details.remarks} onChange={(event) => updateDetails("remarks", event.target.value)} className="w-full rounded-lg border border-slate-300 p-3 text-sm outline-none focus:border-[#12396b]"/></label></Card></div>}
+  {activeStep === "survey" && <div className="space-y-5"><Card><h3 className="mb-1 text-lg font-extrabold text-[#12396b]">Survey inputs</h3><p className="mb-5 text-sm text-slate-500">Enter verified pre/post monsoon survey observations using a common datum and same grid extent.</p><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><Field label="Lease area" suffix="ha" value={state.details.leaseArea} onChange={(value) => updateDetails("leaseArea", value)} /><Field label="Mineable area" suffix="ha" value={state.details.mineableArea} onChange={(value) => updateDetails("mineableArea", value)} /><Field label="Pre-monsoon survey" type="date" value={state.details.preSurveyDate} onChange={(value) => updateDetails("preSurveyDate", value)} /><Field label="Post-monsoon survey" type="date" value={state.details.postSurveyDate} onChange={(value) => updateDetails("postSurveyDate", value)} /><Field label="Bulk density" suffix="MT/m³" value={state.details.bulkDensity} onChange={(value) => updateDetails("bulkDensity", value)} /><Field label="Approved annual quantity" suffix="MT" value={state.details.approvedQuantity} onChange={(value) => updateDetails("approvedQuantity", value)} /><Field label="Extracted quantity" suffix="MT" value={state.details.extractedQuantity} onChange={(value) => updateDetails("extractedQuantity", value)} /><Field label="Rainfall during period" suffix="mm" value={state.details.rainfall} onChange={(value) => updateDetails("rainfall", value)} /></div></Card><Card><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-lg font-extrabold text-[#12396b]">Grid-wise calculation</h3><p className="text-sm text-slate-500">Positive RL gain × eligible area × bulk density.</p></div><div className="flex flex-wrap gap-2"><button onClick={addGridTable} className="module-btn-secondary"><Plus size={16}/> Add table</button><button onClick={() => primaryTable && addGridRow(primaryTable.id)} className="module-btn-secondary"><Plus size={16}/> Add grid</button></div></div><div className="overflow-x-auto"><table className="w-full min-w-[850px] text-sm"><thead><tr className="bg-[#12396b] text-white"><th className="p-2 text-left">Grid / chainage</th><th className="p-2 text-left">Area (m²)</th><th className="p-2 text-left">Pre RL (m)</th><th className="p-2 text-left">Post RL (m)</th><th className="p-2 text-right">Gain</th><th className="p-2 text-right">Volume</th><th className="p-2 text-right">Quantity (MT)</th><th></th></tr></thead><tbody>{gridResults.map((row) => <tr key={row.id} className="border-b border-slate-200">{(["grid", "area", "preRl", "postRl"] as const).map((key) => <td key={key} className="p-1.5"><input value={row[key]} onChange={(event) => updateGrid(row.id, key, event.target.value)} className="w-full rounded border border-slate-300 px-2 py-2 outline-none focus:border-[#12396b]"/></td>)}<td className="p-2 text-right font-medium">{formatNumber(row.gain)}</td><td className="p-2 text-right font-medium">{formatNumber(row.volume)}</td><td className="p-2 text-right font-bold text-[#12396b]">{formatNumber(row.quantity)}</td><td className="p-2"><button disabled={gridResults.length === 1} onClick={() => primaryTable && removeGridRow(primaryTable.id, row.id)} className="text-red-500 disabled:text-slate-300"><Trash2 size={16}/></button></td></tr>)}</tbody><tfoot><tr className="bg-amber-50 font-bold"><td colSpan={5} className="p-3">Total assessed replenishment</td><td className="p-3 text-right">{formatNumber(gridResults.reduce((sum, row) => sum + row.volume, 0))} m³</td><td className="p-3 text-right text-[#12396b]">{formatNumber(gridResults.reduce((sum, row) => sum + row.quantity, 0))} MT</td><td></td></tr></tfoot></table></div></Card>{calculationTables.slice(1).map((table, index) => <GridCalculationCard key={table.id} table={table} tableNumber={index + 2} canRemove={calculationTables.length > 1} onAddRow={() => addGridRow(table.id)} onRemoveTable={() => removeGridTable(table.id)} onUpdateRow={(rowId, key, value) => updateGridInTable(table.id, rowId, key, value)} onRemoveRow={(rowId) => removeGridRow(table.id, rowId)} />)}<Card><label className="block"><span className="mb-1.5 block text-xs font-bold text-slate-600">Study remarks and calculation assumptions</span><textarea rows={4} value={state.details.remarks} onChange={(event) => updateDetails("remarks", event.target.value)} className="w-full rounded-lg border border-slate-300 p-3 text-sm outline-none focus:border-[#12396b]"/></label></Card></div>}
 
         {activeStep === "evidence" && <div className="space-y-4"><Card><h3 className="text-lg font-extrabold text-[#12396b]">Evidence and annexure upload centre</h3><p className="mt-1 text-sm text-slate-500">PDF, Excel/CSV, images, and ZIP files are stored category-wise as evidence. Limit is 50 MB per file.</p></Card><div className="grid gap-4 md:grid-cols-2">{evidenceRequirements.map((requirement) => { const matches = files.filter((file) => file.sectionId === requirement.id); return <Card key={requirement.id}><div className="flex items-start gap-3"><div className={`rounded-lg p-2 ${matches.length ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{matches.length ? <FileCheck2 size={20}/> : <CloudUpload size={20}/>}</div><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><b className="text-sm">{requirement.title}</b><span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${requirement.required ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500"}`}>{requirement.required ? "REQUIRED" : "OPTIONAL"}</span></div><p className="mt-1 text-xs text-slate-500">{requirement.hint}</p><div className="mt-3 space-y-2">{matches.map((file) => <button key={file.id} onClick={() => void downloadEvidence(file)} className="flex w-full items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-left text-xs hover:bg-blue-50"><span className="truncate font-medium text-[#12396b]">{file.fileName}</span><span className="shrink-0 text-slate-400">{fileSize(file.sizeBytes)}</span></button>)}</div><label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-blue-300 bg-blue-50 px-3 py-2 text-xs font-bold text-[#12396b] hover:bg-blue-100"><Upload size={14}/>{uploading === requirement.id ? "Uploading…" : matches.length ? "Add another file" : "Choose file(s)"}<input type="file" multiple accept={requirement.accept} disabled={uploading !== null} onChange={(event) => void uploadEvidence(requirement, event)} className="hidden"/></label></div></div></Card>; })}</div></div>}
 
