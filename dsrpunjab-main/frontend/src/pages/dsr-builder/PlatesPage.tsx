@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import html2pdf from "html2pdf.js";
 import { appendUploadedDocument, createSectionPdf, drawPdfHeading, drawWrappedLines, saveSectionPdf } from "../../utils/sectionPdf";
 
-type Plate = { name: string; summary: string; fileName?: string; url?: string };
+type Plate = { name: string; summary: string; fileName?: string; url?: string; caption?: string; imageScale?: number };
 
 const isPdfUrl = (url: string) => !url.match(/\.(jpe?g|png|gif|webp|bmp)$/i);
 
@@ -34,6 +34,7 @@ async function downloadMergedPlatesPdf(plates: Plate[]) {
     }
     page.drawText(`${index + 1}. ${plate.name}`, { x: 45, y, size: 12, font: bold });
     y = drawWrappedLines(page, regular, plate.summary, { x: 55, y: y - 22, maxWidth: 495, size: 10, lineHeight: 15 }) - 16;
+    if (plate.caption) y = drawWrappedLines(page, regular, `Caption: ${plate.caption}`, { x: 55, y, maxWidth: 495, size: 9, lineHeight: 13 }) - 4;
     if (plate.fileName) page.drawText(`Attached: ${plate.fileName}`, { x: 55, y, size: 8, font: regular });
     y -= 28;
   }
@@ -48,7 +49,9 @@ export async function downloadPlatesPdf(plates: Plate[]) {
     body { margin: 0; font-family: Arial, sans-serif; background: #fff; }
     .index-page { width: 794px; min-height: 1123px; padding: 60px; box-sizing: border-box; page-break-after: always; }
     .plate-page { width: 794px; height: 1123px; padding: 44px; page-break-after: always; overflow: hidden; position: relative; background: #fff; border: 1px solid #111; box-sizing: border-box; }
-    .plate-page img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; }
+    .plate-page figure { width: 100%; height: 100%; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+    .plate-page img { max-height: calc(100% - 56px); object-fit: contain; object-position: center; display: block; }
+    .plate-page figcaption { width: 100%; text-align: center; font-size: 13px; color: #334155; line-height: 1.4; }
   `;
 
   const indexHtml = `<div class="index-page">
@@ -59,6 +62,7 @@ export async function downloadPlatesPdf(plates: Plate[]) {
         <div style="border-bottom:1px solid #e2e8f0;padding-bottom:12px;margin-bottom:12px;">
           <p style="font-weight:bold;font-size:14px;">${i + 1}. ${p.name}</p>
           <p style="font-size:12px;color:#64748b;margin-top:4px;">${p.summary}</p>
+          ${p.caption ? `<p style="font-size:12px;color:#334155;margin-top:4px;"><strong>Caption:</strong> ${p.caption}</p>` : ""}
           ${p.fileName ? `<p style="font-size:11px;color:#2563eb;margin-top:4px;">Attached: ${p.fileName}</p>` : ""}
         </div>
       `).join("")}
@@ -67,8 +71,12 @@ export async function downloadPlatesPdf(plates: Plate[]) {
 
   // For PDF export with backend URLs, only render image plates in PDF (iframe not supported in html2pdf)
   const platePages = plates.filter(p => p.url && !isPdfUrl(p.url)).map(p => {
+    const imageScale = Math.min(100, Math.max(40, p.imageScale || 100));
     return `<div class="plate-page">
-      <img src="${p.url}" />
+      <figure>
+        <img src="${p.url}" style="width:${imageScale}%;" />
+        ${p.caption ? `<figcaption>${p.caption}</figcaption>` : ""}
+      </figure>
     </div>`;
   }).join("");
 
@@ -184,15 +192,41 @@ export default function PlatesPage() {
                 />
               </label>
               {plate.url && (
-                <div className="mt-2 rounded-lg overflow-hidden border" style={{ height: 80 }}>
-                  <UploadedFilePreview
-                    src={plate.url}
-                    title="plate preview"
-                    alt="preview"
-                    className="h-full w-full"
-                    imageClassName="h-full w-full object-contain"
-                  />
-                </div>
+                <>
+                  <div className="mt-3 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <label className="text-xs font-semibold text-slate-600">
+                      Photo size: {plate.imageScale || 100}%
+                      <input
+                        type="range"
+                        min={40}
+                        max={100}
+                        step={5}
+                        value={plate.imageScale || 100}
+                        onChange={e => update(i, { imageScale: Number(e.target.value) })}
+                        className="mt-2 w-full accent-blue-600"
+                      />
+                    </label>
+                    <label className="text-xs font-semibold text-slate-600">
+                      Caption
+                      <input
+                        value={plate.caption || ""}
+                        onChange={e => update(i, { caption: e.target.value })}
+                        placeholder="Enter caption for this photo"
+                        className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm font-normal text-slate-800 outline-none focus:border-blue-500"
+                      />
+                    </label>
+                  </div>
+                  <div className="mt-2 rounded-lg overflow-hidden border bg-white" style={{ height: 80 }}>
+                    <UploadedFilePreview
+                      src={plate.url}
+                      title="plate preview"
+                      alt="preview"
+                      className="h-full w-full"
+                      imageClassName="mx-auto h-full object-contain"
+                      imageStyle={{ width: `${plate.imageScale || 100}%` }}
+                    />
+                  </div>
+                </>
               )}
             </div>
             <div>
@@ -219,6 +253,7 @@ export default function PlatesPage() {
               <div key={i} className="border-b pb-3">
                 <p className="font-bold">{i + 1}. {p.name}</p>
                 <p className="text-sm text-slate-600">{p.summary}</p>
+                {p.caption && <p className="mt-1 text-sm text-slate-700"><span className="font-semibold">Caption:</span> {p.caption}</p>}
                 {p.fileName && <p className="mt-1 text-xs text-blue-600">Attached: {p.fileName}</p>}
               </div>
             ))}
@@ -229,13 +264,20 @@ export default function PlatesPage() {
         {plates.filter(p => p.url).map((p, i) => (
           <div key={i} className="mb-4">
             <p className="mb-1 text-xs font-semibold text-slate-500 uppercase">{p.name}</p>
-            <div className="bg-white aspect-[1/1.414] w-full border border-slate-200 relative overflow-hidden">
-              <UploadedFilePreview
-                src={p.url!}
-                title={p.name}
-                alt={p.name}
-                imageStyle={{ objectFit: 'fill' }}
-              />
+            <div className="bg-white aspect-[1/1.414] w-full border border-slate-200 relative overflow-hidden p-5">
+              <div className="flex h-full flex-col items-center justify-center gap-3">
+                <div className="relative flex min-h-0 w-full flex-1 items-center justify-center">
+                  <UploadedFilePreview
+                    src={p.url!}
+                    title={p.name}
+                    alt={p.name}
+                    className="absolute inset-0 h-full w-full"
+                    imageClassName="mx-auto h-full object-contain"
+                    imageStyle={{ width: `${p.imageScale || 100}%` }}
+                  />
+                </div>
+                {p.caption && <p className="shrink-0 text-center text-sm font-medium leading-snug text-slate-700">{p.caption}</p>}
+              </div>
             </div>
           </div>
         ))}
