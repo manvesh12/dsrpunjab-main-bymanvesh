@@ -11,6 +11,7 @@ import {
   UploadCloud,
   FileText,
   Info,
+  Settings2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useParams } from "react-router-dom";
@@ -1204,9 +1205,14 @@ function ReportEditor({
         </div>
       </div>
 
-      <div className="grid gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 md:grid-cols-2">
-        <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
-          Model DSR header
+      <section className="border-b border-slate-200 bg-slate-50 px-5 py-4">
+        <div className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-800">
+          <Settings2 size={16} />
+          Report Header &amp; Footer Settings
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+        <label className="text-xs font-semibold text-slate-600">
+          Default header
           <input
             value={report.headerText || ""}
             onChange={(event) => onChange({ ...report, headerText: event.target.value })}
@@ -1214,8 +1220,8 @@ function ReportEditor({
             className="mt-1.5 h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium normal-case tracking-normal text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           />
         </label>
-        <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
-          Model DSR footer
+        <label className="text-xs font-semibold text-slate-600">
+          Default footer
           <input
             value={report.footerText || ""}
             onChange={(event) => onChange({ ...report, footerText: event.target.value })}
@@ -1223,11 +1229,12 @@ function ReportEditor({
             className="mt-1.5 h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium normal-case tracking-normal text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           />
         </label>
-      </div>
+        </div>
+      </section>
 
       {/* Body: 2-column */}
       <div className="min-h-0 flex-1">
-        <ResizableLayout 
+        <ResizableLayout
           className="h-full"
           leftPanelDefaultSize={40} rightPanelDefaultSize={60}
           leftPanel={
