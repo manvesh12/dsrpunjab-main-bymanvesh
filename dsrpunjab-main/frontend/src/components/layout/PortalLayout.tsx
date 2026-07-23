@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Outlet, useParams, useLocation, useNavigate } from "react-router-dom";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
-import ReviewerFloatingPanel from "../ui/ReviewerFloatingPanel";
 import SectionReviewWidget from "../ui/SectionReviewWidget";
 import { ArrowLeft } from "lucide-react";
 
@@ -42,10 +41,7 @@ export default function PortalLayout() {
         </main>
       </div>
 
-      {/* Bottom-right: Send review / notification panel (all project pages) */}
-      {hasProject && <ReviewerFloatingPanel />}
-
-      {/* Bottom-left: Context-aware section review widget (on DSR section pages only) */}
+      {/* Bottom-right: Context-aware section review widget (on DSR section pages only) */}
       {isOnSectionPage && <SectionReviewWidget />}
 
       {/* Left-edge: Floating Back to Project arrow tab (visible on section pages only) */}
