@@ -55,10 +55,19 @@ type GridRow = {
   postRl: string;
 };
 
+type GridColumnKey = keyof GridRow | "gain" | "volume" | "quantity";
+
+type GridColumn = {
+  key: GridColumnKey;
+  label: string;
+  visible: boolean;
+};
+
 type GridTable = {
   id: string;
   title: string;
   grids: GridRow[];
+  columns?: GridColumn[];
 };
 
 type StudyDetails = {
@@ -159,10 +168,30 @@ const defaultSections: ReportSection[] = [
 
 const defaultGrid = (): GridRow => ({ id: crypto.randomUUID(), grid: "", area: "", preRl: "", postRl: "" });
 
+const defaultGridColumns = (): GridColumn[] => [
+  { key: "grid", label: "Grid / Chainage", visible: true },
+  { key: "area", label: "Area (sq m)", visible: true },
+  { key: "preRl", label: "Pre RL (m)", visible: true },
+  { key: "postRl", label: "Post RL (m)", visible: true },
+  { key: "gain", label: "Gain (m)", visible: true },
+  { key: "volume", label: "Volume (cum)", visible: true },
+  { key: "quantity", label: "Quantity (MT)", visible: true },
+];
+
+function normaliseGridColumns(columns?: GridColumn[]) {
+  const saved = new Map((columns || []).map((column) => [column.key, column]));
+  const merged = defaultGridColumns().map((column) => {
+    const existing = saved.get(column.key);
+    return existing ? { ...column, label: existing.label || column.label, visible: existing.visible !== false } : column;
+  });
+  return merged.some((column) => column.visible) ? merged : merged.map((column) => ({ ...column, visible: true }));
+}
+
 const defaultGridTable = (index = 1): GridTable => ({
   id: crypto.randomUUID(),
   title: `Grid-wise calculation ${index}`,
   grids: [defaultGrid()],
+  columns: defaultGridColumns(),
 });
 
 function normaliseGridTables(saved: Partial<BuilderState>): GridTable[] {
@@ -171,10 +200,11 @@ function normaliseGridTables(saved: Partial<BuilderState>): GridTable[] {
       id: table.id || crypto.randomUUID(),
       title: table.title || `Grid-wise calculation ${index + 1}`,
       grids: Array.isArray(table.grids) && table.grids.length ? table.grids : [defaultGrid()],
+      columns: normaliseGridColumns(table.columns),
     }));
   }
   const legacyGrids = Array.isArray(saved.grids) && saved.grids.length ? saved.grids : [defaultGrid()];
-  return [{ id: crypto.randomUUID(), title: "Grid-wise calculation 1", grids: legacyGrids }];
+  return [{ id: crypto.randomUUID(), title: "Grid-wise calculation 1", grids: legacyGrids, columns: defaultGridColumns() }];
 }
 
 function flattenGridTables(tables: GridTable[]) {
@@ -254,10 +284,21 @@ function calculateGridRows(rows: GridRow[], bulkDensity: string) {
 
 type CalculatedGridTable = GridTable & { rows: ReturnType<typeof calculateGridRows> };
 
+function gridCellValue(row: ReturnType<typeof calculateGridRows>[number], key: GridColumnKey) {
+  if (key === "gain" || key === "volume" || key === "quantity") return formatNumber(row[key]);
+  return safe(row[key] || "-");
+}
+
 function renderGridTableHtml(table: CalculatedGridTable, tableIndex: number) {
   const tableVolume = table.rows.reduce((sum, row) => sum + row.volume, 0);
   const tableQuantity = table.rows.reduce((sum, row) => sum + row.quantity, 0);
-  return `<h3>Table ${tableIndex + 1}: ${safe(table.title || "Grid-wise Volume and Quantity Calculation")}</h3><table class="inserted-table"><thead><tr><th>Grid / Chainage</th><th>Area (sq m)</th><th>Pre RL (m)</th><th>Post RL (m)</th><th>Gain (m)</th><th>Volume (cum)</th><th>Quantity (MT)</th></tr></thead><tbody>${table.rows.map((row) => `<tr><td>${safe(row.grid || "-")}</td><td>${safe(row.area || "-")}</td><td>${safe(row.preRl || "-")}</td><td>${safe(row.postRl || "-")}</td><td>${formatNumber(row.gain)}</td><td>${formatNumber(row.volume)}</td><td>${formatNumber(row.quantity)}</td></tr>`).join("")}<tr class="total"><td colspan="5">Total assessed replenishment</td><td>${formatNumber(tableVolume)}</td><td>${formatNumber(tableQuantity)}</td></tr></tbody></table>`;
+  const columns = normaliseGridColumns(table.columns).filter((column) => column.visible);
+  const totalCells = columns.map((column, index) => {
+    if (column.key === "volume") return `<td>${formatNumber(tableVolume)}</td>`;
+    if (column.key === "quantity") return `<td>${formatNumber(tableQuantity)}</td>`;
+    return `<td>${index === 0 ? "Total assessed replenishment" : ""}</td>`;
+  }).join("");
+  return `<h3>Table ${tableIndex + 1}: ${safe(table.title || "Grid-wise Volume and Quantity Calculation")}</h3><table class="inserted-table"><thead><tr>${columns.map((column) => `<th>${safe(column.label)}</th>`).join("")}</tr></thead><tbody>${table.rows.map((row) => `<tr>${columns.map((column) => `<td>${gridCellValue(row, column.key)}</td>`).join("")}</tr>`).join("")}<tr class="total">${totalCells}</tr></tbody></table>`;
 }
 
 function renderPhotoHtml(file: ReplenishmentFile) {
@@ -403,20 +444,35 @@ function GridCalculationCard({
   onAddRow,
   onRemoveTable,
   onUpdateTitle,
+  onUpdateColumn,
+  onToggleColumn,
   onUpdateRow,
   onRemoveRow,
+  extraActions,
 }: {
   table: GridTable & { rows: ReturnType<typeof calculateGridRows> };
   tableNumber: number;
   canRemove: boolean;
   onAddRow: () => void;
-  onRemoveTable: () => void;
+  onRemoveTable?: () => void;
   onUpdateTitle: (title: string) => void;
+  onUpdateColumn: (key: GridColumnKey, patch: Partial<GridColumn>) => void;
+  onToggleColumn: (key: GridColumnKey, visible: boolean) => void;
   onUpdateRow: (rowId: string, key: keyof GridRow, value: string) => void;
   onRemoveRow: (rowId: string) => void;
+  extraActions?: React.ReactNode;
 }) {
   const tableVolume = table.rows.reduce((sum, row) => sum + row.volume, 0);
   const tableQuantity = table.rows.reduce((sum, row) => sum + row.quantity, 0);
+  const columns = normaliseGridColumns(table.columns);
+  const visibleColumns = columns.filter((column) => column.visible);
+  const hiddenColumns = columns.filter((column) => !column.visible);
+  const editableKeys: GridColumnKey[] = ["grid", "area", "preRl", "postRl"];
+  const totalFor = (column: GridColumn, index: number) => {
+    if (column.key === "volume") return `${formatNumber(tableVolume)} cum`;
+    if (column.key === "quantity") return `${formatNumber(tableQuantity)} MT`;
+    return index === 0 ? "Total assessed replenishment" : "";
+  };
   return (
     <Card>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -426,47 +482,34 @@ function GridCalculationCard({
             onChange={(event) => onUpdateTitle(event.target.value)}
             className="w-full min-w-[260px] border-0 bg-transparent text-lg font-extrabold text-[#12396b] outline-none focus:bg-blue-50"
           />
-          <p className="text-sm text-slate-500">Additional replenishment calculation table.</p>
+          <p className="text-sm text-slate-500">Edit row names, column headings and report columns for this calculation table.</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {extraActions}
           <button onClick={onAddRow} className="module-btn-secondary"><Plus size={16}/> Add row</button>
-          <button disabled={!canRemove} onClick={onRemoveTable} className="module-btn-secondary text-red-600 disabled:opacity-40"><Trash2 size={16}/> Remove table</button>
+          {onRemoveTable && <button disabled={!canRemove} onClick={onRemoveTable} className="module-btn-secondary text-red-600 disabled:opacity-40"><Trash2 size={16}/> Remove table</button>}
         </div>
       </div>
+      {hiddenColumns.length > 0 && <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3 text-xs"><span className="font-bold text-slate-600">Hidden columns:</span>{hiddenColumns.map((column) => <button key={column.key} onClick={() => onToggleColumn(column.key, true)} className="rounded bg-white px-2.5 py-1 font-bold text-[#12396b] shadow-sm">Restore {column.label}</button>)}</div>}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[850px] text-sm">
           <thead>
             <tr className="bg-[#12396b] text-white">
-              <th className="p-2 text-left">Grid / chainage</th>
-              <th className="p-2 text-left">Area (m²)</th>
-              <th className="p-2 text-left">Pre RL (m)</th>
-              <th className="p-2 text-left">Post RL (m)</th>
-              <th className="p-2 text-right">Gain</th>
-              <th className="p-2 text-right">Volume</th>
-              <th className="p-2 text-right">Quantity (MT)</th>
+              {visibleColumns.map((column) => <th key={column.key} className="p-2 text-left"><div className="flex min-w-[120px] items-center gap-2"><input value={column.label} onChange={(event) => onUpdateColumn(column.key, { label: event.target.value })} className="min-w-0 flex-1 rounded border border-white/30 bg-white/10 px-2 py-1 text-xs font-bold text-white outline-none focus:bg-white/20"/><button onClick={() => onToggleColumn(column.key, false)} className="rounded p-1 text-white/80 hover:bg-white/15" title="Hide column"><Trash2 size={13}/></button></div></th>)}
               <th></th>
             </tr>
           </thead>
           <tbody>
             {table.rows.map((row) => (
               <tr key={row.id} className="border-b border-slate-200">
-                {(["grid", "area", "preRl", "postRl"] as const).map((key) => (
-                  <td key={key} className="p-1.5">
-                    <input value={row[key]} onChange={(event) => onUpdateRow(row.id, key, event.target.value)} className="w-full rounded border border-slate-300 px-2 py-2 outline-none focus:border-[#12396b]"/>
-                  </td>
-                ))}
-                <td className="p-2 text-right font-medium">{formatNumber(row.gain)}</td>
-                <td className="p-2 text-right font-medium">{formatNumber(row.volume)}</td>
-                <td className="p-2 text-right font-bold text-[#12396b]">{formatNumber(row.quantity)}</td>
+                {visibleColumns.map((column) => <td key={column.key} className="p-1.5">{editableKeys.includes(column.key) ? <input value={row[column.key as keyof GridRow]} onChange={(event) => onUpdateRow(row.id, column.key as keyof GridRow, event.target.value)} placeholder={column.key === "grid" ? "Row name / chainage" : ""} className="w-full rounded border border-slate-300 px-2 py-2 outline-none focus:border-[#12396b]"/> : <div className={`p-2 font-medium ${column.key === "quantity" ? "text-right font-bold text-[#12396b]" : "text-right"}`}>{gridCellValue(row, column.key)}</div>}</td>)}
                 <td className="p-2"><button disabled={table.rows.length === 1} onClick={() => onRemoveRow(row.id)} className="text-red-500 disabled:text-slate-300"><Trash2 size={16}/></button></td>
               </tr>
             ))}
           </tbody>
           <tfoot>
             <tr className="bg-amber-50 font-bold">
-              <td colSpan={5} className="p-3">Total assessed replenishment</td>
-              <td className="p-3 text-right">{formatNumber(tableVolume)} m³</td>
-              <td className="p-3 text-right text-[#12396b]">{formatNumber(tableQuantity)} MT</td>
+              {visibleColumns.map((column, index) => <td key={column.key} className={`p-3 ${column.key === "volume" || column.key === "quantity" ? "text-right text-[#12396b]" : ""}`}>{totalFor(column, index)}</td>)}
               <td></td>
             </tr>
           </tfoot>
@@ -576,6 +619,8 @@ export default function ReplenishmentBuilderPage() {
   });
   const addGridTable = () => updateGridTables((tables) => [...tables, defaultGridTable(tables.length + 1)]);
   const updateGridTableTitle = (tableId: string, title: string) => updateGridTables((tables) => tables.map((table) => table.id === tableId ? { ...table, title } : table));
+  const updateGridColumn = (tableId: string, key: GridColumnKey, patch: Partial<GridColumn>) => updateGridTables((tables) => tables.map((table) => table.id === tableId ? { ...table, columns: normaliseGridColumns(table.columns).map((column) => column.key === key ? { ...column, ...patch } : column) } : table));
+  const toggleGridColumn = (tableId: string, key: GridColumnKey, visible: boolean) => updateGridColumn(tableId, key, { visible });
   const removeGridTable = (tableId: string) => updateGridTables((tables) => tables.length === 1 ? tables : tables.filter((table) => table.id !== tableId));
   const addGridRow = (tableId: string) => updateGridTables((tables) => tables.map((table) => table.id === tableId ? { ...table, grids: [...table.grids, defaultGrid()] } : table));
   const updateGridInTable = (tableId: string, rowId: string, key: keyof GridRow, value: string) => updateGridTables((tables) => tables.map((table) => table.id === tableId ? { ...table, grids: table.grids.map((row) => row.id === rowId ? { ...row, [key]: value } : row) } : table));
@@ -737,7 +782,7 @@ export default function ReplenishmentBuilderPage() {
 
         {activeStep === "content" && <div className="space-y-4"><Card><div className="flex items-center justify-between gap-3"><div><h3 className="text-lg font-extrabold text-[#12396b]">Report chapters</h3><p className="text-sm text-slate-500">Live preview updates automatically as you type. You can also include or exclude specific sections.</p></div><button onClick={() => setState((current) => ({ ...current, sections: [...current.sections, { id: crypto.randomUUID(), title: `Custom Section ${current.sections.length + 1}`, category: "Custom", content: "", included: true, source: "manual" }] }))} className="module-btn-secondary"><Plus size={16}/> Add section</button></div></Card><Card><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-lg font-extrabold text-[#12396b]">Insert tables and photos</h3><p className="text-sm text-slate-500">Click any item to place it at the cursor in the selected chapter.</p></div><span className="rounded bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">Target: {state.sections.find((section) => section.id === activeContentSectionId)?.title || "Select chapter"}</span></div><div className="grid gap-4 lg:grid-cols-2"><div><h4 className="mb-2 text-xs font-extrabold uppercase tracking-wide text-slate-500">Tables</h4><div className="flex flex-wrap gap-2">{calculationTables.map((table, index) => <button key={table.id} onClick={() => insertIntoActiveSection(`[[TABLE:${table.id}]]`)} className="module-btn-secondary"><ClipboardList size={15}/> {table.title || `Table ${index + 1}`}</button>)}</div></div><div><h4 className="mb-2 text-xs font-extrabold uppercase tracking-wide text-slate-500">Photos</h4><div className="flex flex-wrap gap-2">{photoFiles.length ? photoFiles.map((file) => <button key={file.id} onClick={() => insertIntoActiveSection(`[[PHOTO:${file.id}]]`)} className="module-btn-secondary"><FileText size={15}/> {file.fileName}</button>) : <span className="text-xs text-slate-500">Upload image files in Evidence first.</span>}</div></div></div></Card>{state.sections.map((section) => <Card key={section.id}><div className="mb-3 flex flex-wrap items-center gap-3"><input type="checkbox" checked={section.included} onChange={(event) => updateSection(section.id, { included: event.target.checked })} className="h-4 w-4 accent-[#12396b]"/><input value={section.title} onChange={(event) => updateSection(section.id, { title: event.target.value, source: "manual" })} className="min-w-[260px] flex-1 border-0 bg-transparent text-base font-bold text-[#12396b] outline-none"/><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${section.source === "dsr" ? "bg-blue-50 text-blue-700" : section.source === "manual" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"}`}>{section.source === "dsr" ? "DSR + edited" : section.source}</span>{section.category === "Custom" && <button onClick={() => setState((current) => ({ ...current, sections: current.sections.filter((item) => item.id !== section.id) }))} className="rounded p-1.5 text-red-500 hover:bg-red-50"><Trash2 size={16}/></button>}</div><textarea id={`replenishment-section-${section.id}`} disabled={!section.included} value={section.content} onFocus={() => setActiveContentSectionId(section.id)} onChange={(event) => updateSection(section.id, { content: event.target.value, source: "manual" })} rows={6} className="w-full resize-y rounded-lg border border-slate-300 p-3 text-sm leading-6 outline-none focus:border-[#12396b] focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-400"/></Card>)}</div>}
 
-  {activeStep === "survey" && <div className="space-y-5"><Card><h3 className="mb-1 text-lg font-extrabold text-[#12396b]">Survey inputs</h3><p className="mb-5 text-sm text-slate-500">Enter verified pre/post monsoon survey observations using a common datum and same grid extent.</p><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><Field label="Lease area" suffix="ha" value={state.details.leaseArea} onChange={(value) => updateDetails("leaseArea", value)} /><Field label="Mineable area" suffix="ha" value={state.details.mineableArea} onChange={(value) => updateDetails("mineableArea", value)} /><Field label="Pre-monsoon survey" type="date" value={state.details.preSurveyDate} onChange={(value) => updateDetails("preSurveyDate", value)} /><Field label="Post-monsoon survey" type="date" value={state.details.postSurveyDate} onChange={(value) => updateDetails("postSurveyDate", value)} /><Field label="Bulk density" suffix="MT/m³" value={state.details.bulkDensity} onChange={(value) => updateDetails("bulkDensity", value)} /><Field label="Approved annual quantity" suffix="MT" value={state.details.approvedQuantity} onChange={(value) => updateDetails("approvedQuantity", value)} /><Field label="Extracted quantity" suffix="MT" value={state.details.extractedQuantity} onChange={(value) => updateDetails("extractedQuantity", value)} /><Field label="Rainfall during period" suffix="mm" value={state.details.rainfall} onChange={(value) => updateDetails("rainfall", value)} /></div></Card><Card><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><input value={primaryTable?.title || "Grid-wise calculation 1"} onChange={(event) => primaryTable && updateGridTableTitle(primaryTable.id, event.target.value)} className="w-full min-w-[260px] border-0 bg-transparent text-lg font-extrabold text-[#12396b] outline-none focus:bg-blue-50"/><p className="text-sm text-slate-500">Positive RL gain × eligible area × bulk density.</p></div><div className="flex flex-wrap gap-2"><button onClick={addGridTable} className="module-btn-secondary"><Plus size={16}/> Add table</button><button onClick={() => primaryTable && addGridRow(primaryTable.id)} className="module-btn-secondary"><Plus size={16}/> Add row</button></div></div><div className="overflow-x-auto"><table className="w-full min-w-[850px] text-sm"><thead><tr className="bg-[#12396b] text-white"><th className="p-2 text-left">Grid / chainage</th><th className="p-2 text-left">Area (m²)</th><th className="p-2 text-left">Pre RL (m)</th><th className="p-2 text-left">Post RL (m)</th><th className="p-2 text-right">Gain</th><th className="p-2 text-right">Volume</th><th className="p-2 text-right">Quantity (MT)</th><th></th></tr></thead><tbody>{gridResults.map((row) => <tr key={row.id} className="border-b border-slate-200">{(["grid", "area", "preRl", "postRl"] as const).map((key) => <td key={key} className="p-1.5"><input value={row[key]} onChange={(event) => updateGrid(row.id, key, event.target.value)} className="w-full rounded border border-slate-300 px-2 py-2 outline-none focus:border-[#12396b]"/></td>)}<td className="p-2 text-right font-medium">{formatNumber(row.gain)}</td><td className="p-2 text-right font-medium">{formatNumber(row.volume)}</td><td className="p-2 text-right font-bold text-[#12396b]">{formatNumber(row.quantity)}</td><td className="p-2"><button disabled={gridResults.length === 1} onClick={() => primaryTable && removeGridRow(primaryTable.id, row.id)} className="text-red-500 disabled:text-slate-300"><Trash2 size={16}/></button></td></tr>)}</tbody><tfoot><tr className="bg-amber-50 font-bold"><td colSpan={5} className="p-3">Total assessed replenishment</td><td className="p-3 text-right">{formatNumber(gridResults.reduce((sum, row) => sum + row.volume, 0))} m³</td><td className="p-3 text-right text-[#12396b]">{formatNumber(gridResults.reduce((sum, row) => sum + row.quantity, 0))} MT</td><td></td></tr></tfoot></table></div></Card>{calculationTables.slice(1).map((table, index) => <GridCalculationCard key={table.id} table={table} tableNumber={index + 2} canRemove={calculationTables.length > 1} onAddRow={() => addGridRow(table.id)} onRemoveTable={() => removeGridTable(table.id)} onUpdateTitle={(title) => updateGridTableTitle(table.id, title)} onUpdateRow={(rowId, key, value) => updateGridInTable(table.id, rowId, key, value)} onRemoveRow={(rowId) => removeGridRow(table.id, rowId)} />)}<Card><label className="block"><span className="mb-1.5 block text-xs font-bold text-slate-600">Study remarks and calculation assumptions</span><textarea rows={4} value={state.details.remarks} onChange={(event) => updateDetails("remarks", event.target.value)} className="w-full rounded-lg border border-slate-300 p-3 text-sm outline-none focus:border-[#12396b]"/></label></Card></div>}
+  {activeStep === "survey" && <div className="space-y-5"><Card><h3 className="mb-1 text-lg font-extrabold text-[#12396b]">Survey inputs</h3><p className="mb-5 text-sm text-slate-500">Enter verified pre/post monsoon survey observations using a common datum and same grid extent.</p><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><Field label="Lease area" suffix="ha" value={state.details.leaseArea} onChange={(value) => updateDetails("leaseArea", value)} /><Field label="Mineable area" suffix="ha" value={state.details.mineableArea} onChange={(value) => updateDetails("mineableArea", value)} /><Field label="Pre-monsoon survey" type="date" value={state.details.preSurveyDate} onChange={(value) => updateDetails("preSurveyDate", value)} /><Field label="Post-monsoon survey" type="date" value={state.details.postSurveyDate} onChange={(value) => updateDetails("postSurveyDate", value)} /><Field label="Bulk density" suffix="MT/cum" value={state.details.bulkDensity} onChange={(value) => updateDetails("bulkDensity", value)} /><Field label="Approved annual quantity" suffix="MT" value={state.details.approvedQuantity} onChange={(value) => updateDetails("approvedQuantity", value)} /><Field label="Extracted quantity" suffix="MT" value={state.details.extractedQuantity} onChange={(value) => updateDetails("extractedQuantity", value)} /><Field label="Rainfall during period" suffix="mm" value={state.details.rainfall} onChange={(value) => updateDetails("rainfall", value)} /></div></Card>{primaryTable && <GridCalculationCard table={primaryTable} tableNumber={1} canRemove={false} onAddRow={() => addGridRow(primaryTable.id)} onUpdateTitle={(title) => updateGridTableTitle(primaryTable.id, title)} onUpdateColumn={(key, patch) => updateGridColumn(primaryTable.id, key, patch)} onToggleColumn={(key, visible) => toggleGridColumn(primaryTable.id, key, visible)} onUpdateRow={(rowId, key, value) => updateGridInTable(primaryTable.id, rowId, key, value)} onRemoveRow={(rowId) => removeGridRow(primaryTable.id, rowId)} extraActions={<button onClick={addGridTable} className="module-btn-secondary"><Plus size={16}/> Add table</button>} />}{calculationTables.slice(1).map((table, index) => <GridCalculationCard key={table.id} table={table} tableNumber={index + 2} canRemove={calculationTables.length > 1} onAddRow={() => addGridRow(table.id)} onRemoveTable={() => removeGridTable(table.id)} onUpdateTitle={(title) => updateGridTableTitle(table.id, title)} onUpdateColumn={(key, patch) => updateGridColumn(table.id, key, patch)} onToggleColumn={(key, visible) => toggleGridColumn(table.id, key, visible)} onUpdateRow={(rowId, key, value) => updateGridInTable(table.id, rowId, key, value)} onRemoveRow={(rowId) => removeGridRow(table.id, rowId)} />)}<Card><label className="block"><span className="mb-1.5 block text-xs font-bold text-slate-600">Study remarks and calculation assumptions</span><textarea rows={4} value={state.details.remarks} onChange={(event) => updateDetails("remarks", event.target.value)} className="w-full rounded-lg border border-slate-300 p-3 text-sm outline-none focus:border-[#12396b]"/></label></Card></div>}
 
         {activeStep === "evidence" && <div className="space-y-4"><Card><h3 className="text-lg font-extrabold text-[#12396b]">Evidence and annexure upload centre</h3><p className="mt-1 text-sm text-slate-500">PDF, Excel/CSV, images, and ZIP files are stored category-wise as evidence. Limit is 50 MB per file.</p></Card><div className="grid gap-4 md:grid-cols-2">{evidenceRequirements.map((requirement) => { const matches = files.filter((file) => file.sectionId === requirement.id); return <Card key={requirement.id}><div className="flex items-start gap-3"><div className={`rounded-lg p-2 ${matches.length ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{matches.length ? <FileCheck2 size={20}/> : <CloudUpload size={20}/>}</div><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><b className="text-sm">{requirement.title}</b><span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${requirement.required ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500"}`}>{requirement.required ? "REQUIRED" : "OPTIONAL"}</span></div><p className="mt-1 text-xs text-slate-500">{requirement.hint}</p><div className="mt-3 space-y-2">{matches.map((file) => <button key={file.id} onClick={() => void downloadEvidence(file)} className="flex w-full items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-left text-xs hover:bg-blue-50"><span className="truncate font-medium text-[#12396b]">{file.fileName}</span><span className="shrink-0 text-slate-400">{fileSize(file.sizeBytes)}</span></button>)}</div><label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-blue-300 bg-blue-50 px-3 py-2 text-xs font-bold text-[#12396b] hover:bg-blue-100"><Upload size={14}/>{uploading === requirement.id ? "Uploading…" : matches.length ? "Add another file" : "Choose file(s)"}<input type="file" multiple accept={requirement.accept} disabled={uploading !== null} onChange={(event) => void uploadEvidence(requirement, event)} className="hidden"/></label></div></div></Card>; })}</div></div>}
 
