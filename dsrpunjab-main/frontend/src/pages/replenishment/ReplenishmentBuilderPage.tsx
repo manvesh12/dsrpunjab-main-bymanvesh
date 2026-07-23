@@ -235,12 +235,55 @@ function fileSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+function blobToDataUrl(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
 function calculateGridRows(rows: GridRow[], bulkDensity: string) {
   return rows.map((row) => {
     const gain = Math.max(0, numberValue(row.postRl) - numberValue(row.preRl));
     const volume = numberValue(row.area) * gain;
     return { ...row, gain, volume, quantity: volume * numberValue(bulkDensity) };
   });
+}
+
+type CalculatedGridTable = GridTable & { rows: ReturnType<typeof calculateGridRows> };
+
+function renderGridTableHtml(table: CalculatedGridTable, tableIndex: number) {
+  const tableVolume = table.rows.reduce((sum, row) => sum + row.volume, 0);
+  const tableQuantity = table.rows.reduce((sum, row) => sum + row.quantity, 0);
+  return `<h3>Table ${tableIndex + 1}: ${safe(table.title || "Grid-wise Volume and Quantity Calculation")}</h3><table class="inserted-table"><thead><tr><th>Grid / Chainage</th><th>Area (sq m)</th><th>Pre RL (m)</th><th>Post RL (m)</th><th>Gain (m)</th><th>Volume (cum)</th><th>Quantity (MT)</th></tr></thead><tbody>${table.rows.map((row) => `<tr><td>${safe(row.grid || "-")}</td><td>${safe(row.area || "-")}</td><td>${safe(row.preRl || "-")}</td><td>${safe(row.postRl || "-")}</td><td>${formatNumber(row.gain)}</td><td>${formatNumber(row.volume)}</td><td>${formatNumber(row.quantity)}</td></tr>`).join("")}<tr class="total"><td colspan="5">Total assessed replenishment</td><td>${formatNumber(tableVolume)}</td><td>${formatNumber(tableQuantity)}</td></tr></tbody></table>`;
+}
+
+function renderPhotoHtml(file: ReplenishmentFile) {
+  const caption = safe(file.fileName);
+  if (file.downloadUrl) {
+    return `<figure class="inserted-photo"><img src="${safe(file.downloadUrl)}" alt="${caption}"><figcaption>${caption}</figcaption></figure>`;
+  }
+  return `<figure class="inserted-photo inserted-photo-placeholder"><figcaption>Photo: ${caption}</figcaption></figure>`;
+}
+
+function renderContentWithInserts(content: string, tables: CalculatedGridTable[], files: ReplenishmentFile[]) {
+  const tableMap = new Map(tables.map((table, index) => [table.id, { table, index }]));
+  const photoMap = new Map(files.filter((file) => file.contentType?.startsWith("image/")).map((file) => [file.id, file]));
+  return content.split(/(\[\[(?:TABLE|PHOTO):[^\]]+\]\])/g).map((part) => {
+    const tableToken = part.match(/^\[\[TABLE:([^\]]+)\]\]$/);
+    if (tableToken) {
+      const match = tableMap.get(tableToken[1]);
+      return match ? renderGridTableHtml(match.table, match.index) : `<p><b>Missing table:</b> ${safe(tableToken[1])}</p>`;
+    }
+    const photoToken = part.match(/^\[\[PHOTO:([^\]]+)\]\]$/);
+    if (photoToken) {
+      const match = photoMap.get(photoToken[1]);
+      return match ? renderPhotoHtml(match) : `<p><b>Missing photo:</b> ${safe(photoToken[1])}</p>`;
+    }
+    return safe(part).replace(/\n/g, "<br>");
+  }).join("");
 }
 
 function normaliseState(study: ReplenishmentStudy): BuilderState {
@@ -326,19 +369,15 @@ function buildFormalReportHtml(state: BuilderState, _study: ReplenishmentStudy |
   const sections = state.sections.filter((section) => section.included);
   const cleanTitle = (title: string) => safe(title).replace(/^\d+(\.\d+)?\s*/, "");
   const toc = sections.map((section, index) => `<tr><td>${index + 1}.0</td><td>${cleanTitle(section.title)}</td><td></td></tr>`).join("");
-  const calculationHtml = calculationTables.map((table, tableIndex) => {
-    const tableVolume = table.rows.reduce((sum, row) => sum + row.volume, 0);
-    const tableQuantity = table.rows.reduce((sum, row) => sum + row.quantity, 0);
-    return `<h3>Table ${tableIndex + 1}: ${safe(table.title || "Grid-wise Volume and Quantity Calculation")}</h3><table><thead><tr><th>Grid / Chainage</th><th>Area (sq m)</th><th>Pre RL (m)</th><th>Post RL (m)</th><th>Gain (m)</th><th>Volume (cum)</th><th>Quantity (MT)</th></tr></thead><tbody>${table.rows.map((row) => `<tr><td>${safe(row.grid || "-")}</td><td>${safe(row.area || "-")}</td><td>${safe(row.preRl || "-")}</td><td>${safe(row.postRl || "-")}</td><td>${formatNumber(row.gain)}</td><td>${formatNumber(row.volume)}</td><td>${formatNumber(row.quantity)}</td></tr>`).join("")}<tr class="total"><td colspan="5">Total assessed replenishment</td><td>${formatNumber(tableVolume)}</td><td>${formatNumber(tableQuantity)}</td></tr></tbody></table>`;
-  }).join("");
-  const body = sections.map((section, index) => `<section class="chapter">${frameFor(section.id)}<h2>${index + 1}.0 ${cleanTitle(section.title)}</h2><div class="narrative">${safe(section.content).replace(/\n/g, "<br>")}</div>${section.id === "calculation" ? calculationHtml : ""}</section>`).join("");
+  const calculationHtml = calculationTables.map((table, tableIndex) => renderGridTableHtml(table, tableIndex)).join("");
+  const body = sections.map((section, index) => `<section class="chapter">${frameFor(section.id)}<h2>${index + 1}.0 ${cleanTitle(section.title)}</h2><div class="narrative">${renderContentWithInserts(section.content, calculationTables, files)}</div>${section.id === "calculation" ? calculationHtml : ""}</section>`).join("");
   const evidenceRows = evidenceRequirements.map((requirement, index) => {
     const matches = files.filter((file) => file.sectionId === requirement.id);
     return `<tr><td>${index + 1}</td><td>${safe(requirement.title)}</td><td>${requirement.required ? "Required" : "Optional"}</td><td>${matches.length ? matches.map((file) => safe(file.fileName)).join("<br>") : "Not uploaded"}</td><td>${matches.length ? "Attached" : "Pending"}</td></tr>`;
   }).join("");
   const annexureRows = evidenceRequirements.map((requirement, index) => `<tr><td>${index + 1}.</td><td>${safe(requirement.title)}</td><td></td></tr>`).join("");
   return `<!doctype html><html><head><meta charset="utf-8"><title>${safe(details.reportTitle)}</title><style>
-  @page{size:A4;margin:18mm 16mm 18mm}*{box-sizing:border-box}body{margin:0;color:#111;font-family:"Times New Roman",Times,serif;font-size:11pt;line-height:1.42}.cover{min-height:260mm;border:1px solid #222;padding:16mm;display:flex;flex-direction:column;justify-content:center;text-align:center;page-break-after:always}.cover h1{margin:0;font-size:25pt;line-height:1.15;text-transform:uppercase}.cover h2{margin:18px 0 8px;font-size:17pt;text-transform:uppercase}.cover .sub{margin:12px auto 28px;max-width:560px;font-size:11pt;line-height:1.45}.cover .of{margin:18px 0 8px;font-size:13pt;font-weight:bold;text-transform:uppercase}.project-title{margin:0 auto 40px;max-width:560px;font-size:14pt;font-weight:bold;line-height:1.45}.cover-parties{display:grid;grid-template-columns:1fr 1fr;gap:42px;margin-top:50px;text-align:left}.cover-parties h3{margin:0 0 8px;font-size:11pt}.cover-parties p{margin:2px 0}.page,.chapter{position:relative;min-height:260mm;border:1px solid #222;padding:22mm 10mm 20mm;page-break-after:always}.page-header{position:absolute;left:10mm;right:10mm;top:7mm;border-bottom:1px solid #222;padding-bottom:3px;font-size:8pt;text-align:left}.page-footer{position:absolute;left:10mm;right:10mm;bottom:7mm;display:flex;justify-content:space-between;border-top:1px solid #444;padding-top:3px;font-size:8.5pt}h2{margin:0 0 12px;font-size:15pt;text-align:left}h3{margin:18px 0 8px;font-size:12pt}.narrative{text-align:justify;white-space:normal}table{width:100%;border-collapse:collapse;margin:10px 0 16px;font-size:10pt}th,td{border:1px solid #222;padding:5px 6px;vertical-align:top}th{font-weight:bold;text-align:left;background:#fff}.index-title{margin:0 0 18px;text-align:center;font-size:17pt;font-weight:bold;text-transform:uppercase}.total td{font-weight:bold}.declaration{margin-top:18px;text-align:justify}.summary-table th{width:28%}.signatures{display:grid;grid-template-columns:repeat(3,1fr);gap:35px;margin-top:70px}.signature{border-top:1px solid #111;padding-top:6px;text-align:center;font-size:10pt}@media print{button{display:none}.chapter:last-child,.page:last-child{page-break-after:auto}}
+  @page{size:A4;margin:18mm 16mm 18mm}*{box-sizing:border-box}body{margin:0;color:#111;font-family:"Times New Roman",Times,serif;font-size:11pt;line-height:1.42}.cover{min-height:260mm;border:1px solid #222;padding:16mm;display:flex;flex-direction:column;justify-content:center;text-align:center;page-break-after:always}.cover h1{margin:0;font-size:25pt;line-height:1.15;text-transform:uppercase}.cover h2{margin:18px 0 8px;font-size:17pt;text-transform:uppercase}.cover .sub{margin:12px auto 28px;max-width:560px;font-size:11pt;line-height:1.45}.cover .of{margin:18px 0 8px;font-size:13pt;font-weight:bold;text-transform:uppercase}.project-title{margin:0 auto 40px;max-width:560px;font-size:14pt;font-weight:bold;line-height:1.45}.cover-parties{display:grid;grid-template-columns:1fr 1fr;gap:42px;margin-top:50px;text-align:left}.cover-parties h3{margin:0 0 8px;font-size:11pt}.cover-parties p{margin:2px 0}.page,.chapter{position:relative;min-height:260mm;border:1px solid #222;padding:22mm 10mm 20mm;page-break-after:always}.page-header{position:absolute;left:10mm;right:10mm;top:7mm;border-bottom:1px solid #222;padding-bottom:3px;font-size:8pt;text-align:left}.page-footer{position:absolute;left:10mm;right:10mm;bottom:7mm;display:flex;justify-content:space-between;border-top:1px solid #444;padding-top:3px;font-size:8.5pt}h2{margin:0 0 12px;font-size:15pt;text-align:left}h3{margin:18px 0 8px;font-size:12pt}.narrative{text-align:justify;white-space:normal}.inserted-table{page-break-inside:avoid}.inserted-photo{margin:14px 0;text-align:center;page-break-inside:avoid}.inserted-photo img{max-width:100%;max-height:170mm;object-fit:contain;border:1px solid #222}.inserted-photo figcaption{margin-top:5px;font-size:9.5pt}.inserted-photo-placeholder{border:1px solid #222;padding:14px}table{width:100%;border-collapse:collapse;margin:10px 0 16px;font-size:10pt}th,td{border:1px solid #222;padding:5px 6px;vertical-align:top}th{font-weight:bold;text-align:left;background:#fff}.index-title{margin:0 0 18px;text-align:center;font-size:17pt;font-weight:bold;text-transform:uppercase}.total td{font-weight:bold}.declaration{margin-top:18px;text-align:justify}.summary-table th{width:28%}.signatures{display:grid;grid-template-columns:repeat(3,1fr);gap:35px;margin-top:70px}.signature{border-top:1px solid #111;padding-top:6px;text-align:center;font-size:10pt}@media print{button{display:none}.chapter:last-child,.page:last-child{page-break-after:auto}}
   </style></head><body>
   <div class="cover"><h1>REPLENISHMENT STUDY<br>REPORT</h1><p class="sub">{As per Sustainable Sand Mining Guidelines, 2016, and the Enforcement & Monitoring Guidelines, 2020 (Sections 5.0, 5.1 & 5.2)}</p><div class="of">OF</div><h2>${safe(details.mineral || "Minor Mineral (River Bed Material)")}</h2><p class="project-title">${safe(details.reportTitle || "River Bed Material Mining Project")}<br>Block No. ${safe(details.block || "-")} ${details.leaseArea ? `(Area-${safe(details.leaseArea)} ha.)` : ""}<br>${safe(details.river || "")}${details.village ? `, ${safe(details.village)}` : ""}<br>District ${safe(details.district || "-")}</p><div class="cover-parties"><div><h3>Submitted By:</h3><p>${safe(details.applicant || "Not specified")}</p><p>${safe(details.village || "")}</p><p>${safe(details.district || "")}</p></div><div><h3>Prepared By:</h3><p>${safe(details.preparedBy || "Not specified")}</p><p>${safe(details.headerText || "")}</p></div></div></div>
   <div class="page">${frameFor("index")}<div class="index-title">INDEX</div><table><thead><tr><th>SR. NO.</th><th>PARTICULARS</th><th>PAGE NO.</th></tr></thead><tbody>${toc}</tbody></table></div>
@@ -450,6 +489,8 @@ export default function ReplenishmentBuilderPage() {
   const [uploading, setUploading] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [workspacePreview, setWorkspacePreview] = useState(true);
+  const [activeContentSectionId, setActiveContentSectionId] = useState(defaultSections[0].id);
+  const [photoDataUrls, setPhotoDataUrls] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     if (!projectId) return;
@@ -474,7 +515,29 @@ export default function ReplenishmentBuilderPage() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (!study) return;
+    const missingPhotos = files.filter((file) => file.contentType?.startsWith("image/") && photoDataUrls[file.id] === undefined);
+    if (!missingPhotos.length) return;
+    let mounted = true;
+    void Promise.all(missingPhotos.map(async (file) => {
+      try {
+        const blob = await replenishmentApi.downloadFile(study.id, file.id);
+        return [file.id, await blobToDataUrl(blob)] as const;
+      } catch {
+        return [file.id, ""] as const;
+      }
+    })).then((entries) => {
+      if (!mounted) return;
+      setPhotoDataUrls((current) => ({ ...current, ...Object.fromEntries(entries) }));
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [files, photoDataUrls, study]);
+
   const calculationTables = useMemo(() => (state.gridTables?.length ? state.gridTables : normaliseGridTables(state)).map((table) => ({ ...table, rows: calculateGridRows(table.grids, state.details.bulkDensity) })), [state.gridTables, state.grids, state.details.bulkDensity]);
+  const photoFiles = useMemo(() => files.filter((file) => file.contentType?.startsWith("image/")), [files]);
   const primaryTable = calculationTables[0];
   const gridResults = primaryTable?.rows || [];
   const totalVolume = calculationTables.reduce((sum, table) => sum + table.rows.reduce((tableSum, row) => tableSum + row.volume, 0), 0);
@@ -483,10 +546,30 @@ export default function ReplenishmentBuilderPage() {
   const requiredCount = evidenceRequirements.filter((item) => item.required).length;
   const coreFields = [state.details.district, state.details.river, state.details.studyYear, state.details.preSurveyDate, state.details.postSurveyDate, state.details.bulkDensity];
   const completion = Math.round(((coreFields.filter(Boolean).length + requiredUploaded + state.sections.filter((item) => item.included && item.content.trim()).length) / (coreFields.length + requiredCount + state.sections.filter((item) => item.included).length)) * 100);
-  const reportHtml = useMemo(() => buildFormalReportHtml(state, study, files), [state, study, files]);
+  const reportFiles = useMemo(() => files.map((file) => photoDataUrls[file.id] ? { ...file, downloadUrl: photoDataUrls[file.id] } : file), [files, photoDataUrls]);
+  const reportHtml = useMemo(() => buildFormalReportHtml(state, study, reportFiles), [state, study, reportFiles]);
 
   const updateDetails = (key: keyof StudyDetails, value: string) => setState((current) => ({ ...current, details: { ...current.details, [key]: value } }));
   const updateSection = (id: string, patch: Partial<ReportSection>) => setState((current) => ({ ...current, sections: current.sections.map((section) => section.id === id ? { ...section, ...patch } : section) }));
+  const insertIntoActiveSection = (token: string) => {
+    const activeSection = state.sections.find((section) => section.id === activeContentSectionId && section.included) || state.sections.find((section) => section.included) || state.sections[0];
+    if (!activeSection) return;
+    const textarea = document.getElementById(`replenishment-section-${activeSection.id}`) as HTMLTextAreaElement | null;
+    const start = textarea?.selectionStart ?? activeSection.content.length;
+    const end = textarea?.selectionEnd ?? start;
+    const prefix = start > 0 && !activeSection.content.slice(0, start).endsWith("\n") ? "\n" : "";
+    const suffix = activeSection.content.slice(end).startsWith("\n") ? "" : "\n";
+    const nextContent = `${activeSection.content.slice(0, start)}${prefix}${token}${suffix}${activeSection.content.slice(end)}`;
+    setActiveContentSectionId(activeSection.id);
+    updateSection(activeSection.id, { content: nextContent, source: "manual" });
+    toast.success("Inserted into selected chapter");
+    requestAnimationFrame(() => {
+      const element = document.getElementById(`replenishment-section-${activeSection.id}`) as HTMLTextAreaElement | null;
+      const nextPosition = start + prefix.length + token.length + suffix.length;
+      element?.focus();
+      element?.setSelectionRange(nextPosition, nextPosition);
+    });
+  };
   const updateGridTables = (updater: (tables: GridTable[]) => GridTable[]) => setState((current) => {
     const gridTables = updater(current.gridTables?.length ? current.gridTables : normaliseGridTables(current));
     return { ...current, gridTables, grids: flattenGridTables(gridTables) };
@@ -652,7 +735,7 @@ export default function ReplenishmentBuilderPage() {
 
         {activeStep === "import" && <div className="space-y-5"><Card><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-lg font-extrabold text-[#12396b]">Selective Final DSR import</h3><p className="text-sm text-slate-500">Only selected data will be copied to the report; the original DSR will remain unchanged.</p></div><button onClick={refreshDsr} disabled={importing} className="module-btn-primary"><RefreshCw size={16} className={importing ? "animate-spin" : ""}/>{importing ? "Fetching…" : "Refresh approved DSR"}</button></div></Card>{inheritedEntries.length ? <div className="grid gap-4 md:grid-cols-2">{inheritedEntries.map((key) => { const config = inheritedLabels[key]; const done = state.importedKeys.includes(key); return <Card key={key}><div className="flex items-start justify-between gap-4"><div><div className="mb-1 flex items-center gap-2"><Database size={16} className="text-blue-700"/><b>{config.title}</b></div><p className="text-xs text-slate-500">{config.description}</p><pre className="mt-3 max-h-28 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-600">{readableInherited(state.inherited?.[key])}</pre></div><button onClick={() => importKey(key)} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-bold ${done ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-[#12396b]"}`}>{done ? <><Check size={14} className="inline"/> Copied</> : "Copy"}</button></div></Card>; })}</div> : <Card><div className="py-10 text-center"><FolderOpen className="mx-auto mb-3 text-slate-300" size={44}/><h3 className="font-bold text-slate-700">Approved Final DSR data is not loaded yet</h3><p className="mt-1 text-sm text-slate-500">Use the Refresh button. If no Final DSR is linked with the project, you can continue with fresh or manual content.</p></div></Card>}</div>}
 
-        {activeStep === "content" && <div className="space-y-4"><Card><div className="flex items-center justify-between gap-3"><div><h3 className="text-lg font-extrabold text-[#12396b]">Report chapters</h3><p className="text-sm text-slate-500">Live preview updates automatically as you type. You can also include or exclude specific sections.</p></div><button onClick={() => setState((current) => ({ ...current, sections: [...current.sections, { id: crypto.randomUUID(), title: `Custom Section ${current.sections.length + 1}`, category: "Custom", content: "", included: true, source: "manual" }] }))} className="module-btn-secondary"><Plus size={16}/> Add section</button></div></Card>{state.sections.map((section) => <Card key={section.id}><div className="mb-3 flex flex-wrap items-center gap-3"><input type="checkbox" checked={section.included} onChange={(event) => updateSection(section.id, { included: event.target.checked })} className="h-4 w-4 accent-[#12396b]"/><input value={section.title} onChange={(event) => updateSection(section.id, { title: event.target.value, source: "manual" })} className="min-w-[260px] flex-1 border-0 bg-transparent text-base font-bold text-[#12396b] outline-none"/><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${section.source === "dsr" ? "bg-blue-50 text-blue-700" : section.source === "manual" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"}`}>{section.source === "dsr" ? "DSR + edited" : section.source}</span>{section.category === "Custom" && <button onClick={() => setState((current) => ({ ...current, sections: current.sections.filter((item) => item.id !== section.id) }))} className="rounded p-1.5 text-red-500 hover:bg-red-50"><Trash2 size={16}/></button>}</div><textarea disabled={!section.included} value={section.content} onChange={(event) => updateSection(section.id, { content: event.target.value, source: "manual" })} rows={6} className="w-full resize-y rounded-lg border border-slate-300 p-3 text-sm leading-6 outline-none focus:border-[#12396b] focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-400"/></Card>)}</div>}
+        {activeStep === "content" && <div className="space-y-4"><Card><div className="flex items-center justify-between gap-3"><div><h3 className="text-lg font-extrabold text-[#12396b]">Report chapters</h3><p className="text-sm text-slate-500">Live preview updates automatically as you type. You can also include or exclude specific sections.</p></div><button onClick={() => setState((current) => ({ ...current, sections: [...current.sections, { id: crypto.randomUUID(), title: `Custom Section ${current.sections.length + 1}`, category: "Custom", content: "", included: true, source: "manual" }] }))} className="module-btn-secondary"><Plus size={16}/> Add section</button></div></Card><Card><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-lg font-extrabold text-[#12396b]">Insert tables and photos</h3><p className="text-sm text-slate-500">Click any item to place it at the cursor in the selected chapter.</p></div><span className="rounded bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">Target: {state.sections.find((section) => section.id === activeContentSectionId)?.title || "Select chapter"}</span></div><div className="grid gap-4 lg:grid-cols-2"><div><h4 className="mb-2 text-xs font-extrabold uppercase tracking-wide text-slate-500">Tables</h4><div className="flex flex-wrap gap-2">{calculationTables.map((table, index) => <button key={table.id} onClick={() => insertIntoActiveSection(`[[TABLE:${table.id}]]`)} className="module-btn-secondary"><ClipboardList size={15}/> {table.title || `Table ${index + 1}`}</button>)}</div></div><div><h4 className="mb-2 text-xs font-extrabold uppercase tracking-wide text-slate-500">Photos</h4><div className="flex flex-wrap gap-2">{photoFiles.length ? photoFiles.map((file) => <button key={file.id} onClick={() => insertIntoActiveSection(`[[PHOTO:${file.id}]]`)} className="module-btn-secondary"><FileText size={15}/> {file.fileName}</button>) : <span className="text-xs text-slate-500">Upload image files in Evidence first.</span>}</div></div></div></Card>{state.sections.map((section) => <Card key={section.id}><div className="mb-3 flex flex-wrap items-center gap-3"><input type="checkbox" checked={section.included} onChange={(event) => updateSection(section.id, { included: event.target.checked })} className="h-4 w-4 accent-[#12396b]"/><input value={section.title} onChange={(event) => updateSection(section.id, { title: event.target.value, source: "manual" })} className="min-w-[260px] flex-1 border-0 bg-transparent text-base font-bold text-[#12396b] outline-none"/><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${section.source === "dsr" ? "bg-blue-50 text-blue-700" : section.source === "manual" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"}`}>{section.source === "dsr" ? "DSR + edited" : section.source}</span>{section.category === "Custom" && <button onClick={() => setState((current) => ({ ...current, sections: current.sections.filter((item) => item.id !== section.id) }))} className="rounded p-1.5 text-red-500 hover:bg-red-50"><Trash2 size={16}/></button>}</div><textarea id={`replenishment-section-${section.id}`} disabled={!section.included} value={section.content} onFocus={() => setActiveContentSectionId(section.id)} onChange={(event) => updateSection(section.id, { content: event.target.value, source: "manual" })} rows={6} className="w-full resize-y rounded-lg border border-slate-300 p-3 text-sm leading-6 outline-none focus:border-[#12396b] focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-400"/></Card>)}</div>}
 
   {activeStep === "survey" && <div className="space-y-5"><Card><h3 className="mb-1 text-lg font-extrabold text-[#12396b]">Survey inputs</h3><p className="mb-5 text-sm text-slate-500">Enter verified pre/post monsoon survey observations using a common datum and same grid extent.</p><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><Field label="Lease area" suffix="ha" value={state.details.leaseArea} onChange={(value) => updateDetails("leaseArea", value)} /><Field label="Mineable area" suffix="ha" value={state.details.mineableArea} onChange={(value) => updateDetails("mineableArea", value)} /><Field label="Pre-monsoon survey" type="date" value={state.details.preSurveyDate} onChange={(value) => updateDetails("preSurveyDate", value)} /><Field label="Post-monsoon survey" type="date" value={state.details.postSurveyDate} onChange={(value) => updateDetails("postSurveyDate", value)} /><Field label="Bulk density" suffix="MT/m³" value={state.details.bulkDensity} onChange={(value) => updateDetails("bulkDensity", value)} /><Field label="Approved annual quantity" suffix="MT" value={state.details.approvedQuantity} onChange={(value) => updateDetails("approvedQuantity", value)} /><Field label="Extracted quantity" suffix="MT" value={state.details.extractedQuantity} onChange={(value) => updateDetails("extractedQuantity", value)} /><Field label="Rainfall during period" suffix="mm" value={state.details.rainfall} onChange={(value) => updateDetails("rainfall", value)} /></div></Card><Card><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><input value={primaryTable?.title || "Grid-wise calculation 1"} onChange={(event) => primaryTable && updateGridTableTitle(primaryTable.id, event.target.value)} className="w-full min-w-[260px] border-0 bg-transparent text-lg font-extrabold text-[#12396b] outline-none focus:bg-blue-50"/><p className="text-sm text-slate-500">Positive RL gain × eligible area × bulk density.</p></div><div className="flex flex-wrap gap-2"><button onClick={addGridTable} className="module-btn-secondary"><Plus size={16}/> Add table</button><button onClick={() => primaryTable && addGridRow(primaryTable.id)} className="module-btn-secondary"><Plus size={16}/> Add row</button></div></div><div className="overflow-x-auto"><table className="w-full min-w-[850px] text-sm"><thead><tr className="bg-[#12396b] text-white"><th className="p-2 text-left">Grid / chainage</th><th className="p-2 text-left">Area (m²)</th><th className="p-2 text-left">Pre RL (m)</th><th className="p-2 text-left">Post RL (m)</th><th className="p-2 text-right">Gain</th><th className="p-2 text-right">Volume</th><th className="p-2 text-right">Quantity (MT)</th><th></th></tr></thead><tbody>{gridResults.map((row) => <tr key={row.id} className="border-b border-slate-200">{(["grid", "area", "preRl", "postRl"] as const).map((key) => <td key={key} className="p-1.5"><input value={row[key]} onChange={(event) => updateGrid(row.id, key, event.target.value)} className="w-full rounded border border-slate-300 px-2 py-2 outline-none focus:border-[#12396b]"/></td>)}<td className="p-2 text-right font-medium">{formatNumber(row.gain)}</td><td className="p-2 text-right font-medium">{formatNumber(row.volume)}</td><td className="p-2 text-right font-bold text-[#12396b]">{formatNumber(row.quantity)}</td><td className="p-2"><button disabled={gridResults.length === 1} onClick={() => primaryTable && removeGridRow(primaryTable.id, row.id)} className="text-red-500 disabled:text-slate-300"><Trash2 size={16}/></button></td></tr>)}</tbody><tfoot><tr className="bg-amber-50 font-bold"><td colSpan={5} className="p-3">Total assessed replenishment</td><td className="p-3 text-right">{formatNumber(gridResults.reduce((sum, row) => sum + row.volume, 0))} m³</td><td className="p-3 text-right text-[#12396b]">{formatNumber(gridResults.reduce((sum, row) => sum + row.quantity, 0))} MT</td><td></td></tr></tfoot></table></div></Card>{calculationTables.slice(1).map((table, index) => <GridCalculationCard key={table.id} table={table} tableNumber={index + 2} canRemove={calculationTables.length > 1} onAddRow={() => addGridRow(table.id)} onRemoveTable={() => removeGridTable(table.id)} onUpdateTitle={(title) => updateGridTableTitle(table.id, title)} onUpdateRow={(rowId, key, value) => updateGridInTable(table.id, rowId, key, value)} onRemoveRow={(rowId) => removeGridRow(table.id, rowId)} />)}<Card><label className="block"><span className="mb-1.5 block text-xs font-bold text-slate-600">Study remarks and calculation assumptions</span><textarea rows={4} value={state.details.remarks} onChange={(event) => updateDetails("remarks", event.target.value)} className="w-full rounded-lg border border-slate-300 p-3 text-sm outline-none focus:border-[#12396b]"/></label></Card></div>}
 
