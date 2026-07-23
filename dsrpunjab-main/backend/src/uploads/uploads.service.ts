@@ -53,7 +53,6 @@ export class UploadsService {
         objectKey,
         contentType,
         sizeBytes: input.bytes.byteLength,
-        fileData: Uint8Array.from(input.bytes),
       });
       return {
         success: true,
