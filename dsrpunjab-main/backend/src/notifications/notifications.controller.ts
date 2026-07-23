@@ -11,6 +11,14 @@ function notificationId(value: string | string[]) {
   return BigInt(normalized);
 }
 
+function projectId(value: unknown) {
+  const normalized = String(value ?? "");
+  if (!/^\d+$/.test(normalized)) {
+    throw new ApiError(400, "INVALID_PROJECT_ID", "Invalid project id");
+  }
+  return BigInt(normalized);
+}
+
 export class NotificationsController {
   constructor(private readonly service: NotificationsService) {}
 
@@ -42,6 +50,23 @@ export class NotificationsController {
   clearRead = async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(await this.service.clearRead(req.user!.id));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  sendReview = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const body = req.body ?? {};
+      res.status(201).json(await this.service.sendReview(req.user!, {
+        projectId: projectId(body.projectId),
+        sectionId: String(body.sectionId ?? ""),
+        sectionLabel: String(body.sectionLabel ?? ""),
+        note: String(body.note ?? ""),
+        recipientRoles: Array.isArray(body.recipientRoles)
+          ? body.recipientRoles.map((role: unknown) => String(role))
+          : [],
+      }));
     } catch (error) {
       next(error);
     }

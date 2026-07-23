@@ -65,6 +65,42 @@ test("workflow notifications exclude the actor and target the project district",
   assert.equal(createdType, "WORKFLOW_APPROVE:PROJECT_15");
 });
 
+test("review notifications use the selected roles and project district", async () => {
+  let recipientWhere: Record<string, unknown> | undefined;
+  let createdMessage = "";
+  const repository = {
+    findProject: async () => ({
+      id: 15n,
+      projectName: "Jalandhar DSR",
+      districtId: 2n,
+      createdBy: 8n,
+    }),
+    findRecipientIds: async (where: Record<string, unknown>) => {
+      recipientWhere = where;
+      return [{ id: 8n }];
+    },
+    createForUsers: async (_userIds: bigint[], _type: string, message: string) => {
+      createdMessage = message;
+      return { count: 1 };
+    },
+  } as unknown as NotificationsRepository;
+
+  const result = await new NotificationsService(repository).sendReview(actor, {
+    projectId: 15n,
+    sectionId: "chapters",
+    sectionLabel: "Chapters",
+    note: "Please verify the mineral table.",
+    recipientRoles: ["GEOLOGIST", "DISTRICT_ADMIN"],
+  });
+
+  assert.deepEqual((recipientWhere?.id as { not: bigint }).not, actor.id);
+  assert.deepEqual(recipientWhere?.OR, [
+    { role: { in: ["GEOLOGIST", "DISTRICT_ADMIN"] }, districtId: 2n },
+  ]);
+  assert.match(createdMessage, /Please verify the mineral table/);
+  assert.deepEqual(result, { success: true, recipients: 1 });
+});
+
 test("a user cannot mark another user's notification as read", async () => {
   const repository = {
     markRead: async () => ({ count: 0 }),

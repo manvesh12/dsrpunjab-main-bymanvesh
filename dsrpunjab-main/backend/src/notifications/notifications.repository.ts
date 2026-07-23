@@ -43,6 +43,18 @@ export class NotificationsRepository {
     });
   }
 
+  findProject(projectId: bigint) {
+    return this.database.project.findUnique({
+      where: { id: projectId },
+      select: {
+        id: true,
+        projectName: true,
+        districtId: true,
+        createdBy: true,
+      },
+    });
+  }
+
   createForUsers(userIds: bigint[], type: string, message: string) {
     if (!userIds.length) return Promise.resolve({ count: 0 });
     return this.database.notification.createMany({

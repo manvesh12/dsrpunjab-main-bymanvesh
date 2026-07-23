@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import type { AuthUser } from "../authentication/auth-user.js";
+import { assertProjectDistrictAccess } from "../authorization/project-access.policy.js";
 import { ApiError } from "../common/exceptions/api-error.js";
 import { notificationsRepository, type NotificationsRepository } from "./notifications.repository.js";
 
@@ -14,6 +15,15 @@ const GLOBAL_ADMIN_ROLES = ["SUPER_ADMIN", "STATE_ADMIN"];
 const DISTRICT_REVIEW_ROLES = ["DISTRICT_ADMIN", "REVIEWER"];
 const DISTRICT_EDITOR_ROLES = ["OFFICER_1", "OFFICER_2", "GEOLOGIST", "DATA_ENTRY_OPERATOR"];
 const DISTRICT_PUBLISH_ROLES = ["DISTRICT_ADMIN", "REPORT_GENERATOR"];
+const REVIEW_RECIPIENT_ROLES = [
+  "OFFICER_1",
+  "OFFICER_2",
+  "GEOLOGIST",
+  "REVIEWER",
+  "DISTRICT_ADMIN",
+  "STATE_ADMIN",
+  "REPORT_GENERATOR",
+] as const;
 
 export class NotificationsService {
   constructor(private readonly repository: NotificationsRepository) {}
@@ -41,6 +51,62 @@ export class NotificationsService {
   async clearRead(userId: bigint) {
     const result = await this.repository.deleteRead(userId);
     return { success: true, deleted: result.count };
+  }
+
+  async sendReview(
+    actor: AuthUser,
+    input: {
+      projectId: bigint;
+      sectionId: string;
+      sectionLabel: string;
+      note: string;
+      recipientRoles: string[];
+    },
+  ) {
+    const sectionId = input.sectionId.trim().toLowerCase();
+    const sectionLabel = input.sectionLabel.trim();
+    const note = input.note.trim();
+    const recipientRoles = [...new Set(input.recipientRoles.map((role) => role.trim().toUpperCase()))];
+    const allowedRoles = new Set<string>(REVIEW_RECIPIENT_ROLES);
+
+    if (!sectionId || !sectionLabel || !note) {
+      throw new ApiError(400, "INVALID_REVIEW", "Section and review feedback are required");
+    }
+    if (sectionId.length > 80 || sectionLabel.length > 120 || note.length > 4000) {
+      throw new ApiError(400, "INVALID_REVIEW", "Review feedback is too long");
+    }
+    if (!recipientRoles.length || recipientRoles.some((role) => !allowedRoles.has(role))) {
+      throw new ApiError(400, "INVALID_RECIPIENTS", "Select at least one valid recipient role");
+    }
+
+    const project = await this.repository.findProject(input.projectId);
+    assertProjectDistrictAccess(project, actor);
+
+    const globalRoles = recipientRoles.filter((role) => GLOBAL_ADMIN_ROLES.includes(role));
+    const districtRoles = recipientRoles.filter((role) => !GLOBAL_ADMIN_ROLES.includes(role));
+    const roleConditions: Prisma.UserWhereInput[] = [];
+    if (globalRoles.length) roleConditions.push({ role: { in: globalRoles } });
+    if (districtRoles.length) {
+      roleConditions.push(
+        project.districtId
+          ? { role: { in: districtRoles }, districtId: project.districtId }
+          : { role: { in: districtRoles } },
+      );
+    }
+
+    const recipients = await this.repository.findRecipientIds({
+      id: { not: actor.id },
+      OR: roleConditions,
+    });
+    const recipientIds = [...new Set(recipients.map((recipient) => recipient.id))];
+    const message = `${actor.fullName} sent review feedback for ${sectionLabel} in "${project.projectName}": ${note}`;
+    const result = await this.repository.createForUsers(
+      recipientIds,
+      `REVIEW_NOTE:${sectionId}:PROJECT_${project.id}`,
+      message,
+    );
+
+    return { success: true, recipients: result.count };
   }
 
   async notifyWorkflow(action: string, actor: AuthUser, project: ProjectNotificationContext, remarks?: string) {

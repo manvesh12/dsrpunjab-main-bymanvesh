@@ -13,6 +13,14 @@ export interface NotificationInbox {
   unreadCount: number;
 }
 
+export interface SendReviewInput {
+  projectId: string;
+  sectionId: string;
+  sectionLabel: string;
+  note: string;
+  recipientRoles: string[];
+}
+
 export const notificationsApi = {
   list: async (limit = 30): Promise<NotificationInbox> => {
     const { data } = await apiClient.get<NotificationInbox>("/notifications", { params: { limit } });
@@ -31,6 +39,14 @@ export const notificationsApi = {
 
   clearRead: async () => {
     const { data } = await apiClient.delete<{ success: boolean; deleted: number }>("/notifications/read");
+    return data;
+  },
+
+  sendReview: async (input: SendReviewInput) => {
+    const { data } = await apiClient.post<{ success: boolean; recipients: number }>(
+      "/notifications/review",
+      input,
+    );
     return data;
   },
 
