@@ -47,8 +47,8 @@ export async function downloadPlatesPdf(plates: Plate[]) {
   const pageStyle = `
     body { margin: 0; font-family: Arial, sans-serif; background: #fff; }
     .index-page { width: 794px; min-height: 1123px; padding: 60px; box-sizing: border-box; page-break-after: always; }
-    .plate-page { width: 794px; height: 1123px; page-break-after: always; overflow: hidden; position: relative; background: #fff; }
-    .plate-page img { width: 100%; height: 100%; object-fit: fill; display: block; }
+    .plate-page { width: 794px; height: 1123px; padding: 44px; page-break-after: always; overflow: hidden; position: relative; background: #fff; border: 1px solid #111; box-sizing: border-box; }
+    .plate-page img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; }
   `;
 
   const indexHtml = `<div class="index-page">

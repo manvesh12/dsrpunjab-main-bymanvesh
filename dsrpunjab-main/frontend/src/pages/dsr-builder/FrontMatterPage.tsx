@@ -107,15 +107,16 @@ export async function downloadPdf(
 ) {
   const pageStyle = `
     body { margin: 0; font-family: Arial, sans-serif; background: #fff; }
-    .page { width: 794px; min-height: 1123px; page-break-after: always; overflow: hidden; position: relative; background: #fff; box-sizing: border-box; }
+    .page { width: 794px; min-height: 1123px; page-break-after: always; overflow: hidden; position: relative; background: #fff; box-sizing: border-box; border: 1px solid #111; }
+    .uploaded-page { padding: 44px; }
     .page-inner { padding: 60px; box-sizing: border-box; min-height: 1123px; display: flex; flex-direction: column; }
-    .page img { width: 794px; height: 1123px; object-fit: fill; display: block; }
+    .uploaded-page img { width: 100%; height: 1033px; object-fit: contain; object-position: center; display: block; }
   `;
 
-  const toImg = (src: string) => `<img src="${src}" width="794" height="1123" style="object-fit:fill;display:block;" />`;
+  const toImg = (src: string) => `<img src="${src}" width="706" height="1033" style="object-fit:contain;object-position:center;display:block;" />`;
 
   const coverHtml = coverFile?.url
-    ? `<div class="page">${toImg(coverFile.url)}</div>`
+    ? `<div class="page uploaded-page">${toImg(coverFile.url)}</div>`
     : `<div class="page"><div class="page-inner" style="text-align:center;align-items:center;">
         <p style="font-size:11px;font-weight:bold;letter-spacing:.2em;text-transform:uppercase;">Government of ${data.state}</p>
         <h1 style="margin-top:80px;font-size:28px;font-weight:bold;text-transform:uppercase;line-height:1.3;">${data.title}</h1>
@@ -128,20 +129,20 @@ export async function downloadPdf(
       </div></div>`;
 
   const certHtml = certFile?.url
-    ? `<div class="page">${toImg(certFile.url)}</div>`
+    ? `<div class="page uploaded-page">${toImg(certFile.url)}</div>`
     : `<div class="page"><div class="page-inner" style="justify-content:center;align-items:center;">
         <p style="color:#94a3b8;border:2px dashed #e2e8f0;padding:40px 60px;">Certificate of Compliance Not Uploaded</p>
       </div></div>`;
 
   const prefaceHtml = prefaceFile?.url
-    ? `<div class="page">${toImg(prefaceFile.url)}</div>`
+    ? `<div class="page uploaded-page">${toImg(prefaceFile.url)}</div>`
     : `<div class="page"><div class="page-inner">
         <h2 style="font-size:20px;font-weight:bold;text-transform:uppercase;text-align:center;margin-bottom:40px;">Preface</h2>
         <div style="white-space:pre-wrap;line-height:1.7;">${data.preface}</div>
       </div></div>`;
 
   const contentHtml = contentFile?.url
-    ? `<div class="page">${toImg(contentFile.url)}</div>`
+    ? `<div class="page uploaded-page">${toImg(contentFile.url)}</div>`
     : `<div class="page"><div class="page-inner">
         <h2 style="font-size:20px;font-weight:bold;text-transform:uppercase;text-align:center;margin-bottom:40px;">Contents</h2>
         <ol style="font-size:13px;line-height:2;list-style:decimal;padding-left:20px;">
@@ -393,7 +394,7 @@ function PageSlot({ file, children }: { file: UploadRecord | null; children: Rea
   return (
     <div className="bg-white aspect-[1/1.414] w-full max-w-[794px] border border-[#e2e8f0] shrink-0 relative overflow-hidden flex flex-col">
       {file?.url ? (
-        <UploadedFilePreview src={file.url} imageStyle={{ objectFit: "fill" }} />
+        <UploadedFilePreview src={file.url} imageStyle={{ objectFit: "contain" }} />
       ) : (
         children
       )}

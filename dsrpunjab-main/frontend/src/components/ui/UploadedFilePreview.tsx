@@ -105,7 +105,14 @@ export default function UploadedFilePreview({
         src={previewSrc}
         alt={alt}
         className={imageClassName || className || (small ? "mt-3 max-h-48 w-full rounded-lg object-contain border" : "absolute inset-0 w-full h-full")}
-        style={imageStyle}
+        style={{
+          ...imageStyle,
+          display: "block",
+          maxWidth: "100%",
+          maxHeight: "100%",
+          objectFit: "contain",
+          objectPosition: "center",
+        }}
       />
     );
   }
@@ -113,9 +120,15 @@ export default function UploadedFilePreview({
   return (
     <iframe
       title={title}
-      src={`${previewSrc}#toolbar=0&navpanes=0&scrollbar=0&view=Fit&zoom=page-fit`}
+      src={`${previewSrc}#toolbar=0&navpanes=0&pagemode=none&view=FitH&zoom=page-fit`}
       className={className || (small ? "mt-3 h-48 w-full rounded-lg border bg-white" : "absolute inset-0 w-full h-full")}
-      style={{ border: "none", display: "block" }}
+      style={{
+        border: small ? "1px solid rgb(203 213 225)" : "0",
+        boxSizing: "border-box",
+        display: "block",
+        maxHeight: "100%",
+        maxWidth: "100%",
+      }}
     />
   );
 }

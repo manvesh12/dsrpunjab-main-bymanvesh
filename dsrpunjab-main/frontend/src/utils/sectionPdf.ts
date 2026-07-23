@@ -10,6 +10,10 @@ export type ReportCrossSection = { name?: string; dist?: string; post?: string; 
 export type ReportChapter = { name: string; summary: string };
 export type ReportFrameSettings = { headerText?: string; footerText?: string; sectionTitles?: Record<string, string>; sectionOverrides?: Record<string, { headerText?: string; footerText?: string }> };
 
+const A4_WIDTH = 595.28;
+const A4_HEIGHT = 841.89;
+const UPLOAD_SAFE_AREA = { x: 54, y: 72, width: A4_WIDTH - 108, height: A4_HEIGHT - 158 };
+
 function safeText(value: string) {
   return value.replace(/[^\x20-\x7E\xA0-\xFF]/g, "-");
 }
@@ -56,18 +60,38 @@ export async function appendUploadedDocument(target: PDFDocument, upload: PdfUpl
   if (!data.byteLength) throw new Error(`${upload.name} is empty`);
   if (contentType.includes("pdf") || upload.name.toLowerCase().endsWith(".pdf")) {
     const source = await PDFDocument.load(data);
-    const pages = await target.copyPages(source, source.getPageIndices());
-    pages.forEach((page) => target.addPage(page));
+    for (const sourcePage of source.getPages()) {
+      const embeddedPage = await target.embedPage(sourcePage);
+      const sourceSize = sourcePage.getSize();
+      const scale = Math.min(
+        UPLOAD_SAFE_AREA.width / sourceSize.width,
+        UPLOAD_SAFE_AREA.height / sourceSize.height,
+      );
+      const width = sourceSize.width * scale;
+      const height = sourceSize.height * scale;
+      const page = target.addPage([A4_WIDTH, A4_HEIGHT]);
+      page.drawPage(embeddedPage, {
+        x: UPLOAD_SAFE_AREA.x + (UPLOAD_SAFE_AREA.width - width) / 2,
+        y: UPLOAD_SAFE_AREA.y + (UPLOAD_SAFE_AREA.height - height) / 2,
+        width,
+        height,
+      });
+    }
     return true;
   }
   const image = contentType.includes("png") || upload.name.toLowerCase().endsWith(".png")
     ? await target.embedPng(data)
     : await target.embedJpg(data);
-  const page = target.addPage([595.28, 841.89]);
-  const scale = Math.min(page.getWidth() / image.width, page.getHeight() / image.height);
+  const page = target.addPage([A4_WIDTH, A4_HEIGHT]);
+  const scale = Math.min(UPLOAD_SAFE_AREA.width / image.width, UPLOAD_SAFE_AREA.height / image.height);
   const width = image.width * scale;
   const height = image.height * scale;
-  page.drawImage(image, { x: (page.getWidth() - width) / 2, y: (page.getHeight() - height) / 2, width, height });
+  page.drawImage(image, {
+    x: UPLOAD_SAFE_AREA.x + (UPLOAD_SAFE_AREA.width - width) / 2,
+    y: UPLOAD_SAFE_AREA.y + (UPLOAD_SAFE_AREA.height - height) / 2,
+    width,
+    height,
+  });
   return true;
 }
 

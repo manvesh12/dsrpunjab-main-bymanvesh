@@ -545,11 +545,11 @@ export default function Step4Summary({ file, parsedResults, onCancel, draftData 
           </div>
 
           {/* PDF Container (Uses Key Trick to reload iframe strictly) */}
-          <div className="flex-1 bg-slate-100 dark:bg-slate-950 relative h-full">
+          <div className="relative h-full flex-1 bg-slate-100 p-3 dark:bg-slate-950">
             <iframe
               key={previewPage}
-              src={`${objectUrl}#page=${previewPage}&toolbar=0&navpanes=0`}
-              className="w-full h-full border-none"
+              src={`${objectUrl}#page=${previewPage}&toolbar=0&navpanes=0&pagemode=none&view=FitH&zoom=page-fit`}
+              className="h-full w-full border border-slate-300 bg-white dark:border-slate-700"
               title="DSR Document Preview"
             />
           </div>
