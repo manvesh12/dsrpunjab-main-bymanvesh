@@ -102,6 +102,7 @@ type BuilderState = {
   sections: ReportSection[];
   grids: GridRow[];
   gridTables?: GridTable[];
+  photoCaptions?: Record<string, string>;
   inherited?: Record<string, unknown>;
   importedKeys: string[];
   lastSavedAt?: string;
@@ -301,15 +302,15 @@ function renderGridTableHtml(table: CalculatedGridTable, tableIndex: number) {
   return `<h3>Table ${tableIndex + 1}: ${safe(table.title || "Grid-wise Volume and Quantity Calculation")}</h3><table class="inserted-table"><thead><tr>${columns.map((column) => `<th>${safe(column.label)}</th>`).join("")}</tr></thead><tbody>${table.rows.map((row) => `<tr>${columns.map((column) => `<td>${gridCellValue(row, column.key)}</td>`).join("")}</tr>`).join("")}<tr class="total">${totalCells}</tr></tbody></table>`;
 }
 
-function renderPhotoHtml(file: ReplenishmentFile) {
-  const caption = safe(file.fileName);
+function renderPhotoHtml(file: ReplenishmentFile, captionText?: string) {
+  const caption = safe(captionText?.trim() || file.fileName);
   if (file.downloadUrl) {
     return `<figure class="inserted-photo"><img src="${safe(file.downloadUrl)}" alt="${caption}"><figcaption>${caption}</figcaption></figure>`;
   }
   return `<figure class="inserted-photo inserted-photo-placeholder"><figcaption>Photo: ${caption}</figcaption></figure>`;
 }
 
-function renderContentWithInserts(content: string, tables: CalculatedGridTable[], files: ReplenishmentFile[]) {
+function renderContentWithInserts(content: string, tables: CalculatedGridTable[], files: ReplenishmentFile[], photoCaptions: Record<string, string> = {}) {
   const tableMap = new Map(tables.map((table, index) => [table.id, { table, index }]));
   const photoMap = new Map(files.filter((file) => file.contentType?.startsWith("image/")).map((file) => [file.id, file]));
   return content.split(/(\[\[(?:TABLE|PHOTO):[^\]]+\]\])/g).map((part) => {
@@ -321,7 +322,7 @@ function renderContentWithInserts(content: string, tables: CalculatedGridTable[]
     const photoToken = part.match(/^\[\[PHOTO:([^\]]+)\]\]$/);
     if (photoToken) {
       const match = photoMap.get(photoToken[1]);
-      return match ? renderPhotoHtml(match) : `<p><b>Missing photo:</b> ${safe(photoToken[1])}</p>`;
+      return match ? renderPhotoHtml(match, photoCaptions[match.id]) : `<p><b>Missing photo:</b> ${safe(photoToken[1])}</p>`;
     }
     return safe(part).replace(/\n/g, "<br>");
   }).join("");
@@ -339,6 +340,7 @@ function normaliseState(study: ReplenishmentStudy): BuilderState {
       sections: Array.isArray(saved.sections) ? saved.sections : defaultSections,
       grids: flattenGridTables(gridTables),
       gridTables,
+      photoCaptions: saved.photoCaptions || {},
       inherited: saved.inherited || {},
       importedKeys: Array.isArray(saved.importedKeys) ? saved.importedKeys : [],
       lastSavedAt: saved.lastSavedAt,
@@ -357,6 +359,7 @@ function normaliseState(study: ReplenishmentStudy): BuilderState {
     sections: defaultSections,
     grids: [defaultGrid()],
     gridTables: [defaultGridTable()],
+    photoCaptions: {},
     inherited: saved.inherited || {},
     importedKeys: [],
   };
@@ -411,7 +414,7 @@ function buildFormalReportHtml(state: BuilderState, _study: ReplenishmentStudy |
   const cleanTitle = (title: string) => safe(title).replace(/^\d+(\.\d+)?\s*/, "");
   const toc = sections.map((section, index) => `<tr><td>${index + 1}.0</td><td>${cleanTitle(section.title)}</td><td></td></tr>`).join("");
   const calculationHtml = calculationTables.map((table, tableIndex) => renderGridTableHtml(table, tableIndex)).join("");
-  const body = sections.map((section, index) => `<section class="chapter">${frameFor(section.id)}<h2>${index + 1}.0 ${cleanTitle(section.title)}</h2><div class="narrative">${renderContentWithInserts(section.content, calculationTables, files)}</div>${section.id === "calculation" ? calculationHtml : ""}</section>`).join("");
+  const body = sections.map((section, index) => `<section class="chapter">${frameFor(section.id)}<h2>${index + 1}.0 ${cleanTitle(section.title)}</h2><div class="narrative">${renderContentWithInserts(section.content, calculationTables, files, state.photoCaptions)}</div>${section.id === "calculation" ? calculationHtml : ""}</section>`).join("");
   const evidenceRows = evidenceRequirements.map((requirement, index) => {
     const matches = files.filter((file) => file.sectionId === requirement.id);
     return `<tr><td>${index + 1}</td><td>${safe(requirement.title)}</td><td>${requirement.required ? "Required" : "Optional"}</td><td>${matches.length ? matches.map((file) => safe(file.fileName)).join("<br>") : "Not uploaded"}</td><td>${matches.length ? "Attached" : "Pending"}</td></tr>`;
@@ -523,7 +526,7 @@ export default function ReplenishmentBuilderPage() {
   const { projectId } = useParams();
   const [activeStep, setActiveStep] = useState<StepId>("setup");
   const [study, setStudy] = useState<ReplenishmentStudy | null>(null);
-  const [state, setState] = useState<BuilderState>({ type: "replenishment_builder_v2", schemaVersion: 2, details: defaultDetails, sectionOverrides: {}, sections: defaultSections, grids: [defaultGrid()], gridTables: [defaultGridTable()], inherited: {}, importedKeys: [] });
+  const [state, setState] = useState<BuilderState>({ type: "replenishment_builder_v2", schemaVersion: 2, details: defaultDetails, sectionOverrides: {}, sections: defaultSections, grids: [defaultGrid()], gridTables: [defaultGridTable()], photoCaptions: {}, inherited: {}, importedKeys: [] });
   const [selectedFrameSection, setSelectedFrameSection] = useState("index");
   const [files, setFiles] = useState<ReplenishmentFile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -541,7 +544,7 @@ export default function ReplenishmentBuilderPage() {
     try {
       const studies = await replenishmentApi.list(projectId);
       const firstTable = defaultGridTable();
-      const active = studies.find((item) => item.reportState?.type === "replenishment_builder_v2") || studies[0] || await replenishmentApi.create(projectId, { title: defaultDetails.reportTitle, reportState: { type: "replenishment_builder_v2", schemaVersion: 2, details: defaultDetails, sections: defaultSections, grids: firstTable.grids, gridTables: [firstTable], importedKeys: [] } });
+      const active = studies.find((item) => item.reportState?.type === "replenishment_builder_v2") || studies[0] || await replenishmentApi.create(projectId, { title: defaultDetails.reportTitle, reportState: { type: "replenishment_builder_v2", schemaVersion: 2, details: defaultDetails, sections: defaultSections, grids: firstTable.grids, gridTables: [firstTable], photoCaptions: {}, importedKeys: [] } });
       setStudy(active);
       setState(normaliseState(active));
       setFiles(await replenishmentApi.listFiles(active.id));
@@ -594,6 +597,7 @@ export default function ReplenishmentBuilderPage() {
 
   const updateDetails = (key: keyof StudyDetails, value: string) => setState((current) => ({ ...current, details: { ...current.details, [key]: value } }));
   const updateSection = (id: string, patch: Partial<ReportSection>) => setState((current) => ({ ...current, sections: current.sections.map((section) => section.id === id ? { ...section, ...patch } : section) }));
+  const updatePhotoCaption = (fileId: string, caption: string) => setState((current) => ({ ...current, photoCaptions: { ...(current.photoCaptions || {}), [fileId]: caption } }));
   const insertIntoActiveSection = (token: string) => {
     const activeSection = state.sections.find((section) => section.id === activeContentSectionId && section.included) || state.sections.find((section) => section.included) || state.sections[0];
     if (!activeSection) return;
@@ -784,7 +788,7 @@ export default function ReplenishmentBuilderPage() {
 
   {activeStep === "survey" && <div className="space-y-5"><Card><h3 className="mb-1 text-lg font-extrabold text-[#12396b]">Survey inputs</h3><p className="mb-5 text-sm text-slate-500">Enter verified pre/post monsoon survey observations using a common datum and same grid extent.</p><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><Field label="Lease area" suffix="ha" value={state.details.leaseArea} onChange={(value) => updateDetails("leaseArea", value)} /><Field label="Mineable area" suffix="ha" value={state.details.mineableArea} onChange={(value) => updateDetails("mineableArea", value)} /><Field label="Pre-monsoon survey" type="date" value={state.details.preSurveyDate} onChange={(value) => updateDetails("preSurveyDate", value)} /><Field label="Post-monsoon survey" type="date" value={state.details.postSurveyDate} onChange={(value) => updateDetails("postSurveyDate", value)} /><Field label="Bulk density" suffix="MT/cum" value={state.details.bulkDensity} onChange={(value) => updateDetails("bulkDensity", value)} /><Field label="Approved annual quantity" suffix="MT" value={state.details.approvedQuantity} onChange={(value) => updateDetails("approvedQuantity", value)} /><Field label="Extracted quantity" suffix="MT" value={state.details.extractedQuantity} onChange={(value) => updateDetails("extractedQuantity", value)} /><Field label="Rainfall during period" suffix="mm" value={state.details.rainfall} onChange={(value) => updateDetails("rainfall", value)} /></div></Card>{primaryTable && <GridCalculationCard table={primaryTable} tableNumber={1} canRemove={false} onAddRow={() => addGridRow(primaryTable.id)} onUpdateTitle={(title) => updateGridTableTitle(primaryTable.id, title)} onUpdateColumn={(key, patch) => updateGridColumn(primaryTable.id, key, patch)} onToggleColumn={(key, visible) => toggleGridColumn(primaryTable.id, key, visible)} onUpdateRow={(rowId, key, value) => updateGridInTable(primaryTable.id, rowId, key, value)} onRemoveRow={(rowId) => removeGridRow(primaryTable.id, rowId)} extraActions={<button onClick={addGridTable} className="module-btn-secondary"><Plus size={16}/> Add table</button>} />}{calculationTables.slice(1).map((table, index) => <GridCalculationCard key={table.id} table={table} tableNumber={index + 2} canRemove={calculationTables.length > 1} onAddRow={() => addGridRow(table.id)} onRemoveTable={() => removeGridTable(table.id)} onUpdateTitle={(title) => updateGridTableTitle(table.id, title)} onUpdateColumn={(key, patch) => updateGridColumn(table.id, key, patch)} onToggleColumn={(key, visible) => toggleGridColumn(table.id, key, visible)} onUpdateRow={(rowId, key, value) => updateGridInTable(table.id, rowId, key, value)} onRemoveRow={(rowId) => removeGridRow(table.id, rowId)} />)}<Card><label className="block"><span className="mb-1.5 block text-xs font-bold text-slate-600">Study remarks and calculation assumptions</span><textarea rows={4} value={state.details.remarks} onChange={(event) => updateDetails("remarks", event.target.value)} className="w-full rounded-lg border border-slate-300 p-3 text-sm outline-none focus:border-[#12396b]"/></label></Card></div>}
 
-        {activeStep === "evidence" && <div className="space-y-4"><Card><h3 className="text-lg font-extrabold text-[#12396b]">Evidence and annexure upload centre</h3><p className="mt-1 text-sm text-slate-500">PDF, Excel/CSV, images, and ZIP files are stored category-wise as evidence. Limit is 50 MB per file.</p></Card><div className="grid gap-4 md:grid-cols-2">{evidenceRequirements.map((requirement) => { const matches = files.filter((file) => file.sectionId === requirement.id); return <Card key={requirement.id}><div className="flex items-start gap-3"><div className={`rounded-lg p-2 ${matches.length ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{matches.length ? <FileCheck2 size={20}/> : <CloudUpload size={20}/>}</div><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><b className="text-sm">{requirement.title}</b><span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${requirement.required ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500"}`}>{requirement.required ? "REQUIRED" : "OPTIONAL"}</span></div><p className="mt-1 text-xs text-slate-500">{requirement.hint}</p><div className="mt-3 space-y-2">{matches.map((file) => <button key={file.id} onClick={() => void downloadEvidence(file)} className="flex w-full items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-left text-xs hover:bg-blue-50"><span className="truncate font-medium text-[#12396b]">{file.fileName}</span><span className="shrink-0 text-slate-400">{fileSize(file.sizeBytes)}</span></button>)}</div><label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-blue-300 bg-blue-50 px-3 py-2 text-xs font-bold text-[#12396b] hover:bg-blue-100"><Upload size={14}/>{uploading === requirement.id ? "Uploading…" : matches.length ? "Add another file" : "Choose file(s)"}<input type="file" multiple accept={requirement.accept} disabled={uploading !== null} onChange={(event) => void uploadEvidence(requirement, event)} className="hidden"/></label></div></div></Card>; })}</div></div>}
+        {activeStep === "evidence" && <div className="space-y-4"><Card><h3 className="text-lg font-extrabold text-[#12396b]">Evidence and annexure upload centre</h3><p className="mt-1 text-sm text-slate-500">Photo upload Survey Photographs / Maps cards me Choose file(s) se hota hai. Image file ke niche caption likh sakte ho; wahi final report me photo ke niche aayega.</p></Card><div className="grid gap-4 md:grid-cols-2">{evidenceRequirements.map((requirement) => { const matches = files.filter((file) => file.sectionId === requirement.id); return <Card key={requirement.id}><div className="flex items-start gap-3"><div className={`rounded-lg p-2 ${matches.length ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{matches.length ? <FileCheck2 size={20}/> : <CloudUpload size={20}/>}</div><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><b className="text-sm">{requirement.title}</b><span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${requirement.required ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500"}`}>{requirement.required ? "REQUIRED" : "OPTIONAL"}</span></div><p className="mt-1 text-xs text-slate-500">{requirement.hint}</p><div className="mt-3 space-y-2">{matches.map((file) => <div key={file.id} className="rounded-lg bg-slate-50 p-2"><button onClick={() => void downloadEvidence(file)} className="flex w-full items-center justify-between gap-2 rounded px-1 py-1 text-left text-xs hover:bg-blue-50"><span className="truncate font-medium text-[#12396b]">{file.fileName}</span><span className="shrink-0 text-slate-400">{fileSize(file.sizeBytes)}</span></button>{file.contentType?.startsWith("image/") && <label className="mt-2 block"><span className="mb-1 block text-[11px] font-bold text-slate-500">Photo caption</span><input value={state.photoCaptions?.[file.id] || ""} onChange={(event) => updatePhotoCaption(file.id, event.target.value)} placeholder="Text shown below this photo in final report" className="w-full rounded border border-slate-300 bg-white px-2.5 py-2 text-xs outline-none focus:border-[#12396b]"/></label>}</div>)}</div><label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-blue-300 bg-blue-50 px-3 py-2 text-xs font-bold text-[#12396b] hover:bg-blue-100"><Upload size={14}/>{uploading === requirement.id ? "Uploading…" : matches.length ? "Add another file" : "Choose file(s)"}<input type="file" multiple accept={requirement.accept} disabled={uploading !== null} onChange={(event) => void uploadEvidence(requirement, event)} className="hidden"/></label></div></div></Card>; })}</div></div>}
 
         {activeStep === "review" && <div className="space-y-5"><div className="grid gap-4 md:grid-cols-3"><Card><CheckCircle2 className="mb-2 text-emerald-600"/><div className="text-xs text-slate-500">Completion</div><b className="text-2xl text-[#12396b]">{completion}%</b></Card><Card><ClipboardList className="mb-2 text-blue-700"/><div className="text-xs text-slate-500">Included chapters</div><b className="text-2xl text-[#12396b]">{state.sections.filter((item) => item.included).length}</b></Card><Card><CloudUpload className="mb-2 text-amber-600"/><div className="text-xs text-slate-500">Uploaded files</div><b className="text-2xl text-[#12396b]">{files.length}</b></Card></div><Card><h3 className="mb-4 text-lg font-extrabold text-[#12396b]">Final verification</h3><div className="grid gap-2 md:grid-cols-2">{[
           [Boolean(state.details.district && state.details.river), "District and river identity complete"],
