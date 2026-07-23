@@ -1,6 +1,6 @@
-import { Download, List, Printer, Save, Settings2 } from "lucide-react";
+import { Download, FileText, List, Printer, RefreshCw, Save, Settings2 } from "lucide-react";
 import { useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { get } from "idb-keyval";
@@ -12,6 +12,8 @@ import { appendGeneratedReportContent, appendReportSectionTitle, appendUploadedD
 import { toast } from "sonner";
 import { annexureTemplates } from "../annexures/AnnexureEditorPage";
 import { additionalAnnexureTemplates } from "../annexures/AdditionalAnnexureEditorPage";
+import ReplenishmentBuilderPage from "../replenishment/ReplenishmentBuilderPage";
+import ModelDsrPage from "../replenishment/ModelDsrPage";
 
 type UploadRecord = { name: string; url?: string } | null;
 type Chapter = ReportChapter & { file?: { name: string; url: string } };
@@ -24,8 +26,14 @@ type FrontMatterState = {
 };
 export type PreviewUpload = { id: string; title: string; name: string; url: string };
 type DraftColumn = { key: string; label: string };
+type GeneratorTab = "final-dsr" | "replenishment" | "model-dsr";
 const annexureSections = ["Annexure I", "Annexure II", "Annexure III", "Annexure IV", "Annexure V", "Annexure VI", "Annexure VII", "Annexure B", "Annexure C", "Annexure D", "Annexure E", "Annexure F", "Annexure G", "Annexure H", "Annexure I (Additional)", "Annexure J", "Annexure K"];
 const frameSections = ["Front Matter", "Chapters", "Plates and Maps", ...annexureSections];
+const generatorTabs: { id: GeneratorTab; label: string; description: string; icon: typeof FileText }[] = [
+  { id: "final-dsr", label: "Final DSR", description: "Generate and download the complete District Survey Report", icon: FileText },
+  { id: "replenishment", label: "Replenishment Report", description: "Prepare replenishment study and export PDF/DOCX", icon: RefreshCw },
+  { id: "model-dsr", label: "Model DSR", description: "Create selected-section model DSR and download PDF", icon: List },
+];
 
 function annexureMatches(title: string, annexure: string) {
   const normalized = title.toLowerCase().replace(/\s+/g, " ");
@@ -102,6 +110,11 @@ export function UploadedSection({ upload, pageNumber, district, headerText, foot
 
 export default function ReportPreviewPage() {
   const { projectId = "default" } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab");
+  const [activeGeneratorTab, setActiveGeneratorTab] = useState<GeneratorTab>(
+    initialTab === "replenishment" || initialTab === "model-dsr" ? initialTab : "final-dsr"
+  );
   const [downloading, setDownloading] = useState(false);
   const [tables, setTables] = useState<ReportDataTable[]>([]);
   const [draftChapters, setDraftChapters] = useState<Chapter[]>([]);
@@ -128,6 +141,16 @@ export default function ReportPreviewPage() {
     const saved = state["report-format"] as ReportFrameSettings | undefined;
     if (saved) setFrameSettings(saved);
   }, [project?.id]);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "replenishment" || tab === "model-dsr" || tab === "final-dsr") setActiveGeneratorTab(tab);
+  }, [searchParams]);
+
+  const changeGeneratorTab = (tab: GeneratorTab) => {
+    setActiveGeneratorTab(tab);
+    setSearchParams(tab === "final-dsr" ? {} : { tab });
+  };
 
   const selectedOverride = frameSettings.sectionOverrides?.[selectedFrameSection] || {};
   const sectionDisplayName = (section: string) => frameSettings.sectionTitles?.[section]?.trim() || section;
@@ -287,15 +310,43 @@ export default function ReportPreviewPage() {
     <>
       <PageHeader
         backLink={`/projects/${projectId}`}
-        title="Live Report Preview"
-        description="A4 DSR-format preview with section headers, borders, footers and page numbering"
-        action={<div className="flex gap-2">
+        title="Final Report Generator"
+        description="Generate, preview and download Final DSR, Replenishment Report and Model DSR from one workspace"
+        action={activeGeneratorTab === "final-dsr" ? <div className="flex gap-2">
           <button className="module-btn" onClick={() => window.print()}><Printer size={17} />Print</button>
           <button className="module-btn-primary" disabled={downloading || isLoading} onClick={downloadFinalPdf}>
             <Download size={17} />{downloading ? "Generating..." : "Download Final PDF"}
           </button>
-        </div>}
+        </div> : undefined}
       />
+      <section className="mb-5 border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900">
+        <div className="grid gap-px bg-slate-200 sm:grid-cols-3 dark:bg-slate-700">
+          {generatorTabs.map((tab) => {
+            const Icon = tab.icon;
+            const active = activeGeneratorTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => changeGeneratorTab(tab.id)}
+                className={`flex min-h-20 items-start gap-3 bg-white px-4 py-3 text-left transition dark:bg-slate-900 ${active ? "border-t-4 border-[#e9a319] text-[#123c6e] dark:text-blue-300" : "border-t-4 border-transparent text-slate-600 hover:bg-[#f4f7fa] dark:text-slate-300 dark:hover:bg-slate-800"}`}
+              >
+                <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center border ${active ? "border-[#b9c9d9] bg-[#eaf0f7]" : "border-slate-200 bg-slate-50"} dark:border-slate-700 dark:bg-slate-800`}>
+                  <Icon size={17} />
+                </span>
+                <span>
+                  <span className="block text-sm font-extrabold">{tab.label}</span>
+                  <span className="mt-1 block text-xs leading-5 text-slate-500 dark:text-slate-400">{tab.description}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+      {activeGeneratorTab === "replenishment" && <ReplenishmentBuilderPage />}
+      {activeGeneratorTab === "model-dsr" && <ModelDsrPage />}
+      {activeGeneratorTab === "final-dsr" && (
+      <>
       <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-800"><Settings2 size={16} /> Report Header &amp; Footer Settings</div>
         <div className="grid gap-3 md:grid-cols-4 md:items-end">
@@ -345,6 +396,8 @@ export default function ReportPreviewPage() {
         </article>
         </div>
       </main>
+      </>
+      )}
     </>
   );
 }

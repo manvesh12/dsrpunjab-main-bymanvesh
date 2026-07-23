@@ -35,6 +35,12 @@ const modulesTemplate = [
   ["Generate PDF", "Validate and create the final report", "generate", FileCheck2, [Permission.ReportGenerate, Permission.ReportDownload]],
 ] as const;
 
+function modulePath(projectId: string, path: string) {
+  if (path === "replenishment") return `/projects/${projectId}/generate?tab=replenishment`;
+  if (path === "model-dsr") return `/projects/${projectId}/generate?tab=model-dsr`;
+  return `/projects/${projectId}/${path}`;
+}
+
 export default function ProjectDetailsPage() {
   const { projectId = "1" } = useParams();
   const { user } = useAuth();
@@ -122,7 +128,7 @@ export default function ProjectDetailsPage() {
           return accessible ? (
             <Link
               key={path}
-              to={`/projects/${projectId}/${path}`}
+              to={modulePath(projectId, path)}
               className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"
             >
               {content}
