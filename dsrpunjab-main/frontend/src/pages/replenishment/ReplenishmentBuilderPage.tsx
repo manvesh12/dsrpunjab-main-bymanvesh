@@ -441,7 +441,8 @@ export default function ReplenishmentBuilderPage() {
   const { projectId } = useParams();
   const [activeStep, setActiveStep] = useState<StepId>("setup");
   const [study, setStudy] = useState<ReplenishmentStudy | null>(null);
-  const [state, setState] = useState<BuilderState>({ type: "replenishment_builder_v2", schemaVersion: 2, details: defaultDetails, sections: defaultSections, grids: [defaultGrid()], gridTables: [defaultGridTable()], inherited: {}, importedKeys: [] });
+  const [state, setState] = useState<BuilderState>({ type: "replenishment_builder_v2", schemaVersion: 2, details: defaultDetails, sectionOverrides: {}, sections: defaultSections, grids: [defaultGrid()], gridTables: [defaultGridTable()], inherited: {}, importedKeys: [] });
+  const [selectedFrameSection, setSelectedFrameSection] = useState("index");
   const [files, setFiles] = useState<ReplenishmentFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -581,6 +582,27 @@ export default function ReplenishmentBuilderPage() {
 
   const activeIndex = steps.findIndex((step) => step.id === activeStep);
   const inheritedEntries = Object.keys(state.inherited || {}).filter((key) => state.inherited?.[key] != null && inheritedLabels[key]);
+  const frameSections = [
+    { id: "index", label: "Index" },
+    { id: "table-list", label: "List of Tables & Annexures" },
+    { id: "project-details-page", label: "Project Details" },
+    ...state.sections.filter((section) => section.included).map((section) => ({ id: section.id, label: section.title })),
+    { id: "annexures", label: "Annexure Register" },
+  ];
+  const selectedFrameLabel = frameSections.find((section) => section.id === selectedFrameSection)?.label || "Selected section";
+  const selectedFrameOverride = state.sectionOverrides?.[selectedFrameSection] || {};
+  const updateFrameOverride = (field: "headerText" | "footerText", value: string) => {
+    setState((current) => ({
+      ...current,
+      sectionOverrides: {
+        ...current.sectionOverrides,
+        [selectedFrameSection]: {
+          ...current.sectionOverrides?.[selectedFrameSection],
+          [field]: value,
+        },
+      },
+    }));
+  };
 
   if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><RefreshCw className="animate-spin text-[#12396b]" /></div>;
 
@@ -592,13 +614,23 @@ export default function ReplenishmentBuilderPage() {
         <Settings2 size={16} />
         Report Header &amp; Footer Settings
       </div>
-      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
+      <div className="grid gap-3 md:grid-cols-4 md:items-end">
         <Field label="Default header" value={state.details.headerText} onChange={(value) => updateDetails("headerText", value)} />
         <Field label="Default footer" value={state.details.footerText} onChange={(value) => updateDetails("footerText", value)} />
+        <label className="block">
+          <span className="mb-1.5 block text-xs font-bold text-slate-600">Page / section override</span>
+          <select value={selectedFrameSection} onChange={(event) => setSelectedFrameSection(event.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#12396b] focus:ring-2 focus:ring-blue-100">
+            {frameSections.map((section) => <option key={section.id} value={section.id}>{section.label}</option>)}
+          </select>
+        </label>
         <button onClick={save} disabled={saving} className="module-btn-primary justify-center">
           <Save size={16} />
           {saving ? "Saving…" : "Save Format"}
         </button>
+      </div>
+      <div className="mt-3 grid gap-3 md:grid-cols-2">
+        <Field label={`${selectedFrameLabel} header`} value={selectedFrameOverride.headerText || ""} onChange={(value) => updateFrameOverride("headerText", value)} placeholder="Uses default header if empty" />
+        <Field label={`${selectedFrameLabel} footer`} value={selectedFrameOverride.footerText || ""} onChange={(value) => updateFrameOverride("footerText", value)} placeholder="Uses default footer if empty" />
       </div>
     </section>
 
