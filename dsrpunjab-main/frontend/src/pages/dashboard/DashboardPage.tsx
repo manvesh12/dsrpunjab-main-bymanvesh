@@ -4,6 +4,7 @@ import {
   Bell,
   Check,
   CheckCircle2,
+  ChevronDown,
   Clock3,
   FileCheck2,
   FilePlus,
@@ -15,11 +16,14 @@ import {
   ShieldAlert,
   Users,
 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { projectsApi } from "../../api/projects.api";
 import { settingsApi } from "../../api/settings.api";
 import { useAuth } from "../../security/auth.context";
-import { isGlobalAdmin } from "../../security/access";
+import { isGlobalAdmin, Permission } from "../../security/access";
+import { overallProjectProgress, workflowCompletion } from "../../utils/projectProgress";
 
 const nonAdminStats = [
   { label: "Total Projects", value: "3", info: "Active DSR projects", icon: FolderKanban, tone: "blue" },
@@ -41,14 +45,6 @@ const recentProjects = [
   { name: "Bathinda DSR 2025-26", district: "Bathinda", status: "Completed", date: "2 days ago", progress: 100 },
 ];
 
-const workflowSteps = [
-  { title: "Project Initialized", sub: "District, financial year and mineral details captured", done: true, active: false },
-  { title: "Data Entry and Upload", sub: "Chapters, plates, graphs, annexures and evidence files", done: false, active: true },
-  { title: "Generate Final PDF", sub: "Compile report in official government format", done: false, active: false },
-  { title: "Submit for Approval", sub: "Send report to assigned reviewing authority", done: false, active: false },
-  { title: "Sequential E-Signing", sub: "Authority hierarchy completes final signed PDF", done: false, active: false },
-];
-
 const adminActivity = [
   { user: "SDM Jalandhar", action: "Approved DSR phase 2", time: "10 mins ago", tone: "green" },
   { user: "Consultant Ludhiana", action: "Generated Model DSR", time: "1 hour ago", tone: "blue" },
@@ -57,6 +53,7 @@ const adminActivity = [
 ];
 
 const districts = ["Jalandhar", "Ludhiana", "Bathinda", "Amritsar", "Patiala", "Rupnagar"];
+const WORKFLOW_PROJECT_KEY = "dsr:dashboard:workflow-project";
 
 const toneClasses: Record<string, { box: string; icon: string; badge: string }> = {
   blue: { box: "bg-[#eaf0f7] border-[#b9c9d9]", icon: "text-[#123c6e]", badge: "bg-blue-50 text-[#123c6e] border-blue-200" },
@@ -67,9 +64,10 @@ const toneClasses: Record<string, { box: string; icon: string; badge: string }> 
 };
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const isAdmin = isGlobalAdmin(user);
   const stats = isAdmin ? adminStats : nonAdminStats;
+  const canReview = hasPermission(Permission.ReportApprove) || hasPermission(Permission.SectionReviewOnly);
 
   const { data: noticeSetting } = useQuery({
     queryKey: ["settings", "notice_text"],
@@ -161,7 +159,7 @@ export default function DashboardPage() {
           </div>
         </article>
 
-        {isAdmin ? <AdminPanel /> : <WorkflowPanel />}
+        {isAdmin ? <AdminPanel /> : <WorkflowPanel canReview={canReview} />}
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[.8fr_1.2fr]">
@@ -205,11 +203,7 @@ function PanelHeader({ title, subtitle, to }: { title: string; subtitle: string;
         <h2 className="text-lg font-extrabold text-[#102f55] dark:text-white">{title}</h2>
         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>
       </div>
-      {to && (
-        <Link to={to} className="shrink-0 text-xs font-extrabold text-[#123c6e] hover:underline dark:text-blue-300">
-          View all
-        </Link>
-      )}
+      {to && <Link to={to} className="shrink-0 text-xs font-extrabold text-[#123c6e] hover:underline dark:text-blue-300">View all</Link>}
     </div>
   );
 }
@@ -219,26 +213,132 @@ function StatusBadge({ status }: { status: string }) {
   return <span className={`border px-2.5 py-1 text-[11px] font-extrabold ${tone.badge} dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200`}>{status}</span>;
 }
 
-function WorkflowPanel() {
+function WorkflowPanel({ canReview }: { canReview: boolean }) {
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const {
+    data: projectResponse,
+    isLoading: projectsLoading,
+    isError: projectsError,
+    refetch: refetchProjects,
+  } = useQuery({
+    queryKey: ["projects", "dashboard-workflow"],
+    queryFn: () => projectsApi.list({ limit: 100 }),
+  });
+
+  const activeProjects = useMemo(
+    () => (projectResponse?.data || []).filter((project) => {
+      const status = String(project.status).toUpperCase().replace(/\s+/g, "_");
+      return !project.phaseLocked && !["COMPLETED", "APPROVED", "ARCHIVED"].includes(status);
+    }),
+    [projectResponse]
+  );
+
+  useEffect(() => {
+    if (activeProjects.length === 0) {
+      setSelectedProjectId("");
+      return;
+    }
+    const storedId = window.localStorage.getItem(WORKFLOW_PROJECT_KEY) || "";
+    const selectedExists = activeProjects.some((project) => String(project.id) === selectedProjectId);
+    const storedExists = activeProjects.some((project) => String(project.id) === storedId);
+    if (!selectedExists) setSelectedProjectId(storedExists ? storedId : String(activeProjects[0].id));
+  }, [activeProjects, selectedProjectId]);
+
+  const selectedListProject = activeProjects.find((project) => String(project.id) === selectedProjectId);
+  const {
+    data: selectedProject,
+    isLoading: projectLoading,
+    isError: projectError,
+    refetch: refetchProject,
+  } = useQuery({
+    queryKey: ["project", selectedProjectId],
+    queryFn: () => projectsApi.get(selectedProjectId),
+    enabled: Boolean(selectedProjectId),
+  });
+
+  const project = selectedProject || selectedListProject;
+  const steps = workflowCompletion(project);
+  const progress = overallProjectProgress(project);
+  const completedSteps = steps.filter((step) => step.done).length;
+  const currentStep = steps.find((step) => !step.done && !step.locked);
+  const projectName = project?.title || project?.projectName || "Selected project";
+  const projectDistrict = project?.district || (project?.districtId ? `District #${project.districtId}` : "Punjab");
+  const hasError = projectsError || projectError;
+
+  const selectProject = (projectId: string) => {
+    setSelectedProjectId(projectId);
+    window.localStorage.setItem(WORKFLOW_PROJECT_KEY, projectId);
+  };
+
   return (
     <article className="border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900">
-      <PanelHeader title="DSR Workflow Overview" subtitle="Current report lifecycle stages" />
-      <div className="space-y-0 px-5 pb-5">
-        {workflowSteps.map((step, index) => (
-          <div key={step.title} className="relative flex gap-4 pb-6 last:pb-0">
-            {index !== workflowSteps.length - 1 && <div className={`absolute left-[15px] top-8 bottom-0 w-px ${step.done ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-700"}`} />}
-            <span className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center border text-xs font-extrabold ${step.done ? "border-emerald-600 bg-emerald-600 text-white" : step.active ? "border-[#123c6e] bg-[#123c6e] text-white" : "border-slate-300 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900"}`}>
-              {step.done ? <Check size={14} strokeWidth={3} /> : index + 1}
-            </span>
-            <div className="pt-1">
-              <h3 className={`text-sm font-extrabold ${step.active ? "text-[#123c6e] dark:text-blue-300" : "text-slate-800 dark:text-slate-200"}`}>{step.title}</h3>
-              <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{step.sub}</p>
-            </div>
+      <div className="border-t-4 border-[#123c6e] px-5 py-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-lg font-extrabold text-[#102f55] dark:text-white">DSR Workflow Overview</h2>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Live completion status for an active project</p>
           </div>
-        ))}
+          <label className="block min-w-0 sm:w-64">
+            <span className="mb-1.5 block text-[10px] font-extrabold uppercase text-slate-500 dark:text-slate-400">Active project</span>
+            <span className="relative block">
+              <select value={selectedProjectId} onChange={(event) => selectProject(event.target.value)} disabled={projectsLoading || activeProjects.length === 0} className="h-10 w-full appearance-none border border-slate-300 bg-white px-3 pr-9 text-sm font-bold text-[#102f55] outline-none transition focus:border-[#123c6e] focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:ring-blue-950">
+                {activeProjects.length === 0 && <option value="">{projectsLoading ? "Loading projects..." : "No active projects"}</option>}
+                {activeProjects.map((item) => <option key={item.id} value={String(item.id)}>{item.title || item.projectName}</option>)}
+              </select>
+              <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" />
+            </span>
+          </label>
+        </div>
       </div>
+
+      {projectsLoading ? (
+        <PanelMessage>Loading active projects...</PanelMessage>
+      ) : hasError ? (
+        <div className="border-t border-slate-200 px-5 py-10 text-center dark:border-slate-700">
+          <p className="text-sm font-bold text-red-700 dark:text-red-300">Workflow progress could not be loaded.</p>
+          <button type="button" onClick={() => { void refetchProjects(); if (selectedProjectId) void refetchProject(); }} className="mt-3 text-xs font-extrabold text-[#123c6e] hover:underline dark:text-blue-300">Try again</button>
+        </div>
+      ) : activeProjects.length === 0 ? (
+        <div className="border-t border-slate-200 px-5 py-12 text-center dark:border-slate-700">
+          <FolderKanban size={34} className="mx-auto text-slate-300" />
+          <p className="mt-3 text-sm font-extrabold text-slate-700 dark:text-slate-200">No active projects available</p>
+          <Link to="/projects" className="mt-2 inline-block text-xs font-extrabold text-[#123c6e] hover:underline dark:text-blue-300">View all projects</Link>
+        </div>
+      ) : (
+        <>
+          <div className="border-y border-slate-200 bg-[#f7f9fb] px-5 py-4 dark:border-slate-700 dark:bg-slate-800/50">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <h3 className="truncate text-sm font-extrabold text-[#102f55] dark:text-white">{projectName}</h3>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{projectDistrict} | {project?.year || "Financial year not set"} | Phase {project?.phaseNo || 1}</p>
+              </div>
+              <span className={`shrink-0 text-2xl font-extrabold ${progress === 100 ? "text-emerald-700" : "text-[#123c6e] dark:text-blue-300"}`}>{projectLoading ? "--" : `${progress}%`}</span>
+            </div>
+            <div className="mt-3 h-2 overflow-hidden bg-slate-200 dark:bg-slate-700"><div className={`h-full transition-[width] duration-500 ${progress === 100 ? "bg-emerald-600" : "bg-[#123c6e]"}`} style={{ width: `${projectLoading ? 0 : progress}%` }} /></div>
+            <div className="mt-2 flex items-center justify-between gap-3 text-[11px] font-bold text-slate-500 dark:text-slate-400"><span>{completedSteps} of {steps.length} stages complete</span><span className="truncate">{currentStep ? `Current: ${currentStep.label}` : "Workflow complete"}</span></div>
+          </div>
+          <div className="px-5 py-5">
+            {steps.map((step, index) => {
+              const active = step.key === currentStep?.key;
+              return <div key={step.key} className="relative flex gap-4 pb-5 last:pb-0">
+                {index !== steps.length - 1 && <div className={`absolute left-[15px] top-8 bottom-0 w-px ${step.done ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-700"}`} />}
+                <span className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center border text-xs font-extrabold ${step.done ? "border-emerald-600 bg-emerald-600 text-white" : active ? "border-[#123c6e] bg-[#123c6e] text-white" : "border-slate-300 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900"}`}>{step.done ? <Check size={14} strokeWidth={3} /> : index + 1}</span>
+                <div className="min-w-0 flex-1 pt-1"><div className="flex items-center justify-between gap-3"><h3 className={`text-sm font-extrabold ${active ? "text-[#123c6e] dark:text-blue-300" : "text-slate-800 dark:text-slate-200"}`}>{step.label}</h3><span className="shrink-0 text-[11px] font-extrabold text-slate-500 dark:text-slate-400">{step.progress}%</span></div><p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{step.note}</p></div>
+              </div>;
+            })}
+          </div>
+          <div className="grid gap-2 border-t border-slate-200 p-5 sm:grid-cols-2 dark:border-slate-700">
+            <Link to={`/projects/${project?.id}`} className="govt-button-secondary justify-center">Open project <ArrowRight size={16} /></Link>
+            <Link to={canReview ? `/projects/${project?.id}/reviewer` : `/projects/${project?.id}/preview`} className="govt-button-primary justify-center">{canReview ? "Open workflow" : "Preview report"} <ArrowRight size={16} /></Link>
+          </div>
+        </>
+      )}
     </article>
   );
+}
+
+function PanelMessage({ children }: { children: string }) {
+  return <div className="border-t border-slate-200 px-5 py-12 text-center text-sm font-bold text-slate-500 dark:border-slate-700 dark:text-slate-400">{children}</div>;
 }
 
 function AdminPanel() {
