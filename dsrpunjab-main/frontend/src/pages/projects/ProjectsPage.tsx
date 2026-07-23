@@ -25,9 +25,13 @@ function formatDate(value?: string) {
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
-
 function districtLabel(project: ProjectListItem) {
   return project.district || (project.districtId ? `District #${project.districtId}` : "Punjab");
+}
+
+function isStandaloneReplenishmentProject(project: ProjectListItem) {
+  const identifier = `${project.projectCode || ""} ${project.title || ""} ${project.projectName || ""}`.trim();
+  return /^(REP[-\s]|replenishment\b)/i.test(identifier);
 }
 
 export default function ProjectsPage() {
@@ -60,6 +64,8 @@ export default function ProjectsPage() {
 
   const filteredProjects = useMemo(() => {
     return projects.filter((project) => {
+      if (isStandaloneReplenishmentProject(project)) return false;
+
       const searchValue = search.trim().toLowerCase();
       const name = project.projectName || project.title || "";
       const district = districtLabel(project);
@@ -194,7 +200,7 @@ export default function ProjectsPage() {
                     {name}
                   </h3>
                   <p className="mt-1 text-xs font-semibold text-slate-500">
-                    {district} District · {project.year || "2025-26"}
+                    {district} District Â· {project.year || "2025-26"}
                   </p>
                 </div>
               </div>
