@@ -103,7 +103,6 @@ export function UploadedSection({ upload, pageNumber, district, headerText, foot
       <header className="mx-16 mt-7 border-b border-black pb-2 font-serif leading-tight">
         <p className="text-[15px] italic">{headerText}</p>
         <p className="max-w-[520px] text-[12px] italic">{district} District, Punjab</p>
-        <p className="mt-1 text-[10px]">{upload.title}</p>
       </header>
       <div className="relative mx-14 mb-12 mt-3 flex min-h-0 flex-1 items-center justify-center overflow-hidden">
         <UploadedFilePreview src={upload.url} title={upload.title} alt={upload.title} className="h-full w-full bg-white" imageStyle={{ objectFit: "contain" }} />
@@ -285,7 +284,7 @@ export default function ReportPreviewPage() {
     try {
       const { document } = await createSectionPdf();
       const skipped: string[] = [];
-      const sections: Array<{ title: string; startPage: number }> = [];
+      const sections: Array<{ title: string; startPage: number; showSubtitle?: boolean }> = [];
       const unframedPages = new Set<number>();
       const appendUpload = async (upload: PreviewUpload, unframed = false) => {
         try {
@@ -293,7 +292,7 @@ export default function ReportPreviewPage() {
           await appendUploadedDocument(document, upload, { preserveOriginalPage: unframed });
           const endPage = document.getPageCount();
           if (endPage > startPage) {
-            sections.push({ title: upload.title, startPage });
+            sections.push({ title: upload.title, startPage, showSubtitle: false });
             if (unframed) for (let index = startPage; index < endPage; index += 1) unframedPages.add(index);
           }
         } catch (error) {
