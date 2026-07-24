@@ -1,4 +1,4 @@
-import { Download, FileText, List, Printer, RefreshCw, Save, Settings2 } from "lucide-react";
+import { Download, FileText, List, Printer, RefreshCw, Save, Settings2, Trash2, X } from "lucide-react";
 import { useMemo } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -129,6 +129,11 @@ export default function ReportPreviewPage() {
   const [frameSettings, setFrameSettings] = useState<ReportFrameSettings>({});
   const [selectedFrameSection, setSelectedFrameSection] = useState("Chapters");
   const [savingFormat, setSavingFormat] = useState(false);
+  const [pageManagerOpen, setPageManagerOpen] = useState(false);
+  const [pageManagerLoading, setPageManagerLoading] = useState(false);
+  const [pageManagerUrl, setPageManagerUrl] = useState("");
+  const [pageManagerPageCount, setPageManagerPageCount] = useState(0);
+  const [excludedReportPages, setExcludedReportPages] = useState<Set<number>>(new Set());
   const { data: project, isLoading } = useQuery({
     queryKey: ["project", projectId, "preview"],
     queryFn: () => projectsApi.get(projectId),
@@ -148,6 +153,10 @@ export default function ReportPreviewPage() {
     const saved = state["report-format"] as ReportFrameSettings | undefined;
     if (saved) setFrameSettings(saved);
   }, [project?.id]);
+
+  useEffect(() => () => {
+    if (pageManagerUrl) URL.revokeObjectURL(pageManagerUrl);
+  }, [pageManagerUrl]);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -279,9 +288,7 @@ export default function ReportPreviewPage() {
     document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const downloadFinalPdf = async () => {
-    setDownloading(true);
-    try {
+  const buildFinalPdf = async (excludedPages: ReadonlySet<number> = new Set()) => {
       const { document } = await createSectionPdf();
       const skipped: string[] = [];
       const sections: Array<{ title: string; startPage: number }> = [];
@@ -326,17 +333,78 @@ export default function ReportPreviewPage() {
         for (const upload of annexureUploads.filter((item) => annexureMatches(item.title, annexure))) await appendUpload(upload);
       }
       if (document.getPageCount() === 0) throw new Error("No readable uploaded documents found");
-      await applyDsrReportFrame(document, sections, project?.district || "Punjab", frameSettings, unframedPages);
+
+      let finalSections = sections;
+      let finalUnframedPages = unframedPages;
+      if (excludedPages.size) {
+        const oldPageCount = document.getPageCount();
+        const keptOldIndexes = Array.from({ length: oldPageCount }, (_, index) => index).filter((index) => !excludedPages.has(index));
+        if (!keptOldIndexes.length) throw new Error("At least one page must remain in the final report");
+
+        const remappedSections: Array<{ title: string; startPage: number }> = [];
+        const remappedUnframedPages = new Set<number>();
+        let lastSectionTitle = "";
+        keptOldIndexes.forEach((oldIndex, newIndex) => {
+          const activeSection = sections.filter((item) => item.startPage <= oldIndex).at(-1);
+          if (activeSection && activeSection.title !== lastSectionTitle) {
+            remappedSections.push({ title: activeSection.title, startPage: newIndex });
+            lastSectionTitle = activeSection.title;
+          }
+          if (unframedPages.has(oldIndex)) remappedUnframedPages.add(newIndex);
+        });
+        [...excludedPages].filter((index) => index >= 0 && index < oldPageCount).sort((a, b) => b - a).forEach((index) => document.removePage(index));
+        finalSections = remappedSections;
+        finalUnframedPages = remappedUnframedPages;
+      }
+
+      await applyDsrReportFrame(document, finalSections, project?.district || "Punjab", frameSettings, finalUnframedPages);
+      return { document, skipped };
+  };
+
+  const downloadFinalPdf = async () => {
+    setDownloading(true);
+    try {
+      const { document, skipped } = await buildFinalPdf(excludedReportPages);
       await saveSectionPdf(document, `DSR-Final-Report-${projectId}.pdf`);
       if (skipped.length) toast.warning(`PDF downloaded; ${skipped.length} unreadable upload(s) skipped`);
+      else if (excludedReportPages.size) toast.success(`Final PDF downloaded with ${excludedReportPages.size} selected page(s) removed`);
       else toast.success("Final PDF downloaded with all uploaded annexures");
     } catch (error) {
       console.error(error);
-      toast.error("Final PDF download failed: no readable uploads found");
+      toast.error(error instanceof Error ? error.message : "Final PDF download failed");
     } finally {
       setDownloading(false);
     }
   };
+
+  const openPageManager = async () => {
+    setPageManagerOpen(true);
+    setPageManagerLoading(true);
+    try {
+      const { document } = await buildFinalPdf();
+      const bytes = await document.save();
+      const nextUrl = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: "application/pdf" }));
+      setPageManagerUrl((current) => {
+        if (current) URL.revokeObjectURL(current);
+        return nextUrl;
+      });
+      setPageManagerPageCount(document.getPageCount());
+      setExcludedReportPages((current) => new Set([...current].filter((index) => index < document.getPageCount())));
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "Could not prepare report pages");
+      setPageManagerOpen(false);
+    } finally {
+      setPageManagerLoading(false);
+    }
+  };
+
+  const toggleReportPage = (index: number) => setExcludedReportPages((current) => {
+    const next = new Set(current);
+    if (next.has(index)) next.delete(index);
+    else next.add(index);
+    return next;
+  });
 
   return (
     <>
@@ -346,6 +414,9 @@ export default function ReportPreviewPage() {
         description="Generate, preview and download Final DSR, Replenishment Report and Model DSR from one workspace"
         action={activeGeneratorTab === "final-dsr" ? <div className="flex gap-2">
           <button className="module-btn" onClick={() => window.print()}><Printer size={17} />Print</button>
+          <button className="module-btn" disabled={pageManagerLoading || isLoading} onClick={openPageManager}>
+            <Trash2 size={17} />{excludedReportPages.size ? `Manage Pages (${excludedReportPages.size})` : "Manage Pages"}
+          </button>
           <button className="module-btn-primary" disabled={downloading || isLoading} onClick={downloadFinalPdf}>
             <Download size={17} />{downloading ? "Generating..." : "Download Final PDF"}
           </button>
@@ -429,6 +500,50 @@ export default function ReportPreviewPage() {
         </div>
       </main>
       </>
+      )}
+      {pageManagerOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-3 backdrop-blur-sm md:p-6" role="dialog" aria-modal="true" aria-label="Manage final report pages">
+          <div className="flex h-[92vh] w-full max-w-7xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <header className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+              <div>
+                <h2 className="text-lg font-extrabold text-slate-900">Manage Final Report Pages</h2>
+                <p className="mt-0.5 text-xs text-slate-500">Select pages to remove from the downloaded report. Uploaded source files remain unchanged.</p>
+              </div>
+              <button type="button" onClick={() => setPageManagerOpen(false)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label="Close page manager"><X size={20} /></button>
+            </header>
+            {pageManagerLoading ? (
+              <div className="flex flex-1 items-center justify-center text-sm font-semibold text-slate-500">Preparing all report pages...</div>
+            ) : (
+              <div className="grid min-h-0 flex-1 lg:grid-cols-[1fr_320px]">
+                <div className="min-h-0 bg-slate-200 p-3">
+                  {pageManagerUrl && <iframe title="Final report page preview" src={`${pageManagerUrl}#toolbar=1&navpanes=0&view=FitH`} className="h-full min-h-[420px] w-full rounded-lg bg-white shadow" />}
+                </div>
+                <aside className="flex min-h-0 flex-col border-l border-slate-200 bg-white">
+                  <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                    <span className="text-sm font-bold text-slate-800">{pageManagerPageCount} pages</span>
+                    {excludedReportPages.size > 0 && <button type="button" onClick={() => setExcludedReportPages(new Set())} className="text-xs font-semibold text-blue-700 hover:underline">Clear selection</button>}
+                  </div>
+                  <div className="grid min-h-0 flex-1 grid-cols-2 gap-2 overflow-y-auto p-3">
+                    {Array.from({ length: pageManagerPageCount }, (_, index) => {
+                      const removed = excludedReportPages.has(index);
+                      return <button key={index} type="button" onClick={() => toggleReportPage(index)} className={`flex min-h-12 items-center justify-between rounded-lg border px-3 py-2 text-left text-sm font-semibold transition ${removed ? "border-red-500 bg-red-50 text-red-800 ring-1 ring-red-200" : "border-slate-200 bg-white text-slate-700 hover:border-blue-400 hover:bg-blue-50"}`}>
+                        <span>Page {index + 1}</span>
+                        <span className={`h-4 w-4 rounded border ${removed ? "border-red-600 bg-red-600" : "border-slate-300"}`} />
+                      </button>;
+                    })}
+                  </div>
+                </aside>
+              </div>
+            )}
+            <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-5 py-4">
+              <p className="text-sm text-slate-600">{excludedReportPages.size ? `${excludedReportPages.size} page(s) will be removed. Remaining pages will be renumbered.` : "No pages selected for removal."}</p>
+              <div className="flex gap-2">
+                <button type="button" className="module-btn" onClick={() => setPageManagerOpen(false)}>Done</button>
+                <button type="button" className="module-btn-primary" disabled={downloading || pageManagerPageCount === excludedReportPages.size} onClick={async () => { await downloadFinalPdf(); setPageManagerOpen(false); }}><Download size={16} />Download Updated PDF</button>
+              </div>
+            </footer>
+          </div>
+        </div>
       )}
     </>
   );
