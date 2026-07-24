@@ -172,16 +172,41 @@ export async function appendGeneratedReportContent(target: PDFDocument, input: {
 
   input.tables.forEach((table) => {
     addPage();
-    pdf.setFont("times", "bold"); pdf.setFontSize(13);
-    pdf.text(table.title, 105, 18, { align: "center", maxWidth: 175 });
     autoTable(pdf, {
-      startY: 26,
+      // Match the approved DSR annexure format: the report frame supplies the
+      // heading, while the table starts below it and stays clear of the footer.
+      startY: 42,
       head: [table.columns.map((column) => column.label)],
       body: table.rows.length ? table.rows.map((row) => table.columns.map((column) => String(row[column.key] || ""))) : [["No data entered yet"]],
       theme: "grid",
-      styles: { font: "times", fontSize: table.columns.length > 8 ? 5 : 7, cellPadding: 1, overflow: "linebreak" },
-      headStyles: { fillColor: [235, 235, 235], textColor: [0, 0, 0], fontStyle: "bold" },
-      margin: { left: 13, right: 13 },
+      styles: {
+        font: "times",
+        fontSize: 8,
+        cellPadding: 1.25,
+        overflow: "linebreak",
+        valign: "top",
+        textColor: [0, 0, 0],
+        lineColor: [70, 70, 70],
+        lineWidth: 0.2,
+      },
+      headStyles: {
+        font: "times",
+        fontSize: 8,
+        fillColor: [255, 255, 255],
+        textColor: [0, 0, 0],
+        fontStyle: "bold",
+        lineColor: [45, 45, 45],
+        lineWidth: 0.25,
+      },
+      bodyStyles: {
+        font: "times",
+        fontSize: 8,
+        fillColor: [255, 255, 255],
+      },
+      alternateRowStyles: { fillColor: [255, 255, 255] },
+      margin: { top: 42, right: 24, bottom: 27, left: 24 },
+      rowPageBreak: "avoid",
+      showHead: "everyPage",
     });
   });
 
