@@ -60,13 +60,6 @@ export function SectionTitlePage({ title, pageNumber, district, headerText, foot
   </section>;
 }
 
-export function ChapterTitlePage({ title }: { title: string }) {
-  return <section className="dsr-preview-page flex aspect-[1/1.414] w-full max-w-[794px] flex-col items-center justify-center overflow-hidden bg-white px-16 text-black shadow-xl">
-    <h1 className="max-w-2xl text-center font-serif text-3xl font-bold uppercase leading-snug">{title}</h1>
-    <div className="mt-6 h-px w-72 bg-black" />
-  </section>;
-}
-
 export function GeneratedSection({ table, graph, chapter, pageNumber, district, headerText, footerText }: { table?: ReportDataTable; graph?: ReportCrossSection; chapter?: ReportChapter; pageNumber: number; district: string; headerText: string; footerText: string }) {
   const heading = table?.title || chapter?.name || graph?.name || "Cross Section Sand Bar";
   const points = String(graph?.post || "").split(",").map(Number).filter(Number.isFinite);
@@ -312,7 +305,6 @@ export default function ReportPreviewPage() {
         const startPage = document.getPageCount();
         await appendReportSectionTitle(document, title);
         sections.push({ title, startPage });
-        unframedPages.add(startPage);
       };
       for (const upload of frontMatterUploads) await appendUpload(upload);
       for (const chapter of reportChapters) {
@@ -430,7 +422,7 @@ export default function ReportPreviewPage() {
             const footerText = override?.footerText || frameSettings.footerText || "Prepared by: District Survey Report Committee";
             
             const sectionId = page.title ? `report-section-${page.sectionName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}` : undefined;
-            const content = page.chapterTitle ? <ChapterTitlePage title={page.chapterTitle} /> : page.title ? <SectionTitlePage title={sectionDisplayName(page.title)} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} /> : page.upload ? <UploadedSection upload={page.upload} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} unframed={page.sectionName === "Chapters"} /> : <GeneratedSection table={page.table} graph={page.graph} chapter={page.chapter} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} />;
+            const content = page.chapterTitle ? <SectionTitlePage title={page.chapterTitle} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} /> : page.title ? <SectionTitlePage title={sectionDisplayName(page.title)} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} /> : page.upload ? <UploadedSection upload={page.upload} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} unframed={page.sectionName === "Chapters"} /> : <GeneratedSection table={page.table} graph={page.graph} chapter={page.chapter} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} />;
             return <div key={page.chapterTitle ? `chapter-title-${page.chapterTitle}-${index}` : page.title ? `section-${page.title}-${index}` : page.upload?.id || `generated-${index}`} id={sectionId} className="flex w-full scroll-mt-24 justify-center">{content}</div>;
           })}
         </article>
