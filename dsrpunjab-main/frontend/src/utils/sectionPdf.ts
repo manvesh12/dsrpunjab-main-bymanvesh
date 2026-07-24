@@ -116,12 +116,38 @@ export async function appendReportSectionTitle(target: PDFDocument, title: strin
   const regular = await target.embedFont(StandardFonts.TimesRoman);
   const bold = await target.embedFont(StandardFonts.TimesRomanBold);
   const cleanTitle = safeText(title.toUpperCase());
-  page.drawText(cleanTitle, { x: (page.getWidth() - bold.widthOfTextAtSize(cleanTitle, 24)) / 2, y: 455, size: 24, font: bold, color: rgb(0.05, 0.08, 0.12) });
+  const titleSize = 24;
+  const maxTitleWidth = 455;
+  const titleLines: string[] = [];
+  let currentLine = "";
+  cleanTitle.split(/\s+/).forEach((word) => {
+    const candidate = currentLine ? `${currentLine} ${word}` : word;
+    if (currentLine && bold.widthOfTextAtSize(candidate, titleSize) > maxTitleWidth) {
+      titleLines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = candidate;
+    }
+  });
+  if (currentLine) titleLines.push(currentLine);
+  const lineHeight = 34;
+  const titleBlockHeight = (titleLines.length - 1) * lineHeight;
+  const firstLineY = page.getHeight() / 2 + titleBlockHeight / 2;
+  titleLines.forEach((line, index) => {
+    page.drawText(line, {
+      x: (page.getWidth() - bold.widthOfTextAtSize(line, titleSize)) / 2,
+      y: firstLineY - index * lineHeight,
+      size: titleSize,
+      font: bold,
+      color: rgb(0.05, 0.08, 0.12),
+    });
+  });
+  const underlineY = firstLineY - titleBlockHeight - 24;
   if (subtitle) {
     const cleanSubtitle = safeText(subtitle);
-    page.drawText(cleanSubtitle, { x: (page.getWidth() - regular.widthOfTextAtSize(cleanSubtitle, 13)) / 2, y: 420, size: 13, font: regular, color: rgb(0.25, 0.28, 0.32) });
+    page.drawText(cleanSubtitle, { x: (page.getWidth() - regular.widthOfTextAtSize(cleanSubtitle, 13)) / 2, y: underlineY - 28, size: 13, font: regular, color: rgb(0.25, 0.28, 0.32) });
   }
-  page.drawLine({ start: { x: 150, y: 400 }, end: { x: 445, y: 400 }, thickness: 0.7, color: rgb(0.1, 0.1, 0.1) });
+  page.drawLine({ start: { x: 150, y: underlineY }, end: { x: 445, y: underlineY }, thickness: 0.7, color: rgb(0.1, 0.1, 0.1) });
 }
 
 /** Adds editable annexure tables and saved cross-section graphs to the final report. */
