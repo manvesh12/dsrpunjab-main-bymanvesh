@@ -223,9 +223,20 @@ export default function ReportPreviewPage() {
   const plateUploads = uniqueUploads.filter((item) => reportOrder(item.title) === 4);
   const otherUploads = uniqueUploads.filter((item) => reportOrder(item.title) === 5);
   const annexureUploads = uniqueUploads.filter((item) => reportOrder(item.title) === 6);
+  const chapterUploadUrls = new Set(reportChapters.map((chapter) => chapter.file?.url).filter(Boolean));
+  const unmatchedChapterUploads = chapterUploads.filter((upload) => !chapterUploadUrls.has(upload.url));
+  const chapterPreviewPages = reportChapters.flatMap((chapter) => {
+    const upload = chapter.file?.url
+      ? chapterUploads.find((item) => item.url === chapter.file?.url)
+      : undefined;
+    return [
+      { sectionName: "Chapters", chapter },
+      ...(upload ? [{ sectionName: "Chapters", upload }] : []),
+    ];
+  });
   const previewPages: Array<{ sectionName: string; title?: string; upload?: PreviewUpload; table?: ReportDataTable; graph?: ReportCrossSection; chapter?: ReportChapter }> = [
-    ...(frontMatterUploads.length ? [{ sectionName: "Front Matter", title: "Front Matter" }, ...frontMatterUploads.map((upload) => ({ sectionName: "Front Matter", upload }))] : []),
-    { sectionName: "Chapters", title: "Chapters" }, ...reportChapters.map((chapter) => ({ sectionName: "Chapters", chapter })), ...chapterUploads.map((upload) => ({ sectionName: "Chapters", upload })),
+    ...frontMatterUploads.map((upload) => ({ sectionName: "Front Matter", upload })),
+    { sectionName: "Chapters", title: "Chapters" }, ...chapterPreviewPages, ...unmatchedChapterUploads.map((upload) => ({ sectionName: "Chapters", upload })),
     { sectionName: "Plates and Maps", title: "Plates and Maps" }, ...plateUploads.map((upload) => ({ sectionName: "Plates and Maps", upload })), ...otherUploads.map((upload) => ({ sectionName: "Plates and Maps", upload })),
     ...annexureSections.flatMap((annexure) => [{ sectionName: annexure, title: annexure }, ...tables.filter((table) => annexureMatches(table.title, annexure)).map((table) => ({ sectionName: annexure, table })), ...annexureUploads.filter((upload) => annexureMatches(upload.title, annexure)).map((upload) => ({ sectionName: annexure, upload }))]),
   ];
@@ -281,10 +292,18 @@ export default function ReportPreviewPage() {
         }
       };
       const addSectionTitle = async (section: string) => { const startPage = document.getPageCount(); await appendReportSectionTitle(document, sectionDisplayName(section)); sections.push({ title: section, startPage }); };
-      if (frontMatterUploads.length) { await addSectionTitle("Front Matter"); for (const upload of frontMatterUploads) await appendUpload(upload); }
+      for (const upload of frontMatterUploads) await appendUpload(upload);
       await addSectionTitle("Chapters");
-      if (reportChapters.length) { const startPage = document.getPageCount(); await appendGeneratedReportContent(document, { district: project?.district || "Punjab", tables: [], graphs: [], chapters: reportChapters }); if (document.getPageCount() > startPage) sections.push({ title: "Chapters", startPage }); }
-      for (const upload of chapterUploads) await appendUpload(upload);
+      for (const chapter of reportChapters) {
+        const startPage = document.getPageCount();
+        await appendGeneratedReportContent(document, { district: project?.district || "Punjab", tables: [], graphs: [], chapters: [chapter] });
+        if (document.getPageCount() > startPage) sections.push({ title: chapter.name, startPage });
+        const upload = chapter.file?.url
+          ? chapterUploads.find((item) => item.url === chapter.file?.url)
+          : undefined;
+        if (upload) await appendUpload(upload);
+      }
+      for (const upload of unmatchedChapterUploads) await appendUpload(upload);
       await addSectionTitle("Plates and Maps");
       for (const upload of [...plateUploads, ...otherUploads]) await appendUpload(upload);
       for (const annexure of annexureSections) {
