@@ -60,6 +60,13 @@ export function SectionTitlePage({ title, pageNumber, district, headerText, foot
   </section>;
 }
 
+export function ChapterTitlePage({ title }: { title: string }) {
+  return <section className="dsr-preview-page flex aspect-[1/1.414] w-full max-w-[794px] flex-col items-center justify-center overflow-hidden bg-white px-16 text-black shadow-xl">
+    <h1 className="max-w-2xl text-center font-serif text-3xl font-bold uppercase leading-snug">{title}</h1>
+    <div className="mt-6 h-px w-72 bg-black" />
+  </section>;
+}
+
 export function GeneratedSection({ table, graph, chapter, pageNumber, district, headerText, footerText }: { table?: ReportDataTable; graph?: ReportCrossSection; chapter?: ReportChapter; pageNumber: number; district: string; headerText: string; footerText: string }) {
   const heading = table?.title || chapter?.name || graph?.name || "Cross Section Sand Bar";
   const points = String(graph?.post || "").split(",").map(Number).filter(Number.isFinite);
@@ -88,7 +95,14 @@ function uploadSectionLabel(file: ProjectFile) {
   return "Project Upload";
 }
 
-export function UploadedSection({ upload, pageNumber, district, headerText, footerText }: { upload: PreviewUpload; pageNumber: number; district: string; headerText: string; footerText: string }) {
+export function UploadedSection({ upload, pageNumber, district, headerText, footerText, unframed = false }: { upload: PreviewUpload; pageNumber: number; district: string; headerText: string; footerText: string; unframed?: boolean }) {
+  if (unframed) {
+    return (
+      <section className="dsr-preview-page flex aspect-[1/1.414] w-full max-w-[794px] items-center justify-center overflow-hidden bg-white shadow-xl">
+        <UploadedFilePreview src={upload.url} title={upload.title} alt={upload.title} className="h-full w-full bg-white" imageStyle={{ objectFit: "contain" }} />
+      </section>
+    );
+  }
   return (
     <section className="dsr-preview-page relative flex aspect-[1/1.414] w-full max-w-[794px] flex-col overflow-hidden bg-white text-black shadow-xl">
       <div className="pointer-events-none absolute inset-4 border border-black" />
@@ -229,14 +243,11 @@ export default function ReportPreviewPage() {
     const upload = chapter.file?.url
       ? chapterUploads.find((item) => item.url === chapter.file?.url)
       : undefined;
-    return [
-      { sectionName: "Chapters", chapter },
-      ...(upload ? [{ sectionName: "Chapters", upload }] : []),
-    ];
+    return upload ? [{ sectionName: "Chapters", chapterTitle: chapter.name }, { sectionName: "Chapters", upload }] : [];
   });
-  const previewPages: Array<{ sectionName: string; title?: string; upload?: PreviewUpload; table?: ReportDataTable; graph?: ReportCrossSection; chapter?: ReportChapter }> = [
+  const previewPages: Array<{ sectionName: string; title?: string; chapterTitle?: string; upload?: PreviewUpload; table?: ReportDataTable; graph?: ReportCrossSection; chapter?: ReportChapter }> = [
     ...frontMatterUploads.map((upload) => ({ sectionName: "Front Matter", upload })),
-    { sectionName: "Chapters", title: "Chapters" }, ...chapterPreviewPages, ...unmatchedChapterUploads.map((upload) => ({ sectionName: "Chapters", upload })),
+    ...chapterPreviewPages, ...unmatchedChapterUploads.map((upload) => ({ sectionName: "Chapters", upload })),
     { sectionName: "Plates and Maps", title: "Plates and Maps" }, ...plateUploads.map((upload) => ({ sectionName: "Plates and Maps", upload })), ...otherUploads.map((upload) => ({ sectionName: "Plates and Maps", upload })),
     ...annexureSections.flatMap((annexure) => [{ sectionName: annexure, title: annexure }, ...tables.filter((table) => annexureMatches(table.title, annexure)).map((table) => ({ sectionName: annexure, table })), ...annexureUploads.filter((upload) => annexureMatches(upload.title, annexure)).map((upload) => ({ sectionName: annexure, upload }))]),
   ];
@@ -281,29 +292,39 @@ export default function ReportPreviewPage() {
       const { document } = await createSectionPdf();
       const skipped: string[] = [];
       const sections: Array<{ title: string; startPage: number }> = [];
-      const appendUpload = async (upload: PreviewUpload) => {
+      const unframedPages = new Set<number>();
+      const appendUpload = async (upload: PreviewUpload, unframed = false) => {
         try {
           const startPage = document.getPageCount();
-          await appendUploadedDocument(document, upload);
-          if (document.getPageCount() > startPage) sections.push({ title: upload.title, startPage });
+          await appendUploadedDocument(document, upload, { preserveOriginalPage: unframed });
+          const endPage = document.getPageCount();
+          if (endPage > startPage) {
+            sections.push({ title: upload.title, startPage });
+            if (unframed) for (let index = startPage; index < endPage; index += 1) unframedPages.add(index);
+          }
         } catch (error) {
           console.warn(`Skipping unreadable final-report upload: ${upload.name}`, error);
           skipped.push(upload.name);
         }
       };
       const addSectionTitle = async (section: string) => { const startPage = document.getPageCount(); await appendReportSectionTitle(document, sectionDisplayName(section)); sections.push({ title: section, startPage }); };
-      for (const upload of frontMatterUploads) await appendUpload(upload);
-      await addSectionTitle("Chapters");
-      for (const chapter of reportChapters) {
+      const addChapterTitle = async (title: string) => {
         const startPage = document.getPageCount();
-        await appendGeneratedReportContent(document, { district: project?.district || "Punjab", tables: [], graphs: [], chapters: [chapter] });
-        if (document.getPageCount() > startPage) sections.push({ title: chapter.name, startPage });
+        await appendReportSectionTitle(document, title);
+        sections.push({ title, startPage });
+        unframedPages.add(startPage);
+      };
+      for (const upload of frontMatterUploads) await appendUpload(upload);
+      for (const chapter of reportChapters) {
         const upload = chapter.file?.url
           ? chapterUploads.find((item) => item.url === chapter.file?.url)
           : undefined;
-        if (upload) await appendUpload(upload);
+        if (upload) {
+          await addChapterTitle(chapter.name);
+          await appendUpload(upload, true);
+        }
       }
-      for (const upload of unmatchedChapterUploads) await appendUpload(upload);
+      for (const upload of unmatchedChapterUploads) await appendUpload(upload, true);
       await addSectionTitle("Plates and Maps");
       for (const upload of [...plateUploads, ...otherUploads]) await appendUpload(upload);
       for (const annexure of annexureSections) {
@@ -313,7 +334,7 @@ export default function ReportPreviewPage() {
         for (const upload of annexureUploads.filter((item) => annexureMatches(item.title, annexure))) await appendUpload(upload);
       }
       if (document.getPageCount() === 0) throw new Error("No readable uploaded documents found");
-      await applyDsrReportFrame(document, sections, project?.district || "Punjab", frameSettings);
+      await applyDsrReportFrame(document, sections, project?.district || "Punjab", frameSettings, unframedPages);
       await saveSectionPdf(document, `DSR-Final-Report-${projectId}.pdf`);
       if (skipped.length) toast.warning(`PDF downloaded; ${skipped.length} unreadable upload(s) skipped`);
       else toast.success("Final PDF downloaded with all uploaded annexures");
@@ -409,8 +430,8 @@ export default function ReportPreviewPage() {
             const footerText = override?.footerText || frameSettings.footerText || "Prepared by: District Survey Report Committee";
             
             const sectionId = page.title ? `report-section-${page.sectionName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}` : undefined;
-            const content = page.title ? <SectionTitlePage title={sectionDisplayName(page.title)} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} /> : page.upload ? <UploadedSection upload={page.upload} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} /> : <GeneratedSection table={page.table} graph={page.graph} chapter={page.chapter} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} />;
-            return <div key={page.title ? `section-${page.title}-${index}` : page.upload?.id || `generated-${index}`} id={sectionId} className="flex w-full scroll-mt-24 justify-center">{content}</div>;
+            const content = page.chapterTitle ? <ChapterTitlePage title={page.chapterTitle} /> : page.title ? <SectionTitlePage title={sectionDisplayName(page.title)} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} /> : page.upload ? <UploadedSection upload={page.upload} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} unframed={page.sectionName === "Chapters"} /> : <GeneratedSection table={page.table} graph={page.graph} chapter={page.chapter} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} />;
+            return <div key={page.chapterTitle ? `chapter-title-${page.chapterTitle}-${index}` : page.title ? `section-${page.title}-${index}` : page.upload?.id || `generated-${index}`} id={sectionId} className="flex w-full scroll-mt-24 justify-center">{content}</div>;
           })}
         </article>
         </div>

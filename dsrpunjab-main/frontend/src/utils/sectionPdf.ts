@@ -40,7 +40,7 @@ export function drawPdfHeading(page: PDFPage, font: PDFFont, text: string, y = 7
   page.drawText(safe, { x: (page.getWidth() - font.widthOfTextAtSize(safe, size)) / 2, y, size, font, color: rgb(0.06, 0.09, 0.16) });
 }
 
-export async function appendUploadedDocument(target: PDFDocument, upload: PdfUpload) {
+export async function appendUploadedDocument(target: PDFDocument, upload: PdfUpload, options: { preserveOriginalPage?: boolean } = {}) {
   if (!upload?.url) return false;
   let data: ArrayBuffer;
   let contentType = "";
@@ -60,6 +60,11 @@ export async function appendUploadedDocument(target: PDFDocument, upload: PdfUpl
   if (!data.byteLength) throw new Error(`${upload.name} is empty`);
   if (contentType.includes("pdf") || upload.name.toLowerCase().endsWith(".pdf")) {
     const source = await PDFDocument.load(data);
+    if (options.preserveOriginalPage) {
+      const pages = await target.copyPages(source, source.getPageIndices());
+      pages.forEach((page) => target.addPage(page));
+      return true;
+    }
     for (const sourcePage of source.getPages()) {
       const embeddedPage = await target.embedPage(sourcePage);
       const sourceSize = sourcePage.getSize();
@@ -83,12 +88,15 @@ export async function appendUploadedDocument(target: PDFDocument, upload: PdfUpl
     ? await target.embedPng(data)
     : await target.embedJpg(data);
   const page = target.addPage([A4_WIDTH, A4_HEIGHT]);
-  const scale = Math.min(UPLOAD_SAFE_AREA.width / image.width, UPLOAD_SAFE_AREA.height / image.height);
+  const safeArea = options.preserveOriginalPage
+    ? { x: 0, y: 0, width: A4_WIDTH, height: A4_HEIGHT }
+    : UPLOAD_SAFE_AREA;
+  const scale = Math.min(safeArea.width / image.width, safeArea.height / image.height);
   const width = image.width * scale;
   const height = image.height * scale;
   page.drawImage(image, {
-    x: UPLOAD_SAFE_AREA.x + (UPLOAD_SAFE_AREA.width - width) / 2,
-    y: UPLOAD_SAFE_AREA.y + (UPLOAD_SAFE_AREA.height - height) / 2,
+    x: safeArea.x + (safeArea.width - width) / 2,
+    y: safeArea.y + (safeArea.height - height) / 2,
     width,
     height,
   });
@@ -220,13 +228,14 @@ export async function appendGeneratedReportContent(target: PDFDocument, input: {
  * is intentionally added after imported pages are copied so PDFs, scans and
  * images all receive the same numbering and section identification.
  */
-export async function applyDsrReportFrame(document: PDFDocument, sections: Array<{ title: string; startPage: number }>, district = "Punjab", settings: ReportFrameSettings = {}) {
+export async function applyDsrReportFrame(document: PDFDocument, sections: Array<{ title: string; startPage: number }>, district = "Punjab", settings: ReportFrameSettings = {}, unframedPages: ReadonlySet<number> = new Set()) {
   const italic = await document.embedFont(StandardFonts.TimesRomanItalic);
   const regular = await document.embedFont(StandardFonts.TimesRoman);
   const bold = await document.embedFont(StandardFonts.TimesRomanBold);
   const pages = document.getPages();
 
   pages.forEach((page, index) => {
+    if (unframedPages.has(index)) return;
     const { width, height } = page.getSize();
     const scale = Math.min(width / 595.28, height / 841.89);
     const left = 24 * scale;
