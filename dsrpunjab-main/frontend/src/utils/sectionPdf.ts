@@ -261,9 +261,25 @@ export async function applyDsrReportFrame(document: PDFDocument, sections: Array
   const pages = document.getPages();
 
   pages.forEach((page, index) => {
-    if (unframedPages.has(index)) return;
     const { width, height } = page.getSize();
     const scale = Math.min(width / 595.28, height / 841.89);
+    if (unframedPages.has(index)) {
+      const pageLabel = `Page ${index + 1}`;
+      const labelSize = 8 * scale;
+      const labelWidth = regular.widthOfTextAtSize(pageLabel, labelSize);
+      const labelX = width - 34 * scale - labelWidth;
+      const labelY = 18 * scale;
+      page.drawRectangle({
+        x: labelX - 5 * scale,
+        y: labelY - 3 * scale,
+        width: labelWidth + 10 * scale,
+        height: 14 * scale,
+        color: rgb(1, 1, 1),
+        opacity: 0.92,
+      });
+      page.drawText(pageLabel, { x: labelX, y: labelY, font: regular, size: labelSize, color: rgb(0.18, 0.18, 0.18) });
+      return;
+    }
     const left = 24 * scale;
     const bottom = 24 * scale;
     const top = height - 24 * scale;

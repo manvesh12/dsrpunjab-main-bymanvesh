@@ -91,8 +91,9 @@ function uploadSectionLabel(file: ProjectFile) {
 export function UploadedSection({ upload, pageNumber, district, headerText, footerText, unframed = false }: { upload: PreviewUpload; pageNumber: number; district: string; headerText: string; footerText: string; unframed?: boolean }) {
   if (unframed) {
     return (
-      <section className="dsr-preview-page flex aspect-[1/1.414] w-full max-w-[794px] items-center justify-center overflow-hidden bg-white shadow-xl">
+      <section className="dsr-preview-page relative flex aspect-[1/1.414] w-full max-w-[794px] items-center justify-center overflow-hidden bg-white shadow-xl">
         <UploadedFilePreview src={upload.url} title={upload.title} alt={upload.title} className="h-full w-full bg-white" imageStyle={{ objectFit: "contain" }} />
+        <span className="absolute bottom-4 right-5 bg-white/95 px-1.5 py-0.5 font-serif text-[9px] text-slate-700">Page {pageNumber}</span>
       </section>
     );
   }
