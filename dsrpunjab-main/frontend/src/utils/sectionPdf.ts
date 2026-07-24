@@ -254,7 +254,7 @@ export async function appendGeneratedReportContent(target: PDFDocument, input: {
  * is intentionally added after imported pages are copied so PDFs, scans and
  * images all receive the same numbering and section identification.
  */
-export async function applyDsrReportFrame(document: PDFDocument, sections: Array<{ title: string; startPage: number; showSubtitle?: boolean }>, district = "Punjab", settings: ReportFrameSettings = {}, unframedPages: ReadonlySet<number> = new Set()) {
+export async function applyDsrReportFrame(document: PDFDocument, sections: Array<{ title: string; startPage: number }>, district = "Punjab", settings: ReportFrameSettings = {}, unframedPages: ReadonlySet<number> = new Set()) {
   const italic = await document.embedFont(StandardFonts.TimesRomanItalic);
   const regular = await document.embedFont(StandardFonts.TimesRoman);
   const bold = await document.embedFont(StandardFonts.TimesRomanBold);
@@ -283,12 +283,10 @@ export async function applyDsrReportFrame(document: PDFDocument, sections: Array
     const left = 24 * scale;
     const bottom = 24 * scale;
     const top = height - 24 * scale;
-    const activeSection = sections.filter((item) => item.startPage <= index).at(-1);
-    const section = activeSection?.title || "District Survey Report";
+    const section = sections.filter((item) => item.startPage <= index).at(-1)?.title || "District Survey Report";
     const override = settings.sectionOverrides?.[section];
     const title = override?.headerText || settings.headerText || "District Survey Report";
     const footer = override?.footerText || settings.footerText || "PREPARED BY: DISTRICT SURVEY REPORT COMMITTEE";
-    const subtitle = section.length > 55 ? `${section.slice(0, 52)}...` : section;
 
     page.drawRectangle({ x: left, y: bottom, width: width - left * 2, height: height - bottom * 2, borderColor: rgb(0, 0, 0), borderWidth: 0.65 * scale, opacity: 1 });
     page.drawText(title, { x: 76 * scale, y: top - 19 * scale, font: italic, size: 10 * scale, color: rgb(0, 0, 0) });
@@ -298,9 +296,6 @@ export async function applyDsrReportFrame(document: PDFDocument, sections: Array
 
     page.drawText(footer, { x: 130 * scale, y: bottom + 18 * scale, font: bold, size: 6.8 * scale, color: rgb(0, 0, 0) });
     page.drawText(`Page ${index + 1}`, { x: width - 108 * scale, y: bottom + 29 * scale, font: regular, size: 8 * scale, color: rgb(0.22, 0.22, 0.22) });
-    if (activeSection?.showSubtitle !== false) {
-      page.drawText(subtitle, { x: 76 * scale, y: top - 61 * scale, font: regular, size: 7.5 * scale, color: rgb(0.25, 0.25, 0.25) });
-    }
   });
 }
 

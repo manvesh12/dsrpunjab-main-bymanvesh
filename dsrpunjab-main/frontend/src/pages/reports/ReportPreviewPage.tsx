@@ -284,7 +284,7 @@ export default function ReportPreviewPage() {
     try {
       const { document } = await createSectionPdf();
       const skipped: string[] = [];
-      const sections: Array<{ title: string; startPage: number; showSubtitle?: boolean }> = [];
+      const sections: Array<{ title: string; startPage: number }> = [];
       const unframedPages = new Set<number>();
       const appendUpload = async (upload: PreviewUpload, unframed = false) => {
         try {
@@ -292,7 +292,7 @@ export default function ReportPreviewPage() {
           await appendUploadedDocument(document, upload, { preserveOriginalPage: unframed });
           const endPage = document.getPageCount();
           if (endPage > startPage) {
-            sections.push({ title: upload.title, startPage, showSubtitle: false });
+            sections.push({ title: upload.title, startPage });
             if (unframed) for (let index = startPage; index < endPage; index += 1) unframedPages.add(index);
           }
         } catch (error) {
