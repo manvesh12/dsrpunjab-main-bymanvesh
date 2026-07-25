@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { User, UserRole } from '../types/auth.types';
 
 export const SEED_USERS: User[] = [
-  { id: '1', name: 'State Admin', email: 'state.admin@punjab.gov.in', role: 'State Admin', district: 'Punjab' },
+  { id: '1', name: 'State Admin', email: 'manvesh.sv@gmail.com', role: 'State Admin', district: 'Punjab' },
 ];
 
 interface AuthState {

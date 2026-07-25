@@ -27,7 +27,7 @@ async function main() {
     return tx.user.upsert({
       where: { username: "state.admin" },
       update: {
-        email: "state.admin@punjab.gov.in",
+        email: "manvesh.sv@gmail.com",
         fullName: "State Admin",
         role: "STATE_ADMIN",
         stateId: state.id,
@@ -36,7 +36,7 @@ async function main() {
       },
       create: {
         username: "state.admin",
-        email: "state.admin@punjab.gov.in",
+        email: "manvesh.sv@gmail.com",
         password,
         fullName: "State Admin",
         role: "STATE_ADMIN",

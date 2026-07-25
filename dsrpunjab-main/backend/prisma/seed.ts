@@ -154,7 +154,7 @@ async function main() {
   await prisma.user.create({
     data: {
       username: "state.admin",
-      email: "state.admin@punjab.gov.in",
+      email: "manvesh.sv@gmail.com",
       password,
       fullName: "State Admin",
       role: "STATE_ADMIN",
