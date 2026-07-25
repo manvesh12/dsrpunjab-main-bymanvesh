@@ -12,9 +12,9 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma db push",
     "seed": "node --max-old-space-size=256 dist/prisma/seed.js",
+    "cleanup:uploads": "node scripts/clear-uploaded-files.cjs",
     "test": "tsx --test tests/**/*.test.ts",
-    "test:security": "tsx scripts/security-load-test.ts",
-    "cleanup:uploads": "node scripts/clear-uploaded-files.cjs"
+    "test:security": "tsx scripts/security-load-test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.735.0",

@@ -25,6 +25,7 @@ function formatDate(value?: string) {
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
+
 function districtLabel(project: ProjectListItem) {
   return project.district || (project.districtId ? `District #${project.districtId}` : "Punjab");
 }
@@ -200,7 +201,7 @@ export default function ProjectsPage() {
                     {name}
                   </h3>
                   <p className="mt-1 text-xs font-semibold text-slate-500">
-                    {district} District Â· {project.year || "2025-26"}
+                    {district} District · {project.year || "2025-26"}
                   </p>
                 </div>
               </div>

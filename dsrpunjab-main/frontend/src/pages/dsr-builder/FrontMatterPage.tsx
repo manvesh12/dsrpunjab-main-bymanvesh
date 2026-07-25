@@ -12,6 +12,13 @@ import html2pdf from "html2pdf.js";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { apiClient } from "../../api/client";
 import { downloadBlob } from "../../utils/reportExport";
+import {
+  appendGeneratedContentPage,
+  buildContentEntries,
+  downloadGeneratedContentPage,
+  type ContentChapter,
+  type ContentEntry,
+} from "../../utils/contentPage";
 
 const defaults = { title:"District Survey Report for Sand Mining", district:"Jalandhar", state:"Punjab", year:"2025-26", version:"Final Draft", preparedBy:"Sub-Divisional Committee, Jalandhar District", assistedBy:"RSP Green Development and Laboratories Pvt. Ltd.", preface:"This District Survey Report has been prepared in compliance with EMGSM 2020 and records sand mining activity, river morphology, mineral deposits and replenishment studies.", acknowledgement:"The Sub-Divisional Committee acknowledges the support of the Government of Punjab, Department of Geology and Mining, and field surveyors." };
 type UploadRecord={name:string;url?:string};
@@ -59,7 +66,7 @@ async function appendFrontMatterUpload(target: PDFDocument, file: UploadRecord |
   return true;
 }
 
-async function downloadMergedFrontMatter(coverFile: UploadRecord | null, certFile: UploadRecord | null, contentFile: UploadRecord | null, prefaceFile: UploadRecord | null, data: typeof defaults) {
+async function downloadMergedFrontMatter(coverFile: UploadRecord | null, certFile: UploadRecord | null, contentFile: UploadRecord | null, prefaceFile: UploadRecord | null, data: typeof defaults, contentEntries: ContentEntry[]) {
   const pdf = await PDFDocument.create();
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
@@ -89,10 +96,7 @@ async function downloadMergedFrontMatter(coverFile: UploadRecord | null, certFil
   centeredPdfText(acknowledgement, bold, "ACKNOWLEDGEMENT", 760, 17);
   wrappedPdfText(acknowledgement, regular, data.acknowledgement, 700);
   if (!(await appendFrontMatterUpload(pdf, contentFile))) {
-    const page = pdf.addPage([595.28, 841.89]);
-    centeredPdfText(page, bold, "CONTENTS", 760, 17);
-    const entries = ["Cover Page", "Certificate of Compliance", "Preface", "Acknowledgement", ...Array.from({ length: 10 }, (_, index) => `Chapter ${index + 1}`), "Plates and Maps", "Cross Section Graphs", "Annexures I-VII"];
-    entries.forEach((entry, index) => page.drawText(`${index + 1}. ${entry}`, { x: 65, y: 710 - index * 28, size: 11, font: regular, color: rgb(0.12, 0.16, 0.23) }));
+    await appendGeneratedContentPage(pdf, contentEntries);
   }
   const bytes = await pdf.save();
   downloadBlob(new Blob([new Uint8Array(bytes)], { type: "application/pdf" }), "Front_Matter.pdf");
@@ -188,12 +192,15 @@ export default function FrontMatterPage(){
   const [certFile,setCertFile]=useLocalDraft<UploadRecord|null>(`project-${projectId}:certificate`,null);
   const [contentFile,setContentFile]=useLocalDraft<UploadRecord|null>(`project-${projectId}:contents`,null);
   const [prefaceFile,setPrefaceFile]=useLocalDraft<UploadRecord|null>(`project-${projectId}:preface`,null);
+  const [contentEntries, setContentEntries] = useState<ContentEntry[]>([]);
+  const [contentLoading, setContentLoading] = useState(true);
+  const [contentError, setContentError] = useState("");
 
   useEffect(() => {
     if (!/^\d+$/.test(projectId)) return;
 
     let active = true;
-    projectsApi.get(projectId).then((project) => {
+    projectsApi.get(projectId).then(async (project) => {
       if (!active) return;
       const frontMatter = project.projectState?.["front-matter"] as
         | {
@@ -205,14 +212,35 @@ export default function FrontMatterPage(){
           }
         | undefined;
 
-      if (!frontMatter) return;
-      if (frontMatter.data) setData({ ...defaults, ...frontMatter.data });
-      if ("coverFile" in frontMatter) setCoverFile(frontMatter.coverFile || null);
-      if ("certFile" in frontMatter) setCertFile(frontMatter.certFile || null);
-      if ("contentFile" in frontMatter) setContentFile(frontMatter.contentFile || null);
-      if ("prefaceFile" in frontMatter) setPrefaceFile(frontMatter.prefaceFile || null);
+      if (frontMatter?.data) setData({ ...defaults, ...frontMatter.data });
+      if (frontMatter && "coverFile" in frontMatter) setCoverFile(frontMatter.coverFile || null);
+      if (frontMatter && "certFile" in frontMatter) setCertFile(frontMatter.certFile || null);
+      if (frontMatter && "contentFile" in frontMatter) setContentFile(frontMatter.contentFile || null);
+      if (frontMatter && "prefaceFile" in frontMatter) setPrefaceFile(frontMatter.prefaceFile || null);
+
+      const chapterState = project.projectState?.chapters as
+        | { chapters?: ContentChapter[] }
+        | ContentChapter[]
+        | undefined;
+      const chapters = Array.isArray(chapterState) ? chapterState : chapterState?.chapters || [];
+      try {
+        const entries = await buildContentEntries(chapters);
+        if (active) {
+          setContentEntries(entries);
+          setContentError("");
+        }
+      } catch (error) {
+        console.error("Failed to read uploaded chapter page counts:", error);
+        if (active) setContentError("Some uploaded PDFs could not be read. Re-upload them and refresh.");
+      } finally {
+        if (active) setContentLoading(false);
+      }
     }).catch((error) => {
       console.error("Failed to load front matter draft:", error);
+      if (active) {
+        setContentError("Uploaded chapters could not be loaded.");
+        setContentLoading(false);
+      }
     });
 
     return () => { active = false; };
@@ -275,7 +303,7 @@ export default function FrontMatterPage(){
       <section className="space-y-5">
         <Card title="Content Page" subtitle="Upload PDF or use the auto-generated contents">
           <Upload file={contentFile} onChange={setContentFile} label="Upload Content Page" hint="PDF or image" accept=".pdf,image/*" projectId={projectId} module="front-matter" />
-          <AutoContents/>
+          <GeneratedAutoContents entries={contentEntries} loading={contentLoading} error={contentError} onDownload={() => downloadGeneratedContentPage(contentEntries)} />
         </Card>
         <Card title="Preface">
           <Upload file={prefaceFile} onChange={setPrefaceFile} label="Upload Preface" hint="PDF or image" accept=".pdf,image/*" projectId={projectId} module="front-matter" />
@@ -340,7 +368,7 @@ export default function FrontMatterPage(){
           <PageSlot file={contentFile}>
             <div className="flex-1 flex flex-col p-10">
               <h2 className="text-xl font-bold uppercase text-center mb-10">Contents</h2>
-              <div className="flex-1"><AutoContents/></div>
+              <div className="flex-1"><GeneratedAutoContents entries={contentEntries} loading={contentLoading} error={contentError} compact /></div>
             </div>
           </PageSlot>
 
@@ -363,7 +391,7 @@ export default function FrontMatterPage(){
               onClick={async () => {
                 setDownloading(true);
                 try {
-                  await downloadMergedFrontMatter(coverFile, certFile, contentFile, prefaceFile, data);
+                  await downloadMergedFrontMatter(coverFile, certFile, contentFile, prefaceFile, data, contentEntries);
                   toast.success("Front Matter PDF downloaded");
                 }
                 catch(e) {
@@ -445,7 +473,77 @@ function TextArea({label,value,onChange}:{label:string;value:string;onChange:(v:
   return <label className="mt-4 block text-sm font-semibold">{label}<textarea rows={6} value={value} onChange={e=>onChange(e.target.value)} className="mt-2 w-full rounded-xl border border-slate-200 p-3 font-normal leading-6 outline-none focus:border-blue-500"/></label>;
 }
 
-function AutoContents(){
-  const entries=["Cover Page","Certificate of Compliance","Preface","Acknowledgement",...Array.from({length:10},(_,i)=>`Chapter ${i+1}`),"Plates and Maps","Cross Section Graphs","Annexures I–VII","Additional Annexures B–K","Replenishment Report / Model DSR"];
-  return <div className="mt-4 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] p-4"><div className="flex items-center justify-between"><p className="font-semibold text-[#1e293b]">Auto-generated Contents</p><span className="text-xs text-[#047857]">Live</span></div><ol className="mt-3 space-y-1 text-xs text-[#475569]">{entries.map((entry,index)=><li key={entry} className="flex gap-2"><span className="w-5 text-[#94a3b8]">{index+1}</span><span>{entry}</span></li>)}</ol></div>;
+function GeneratedAutoContents({
+  entries,
+  loading,
+  error,
+  compact = false,
+  onDownload,
+}: {
+  entries: ContentEntry[];
+  loading: boolean;
+  error: string;
+  compact?: boolean;
+  onDownload?: () => Promise<void>;
+}) {
+  const [downloadingContents, setDownloadingContents] = useState(false);
+  return (
+    <div className={compact ? "" : "mt-4 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] p-4"}>
+      {!compact && (
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="font-semibold text-[#1e293b]">Auto-generated Content Page</p>
+            <p className="text-xs text-slate-500">Reads titles and page counts from uploaded chapter files.</p>
+          </div>
+          <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">Live</span>
+        </div>
+      )}
+      {loading ? (
+        <p className="py-6 text-center text-sm text-slate-500">Reading uploaded PDFs and calculating page ranges...</p>
+      ) : error ? (
+        <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>
+      ) : entries.length === 0 ? (
+        <p className="rounded-lg border border-dashed p-4 text-center text-sm text-slate-500">
+          Upload chapter PDFs in Report Chapters to generate the table automatically.
+        </p>
+      ) : (
+        <div className="overflow-hidden border border-black bg-white font-serif text-black">
+          <div className="grid grid-cols-[92px_1fr_84px] bg-white text-center text-xs font-bold">
+            <div className="border-r border-black p-2">Chapter No.</div>
+            <div className="border-r border-black p-2">Subject</div>
+            <div className="p-2">Page No.</div>
+          </div>
+          {entries.map((entry) => (
+            <div key={entry.chapterNo} className="grid grid-cols-[92px_1fr_84px] border-t border-black text-center text-xs">
+              <div className="flex items-center justify-center border-r border-black p-2">{entry.chapterNo}</div>
+              <div className="border-r border-black p-2">{entry.subject}</div>
+              <div className="flex items-center justify-center p-2">{entry.pageLabel}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {!compact && entries.length > 0 && onDownload && (
+        <button
+          type="button"
+          className="module-btn mt-3 w-full justify-center"
+          disabled={downloadingContents}
+          onClick={async () => {
+            setDownloadingContents(true);
+            try {
+              await onDownload();
+              toast.success("Automatic content page downloaded");
+            } catch (downloadError) {
+              console.error("Content page generation failed:", downloadError);
+              toast.error("Content page download failed");
+            } finally {
+              setDownloadingContents(false);
+            }
+          }}
+        >
+          <Download size={16} />
+          {downloadingContents ? "Generating..." : "Download Auto Content Page"}
+        </button>
+      )}
+    </div>
+  );
 }

@@ -98,6 +98,14 @@ button, input, select, textarea { font: inherit; }
 .gov-portal main tbody tr:hover { background-color: #f4f7fa; }
 .dark .gov-portal main tbody tr:hover { background-color: rgb(30 41 59 / .7); }
 
+.notice-marquee {
+  animation: notice-marquee 28s linear infinite;
+  will-change: transform;
+}
+.notice-marquee:hover {
+  animation-play-state: paused;
+}
+
 @layer utilities {
   .dark .bg-white:not([class*="dark:"]) { background-color: rgb(15 23 42); }
   .dark .bg-white\/95:not([class*="dark:"]) { background-color: rgb(15 23 42 / 0.95); }
@@ -171,4 +179,9 @@ button, input, select, textarea { font: inherit; }
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(24px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes notice-marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
