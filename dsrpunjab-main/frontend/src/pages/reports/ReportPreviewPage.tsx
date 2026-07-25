@@ -92,7 +92,7 @@ function uploadSectionLabel(file: ProjectFile) {
 
 function PreviewWatermark() {
   return <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center overflow-hidden">
-    <span className="-rotate-[32deg] whitespace-nowrap font-serif text-[40px] font-bold tracking-[0.08em] text-slate-500/[0.10]">{REPRESENTATIONAL_WATERMARK}</span>
+    <span className="-rotate-[32deg] whitespace-nowrap font-serif text-[46px] font-bold tracking-[0.08em] text-slate-600/[0.18]">{REPRESENTATIONAL_WATERMARK}</span>
   </div>;
 }
 

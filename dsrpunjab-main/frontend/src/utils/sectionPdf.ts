@@ -13,7 +13,7 @@ export type ReportFrameSettings = { headerText?: string; footerText?: string; se
 const A4_WIDTH = 595.28;
 const A4_HEIGHT = 841.89;
 const UPLOAD_SAFE_AREA = { x: 54, y: 72, width: A4_WIDTH - 108, height: A4_HEIGHT - 158 };
-export const REPRESENTATIONAL_WATERMARK = "REPRESENTATIONAL ONLY - TRIAL DATA";
+export const REPRESENTATIONAL_WATERMARK = "REPRESENTATIONAL DATA ONLY";
 
 function safeText(value: string) {
   return value.replace(/[^\x20-\x7E\xA0-\xFF]/g, "-");
@@ -264,16 +264,29 @@ export async function applyDsrReportFrame(document: PDFDocument, sections: Array
   pages.forEach((page, index) => {
     const { width, height } = page.getSize();
     const scale = Math.min(width / 595.28, height / 841.89);
-    const watermarkSize = 38 * scale;
+    const watermarkSize = 36 * scale;
     const watermarkWidth = bold.widthOfTextAtSize(REPRESENTATIONAL_WATERMARK, watermarkSize);
+    const watermarkAngle = 32;
+    const watermarkRadians = watermarkAngle * Math.PI / 180;
+    const watermarkHeight = watermarkSize;
+    // pdf-lib rotates around the text origin. Offset the origin so the
+    // complete diagonal label remains centered on every imported page size.
+    const watermarkX = width / 2 - (
+      watermarkWidth / 2 * Math.cos(watermarkRadians)
+      - watermarkHeight / 2 * Math.sin(watermarkRadians)
+    );
+    const watermarkY = height / 2 - (
+      watermarkWidth / 2 * Math.sin(watermarkRadians)
+      + watermarkHeight / 2 * Math.cos(watermarkRadians)
+    );
     page.drawText(REPRESENTATIONAL_WATERMARK, {
-      x: (width - watermarkWidth * 0.72) / 2,
-      y: height * 0.43,
+      x: watermarkX,
+      y: watermarkY,
       font: bold,
       size: watermarkSize,
-      color: rgb(0.58, 0.62, 0.68),
-      opacity: 0.1,
-      rotate: degrees(32),
+      color: rgb(0.46, 0.5, 0.56),
+      opacity: 0.18,
+      rotate: degrees(watermarkAngle),
     });
     if (unframedPages.has(index)) {
       const pageLabel = `Page ${index + 1}`;
