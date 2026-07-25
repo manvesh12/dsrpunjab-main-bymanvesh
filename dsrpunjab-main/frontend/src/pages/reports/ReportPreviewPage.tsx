@@ -280,9 +280,19 @@ export default function ReportPreviewPage() {
     ...annexureSections.flatMap((annexure) => [{ sectionName: annexure, title: annexure }, ...tables.filter((table) => annexureMatches(table.title, annexure)).map((table) => ({ sectionName: annexure, table })), ...annexureUploads.filter((upload) => annexureMatches(upload.title, annexure)).map((upload) => ({ sectionName: annexure, upload }))]),
   ];
 
-  const reportSections = previewPages.flatMap((page) => page.title
-    ? [{ id: `report-section-${page.sectionName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`, label: sectionDisplayName(page.sectionName) }]
-    : []);
+  const reportSections = previewPages.flatMap((page, pageIndex) => {
+    let label = "";
+    if (page.chapterTitle) label = page.chapterTitle;
+    else if (page.sectionName === "Front Matter" && page.upload) label = page.upload.title;
+    else if (page.title) label = sectionDisplayName(page.sectionName);
+    else if (page.sectionName === "Chapters" && page.upload && !reportChapters.length) label = page.upload.title;
+    if (!label) return [];
+    return [{
+      id: `report-page-nav-${pageIndex}`,
+      label,
+      pageIndex,
+    }];
+  });
   const reportSectionIds = reportSections.map(({ id }) => id).join("|");
 
   const [activeSection, setActiveSection] = useState("");
@@ -514,7 +524,7 @@ export default function ReportPreviewPage() {
             const headerText = override?.headerText || frameSettings.headerText || "District Survey Report";
             const footerText = override?.footerText || frameSettings.footerText || "Prepared by: District Survey Report Committee";
             
-            const sectionId = page.title ? `report-section-${page.sectionName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}` : undefined;
+            const sectionId = reportSections.find((item) => item.pageIndex === index)?.id;
             const content = page.chapterTitle ? <SectionTitlePage title={page.chapterTitle} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} /> : page.title ? <SectionTitlePage title={sectionDisplayName(page.title)} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} /> : page.upload ? <UploadedSection upload={page.upload} sourcePageNumber={page.sourcePageNumber} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} /> : <GeneratedSection table={page.table} graph={page.graph} chapter={page.chapter} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} />;
             return <div key={page.chapterTitle ? `chapter-title-${page.chapterTitle}-${index}` : page.title ? `section-${page.title}-${index}` : page.upload ? `${page.upload.id}-source-page-${page.sourcePageNumber || 1}` : `generated-${index}`} id={sectionId} className="flex w-full scroll-mt-24 justify-center">{content}</div>;
           })}
