@@ -8,12 +8,23 @@ export type PdfUpload = { name: string; url?: string } | null | undefined;
 export type ReportDataTable = { title: string; columns: Array<{ key: string; label: string }>; rows: Record<string, string>[] };
 export type ReportCrossSection = { name?: string; dist?: string; post?: string; red?: string; thal?: string; area?: string; noMine?: string; bulk?: string; pct?: string; calcThick?: string };
 export type ReportChapter = { name: string; summary: string };
-export type ReportFrameSettings = { headerText?: string; footerText?: string; footerText2?: string; sectionTitles?: Record<string, string>; sectionOverrides?: Record<string, { headerText?: string; footerText?: string; footerText2?: string }> };
+export type ReportFrameSettings = {
+  headerText?: string;
+  footerText?: string;
+  footerText2?: string;
+  showWatermark?: boolean;
+  autoGenerateContents?: boolean;
+  chapterTitlePages?: boolean;
+  sectionTitles?: Record<string, string>;
+  sectionOverrides?: Record<string, { headerText?: string; footerText?: string; footerText2?: string }>;
+};
 
 const A4_WIDTH = 595.28;
 const A4_HEIGHT = 841.89;
 const UPLOAD_SAFE_AREA = { x: 54, y: 72, width: A4_WIDTH - 108, height: A4_HEIGHT - 158 };
 export const REPRESENTATIONAL_WATERMARK = "REPRESENTATIONAL DATA ONLY";
+const referenceFooterLine1 = (district: string) => `PREPARED BY: SUB-DIVISIONAL COMMITTEE OF ${district.toUpperCase()} DISTRICT`;
+export const REFERENCE_FOOTER_LINE2 = "ASSISTED BY: RSP GREEN DEVELOPMENT AND LABORATORIES PVT. LTD";
 
 function safeText(value: string) {
   return value.replace(/[^\x20-\x7E\xA0-\xFF]/g, "-");
@@ -313,26 +324,28 @@ export async function applyDsrReportFrame(document: PDFDocument, sections: Array
       watermarkWidth / 2 * Math.sin(watermarkRadians)
       + watermarkHeight / 2 * Math.cos(watermarkRadians)
     );
-    page.drawText(REPRESENTATIONAL_WATERMARK, {
-      x: watermarkX,
-      y: watermarkY,
-      font: bold,
-      size: watermarkSize,
-      color: rgb(0.46, 0.5, 0.56),
-      opacity: 0.18,
-      rotate: degrees(watermarkAngle),
-    });
+    if (settings.showWatermark) {
+      page.drawText(REPRESENTATIONAL_WATERMARK, {
+        x: watermarkX,
+        y: watermarkY,
+        font: bold,
+        size: watermarkSize,
+        color: rgb(0.46, 0.5, 0.56),
+        opacity: 0.18,
+        rotate: degrees(watermarkAngle),
+      });
+    }
     if (unframedPages.has(index)) {
-      const pageLabel = `Page ${index + 1}`;
+      const pageLabel = `${index + 1} | Page`;
       const labelSize = 8 * scale;
       const labelWidth = regular.widthOfTextAtSize(pageLabel, labelSize);
-      const labelX = width - 34 * scale - labelWidth;
-      const labelY = 18 * scale;
+      const labelX = width - 52 * scale - labelWidth;
+      const labelY = 48 * scale;
       page.drawRectangle({
-        x: labelX - 5 * scale,
-        y: labelY - 3 * scale,
-        width: labelWidth + 10 * scale,
-        height: 14 * scale,
+        x: labelX - 8 * scale,
+        y: labelY - 5 * scale,
+        width: labelWidth + 16 * scale,
+        height: 18 * scale,
         color: rgb(1, 1, 1),
         opacity: 0.92,
       });
@@ -345,18 +358,19 @@ export async function applyDsrReportFrame(document: PDFDocument, sections: Array
     const section = sections.filter((item) => item.startPage <= index).at(-1)?.title || "District Survey Report";
     const override = settings.sectionOverrides?.[section];
     const title = override?.headerText || settings.headerText || "District Survey Report";
-    const footer = override?.footerText || settings.footerText || "PREPARED BY: DISTRICT SURVEY REPORT COMMITTEE";
+    const footer = override?.footerText || settings.footerText || referenceFooterLine1(district);
     const footer2 = override?.footerText2 || settings.footerText2 || "";
 
     page.drawRectangle({ x: left, y: bottom, width: width - left * 2, height: height - bottom * 2, borderColor: rgb(0, 0, 0), borderWidth: 0.65 * scale, opacity: 1 });
-    page.drawText(title, { x: 76 * scale, y: top - 19 * scale, font: italic, size: 10 * scale, color: rgb(0, 0, 0) });
-    page.drawText(`${district} District, Punjab`, { x: 76 * scale, y: top - 34 * scale, font: italic, size: 8.5 * scale, color: rgb(0, 0, 0) });
+    page.drawText(title, { x: 76 * scale, y: top - 15 * scale, font: italic, size: 10 * scale, color: rgb(0, 0, 0) });
+    page.drawText(`${district} District`, { x: 76 * scale, y: top - 28 * scale, font: italic, size: 8.5 * scale, color: rgb(0, 0, 0) });
+    page.drawText("Punjab", { x: 76 * scale, y: top - 40 * scale, font: italic, size: 8.5 * scale, color: rgb(0, 0, 0) });
     page.drawLine({ start: { x: 74 * scale, y: top - 49 * scale }, end: { x: width - 74 * scale, y: top - 49 * scale }, thickness: 0.55 * scale, color: rgb(0, 0, 0) });
     page.drawLine({ start: { x: 74 * scale, y: bottom + 42 * scale }, end: { x: width - 74 * scale, y: bottom + 42 * scale }, thickness: 0.35 * scale, color: rgb(0.55, 0.55, 0.55) });
 
     page.drawText(footer, { x: 130 * scale, y: bottom + (footer2 ? 24 : 18) * scale, font: bold, size: 6.8 * scale, color: rgb(0, 0, 0) });
     if (footer2) page.drawText(footer2, { x: 130 * scale, y: bottom + 12 * scale, font: regular, size: 6.5 * scale, color: rgb(0, 0, 0) });
-    page.drawText(`Page ${index + 1}`, { x: width - 108 * scale, y: bottom + 29 * scale, font: regular, size: 8 * scale, color: rgb(0.22, 0.22, 0.22) });
+    page.drawText(`${index + 1} | Page`, { x: width - 118 * scale, y: bottom + 29 * scale, font: regular, size: 8 * scale, color: rgb(0.22, 0.22, 0.22) });
   });
 }
 

@@ -8,7 +8,7 @@ export type ContentChapter = {
 };
 
 export type ContentEntry = {
-  chapterNo: number;
+  chapterNo: number | string;
   subject: string;
   pageCount: number;
   pageLabel: string;
@@ -79,16 +79,14 @@ function wrapText(font: PDFFont, text: string, size: number, maxWidth: number) {
 }
 
 export async function appendGeneratedContentPage(target: PDFDocument, entries: ContentEntry[]) {
-  const page = target.addPage([595.28, 841.89]);
   const regular = await target.embedFont(StandardFonts.TimesRoman);
   const bold = await target.embedFont(StandardFonts.TimesRomanBold);
-  centeredText(page, bold, "Content", 790, 22);
-
   const left = 38;
   const widths = [105, 365, 49];
   const tableWidth = widths.reduce((sum, width) => sum + width, 0);
   const headerHeight = 28;
-  let top = 765;
+  let page!: PDFPage;
+  let top = 0;
   const drawRow = (values: string[], height: number, header = false) => {
     let x = left;
     values.forEach((value, index) => {
@@ -111,10 +109,19 @@ export async function appendGeneratedContentPage(target: PDFDocument, entries: C
     top -= height;
   };
 
-  drawRow(["Chapter No.", "Subject", "Page No."], headerHeight, true);
+  const startPage = (continued = false) => {
+    page = target.addPage([595.28, 841.89]);
+    centeredText(page, bold, continued ? "Content (Continued)" : "Content", 742, continued ? 17 : 22);
+    top = 715;
+    drawRow(["Chapter No.", "Subject", "Page No."], headerHeight, true);
+  };
+
+  startPage();
   entries.forEach((entry) => {
     const subjectLines = wrapText(regular, entry.subject, 10.5, widths[1] - 10);
-    drawRow([String(entry.chapterNo), entry.subject, entry.pageLabel], Math.max(27, subjectLines.length * 14 + 8));
+    const rowHeight = Math.max(27, subjectLines.length * 14 + 8);
+    if (top - rowHeight < 58) startPage(true);
+    drawRow([String(entry.chapterNo), entry.subject, entry.pageLabel], rowHeight);
   });
   page.drawLine({ start: { x: left, y: top }, end: { x: left + tableWidth, y: top }, thickness: 0.65, color: rgb(0, 0, 0) });
 }

@@ -8,12 +8,13 @@ import PageHeader from "../../components/layout/PageHeader";
 import UploadedFilePreview from "../../components/ui/UploadedFilePreview";
 import { projectsApi, type ProjectFile } from "../../api/projects.api";
 import { uploadsApi } from "../../api/uploads.api";
-import { appendGeneratedReportContent, appendReportSectionTitle, appendUploadedDocument, applyDsrReportFrame, createSectionPdf, REPRESENTATIONAL_WATERMARK, saveSectionPdf, uploadedDocumentPageCount, type ReportChapter, type ReportCrossSection, type ReportDataTable, type ReportFrameSettings } from "../../utils/sectionPdf";
+import { appendGeneratedReportContent, appendReportSectionTitle, appendUploadedDocument, applyDsrReportFrame, createSectionPdf, REFERENCE_FOOTER_LINE2, REPRESENTATIONAL_WATERMARK, saveSectionPdf, uploadedDocumentPageCount, type ReportChapter, type ReportCrossSection, type ReportDataTable, type ReportFrameSettings } from "../../utils/sectionPdf";
 import { toast } from "sonner";
 import { annexureTemplates } from "../annexures/AnnexureEditorPage";
 import { additionalAnnexureTemplates } from "../annexures/AdditionalAnnexureEditorPage";
 import ReplenishmentBuilderPage from "../replenishment/ReplenishmentBuilderPage";
 import ModelDsrPage from "../replenishment/ModelDsrPage";
+import { appendGeneratedContentPage, type ContentEntry } from "../../utils/contentPage";
 
 type UploadRecord = { name: string; url?: string } | null;
 type Chapter = ReportChapter & { file?: { name: string; url: string } };
@@ -34,6 +35,7 @@ const generatorTabs: { id: GeneratorTab; label: string; description: string; ico
   { id: "replenishment", label: "Replenishment Report", description: "Prepare replenishment study and export PDF/DOCX", icon: RefreshCw },
   { id: "model-dsr", label: "Model DSR", description: "Create selected-section model DSR and download PDF", icon: List },
 ];
+const punjabDistricts = ["Amritsar", "Barnala", "Bathinda", "Faridkot", "Fatehgarh Sahib", "Fazilka", "Ferozepur", "Gurdaspur", "Hoshiarpur", "Jalandhar", "Kapurthala", "Ludhiana", "Malerkotla", "Mansa", "Moga", "Pathankot", "Patiala", "Rupnagar", "Sahibzada Ajit Singh Nagar", "Sangrur", "Shaheed Bhagat Singh Nagar", "Sri Muktsar Sahib", "Tarn Taran"];
 
 function annexureMatches(title: string, annexure: string) {
   const normalized = title.toLowerCase().replace(/\s+/g, " ");
@@ -51,17 +53,17 @@ function reportOrder(title: string) {
   return 5;
 }
 
-export function SectionTitlePage({ title, pageNumber, district, headerText, footerText, footerText2 }: { title: string; pageNumber: number; district: string; headerText: string; footerText: string; footerText2?: string }) {
+export function SectionTitlePage({ title, pageNumber, district, headerText, footerText, footerText2, showWatermark }: { title: string; pageNumber: number; district: string; headerText: string; footerText: string; footerText2?: string; showWatermark: boolean }) {
   return <section className="dsr-preview-page relative flex aspect-[1/1.414] w-full max-w-[794px] flex-col items-center justify-center overflow-hidden bg-white text-black shadow-xl">
     <div className="pointer-events-none absolute inset-4 border border-black" />
-    <PreviewWatermark />
-    <header className="absolute left-16 right-16 top-7 border-b border-black pb-2 font-serif leading-tight"><p className="text-[15px] italic">{headerText}</p><p className="text-[12px] italic">{district} District, Punjab</p></header>
+    {showWatermark && <PreviewWatermark />}
+    <header className="absolute left-16 right-16 top-7 border-b border-black pb-2 font-serif leading-tight"><p className="text-[15px] italic">{headerText}</p><p className="text-[12px] italic">{district} District</p><p className="text-[12px] italic">Punjab</p></header>
     <h1 className="mx-16 border-b border-black pb-4 text-center font-serif text-3xl font-bold uppercase">{title}</h1>
-    <footer className="absolute bottom-7 left-16 right-16 flex items-center justify-between border-t border-slate-300 pt-2 font-serif text-[9px]"><span><span className="block font-bold uppercase">{footerText}</span>{footerText2 && <span className="mt-0.5 block">{footerText2}</span>}</span><span>Page {pageNumber}</span></footer>
+    <footer className="absolute bottom-7 left-16 right-16 flex items-center justify-between border-t border-slate-300 pt-2 font-serif text-[9px]"><span><span className="block font-bold uppercase">{footerText}</span>{footerText2 && <span className="mt-0.5 block">{footerText2}</span>}</span><span>{pageNumber} | Page</span></footer>
   </section>;
 }
 
-export function GeneratedSection({ table, tables, graph, chapter, pageNumber, district, headerText, footerText, footerText2 }: { table?: ReportDataTable; tables?: ReportDataTable[]; graph?: ReportCrossSection; chapter?: ReportChapter; pageNumber: number; district: string; headerText: string; footerText: string; footerText2?: string }) {
+export function GeneratedSection({ table, tables, graph, chapter, pageNumber, district, headerText, footerText, footerText2, showWatermark }: { table?: ReportDataTable; tables?: ReportDataTable[]; graph?: ReportCrossSection; chapter?: ReportChapter; pageNumber: number; district: string; headerText: string; footerText: string; footerText2?: string; showWatermark: boolean }) {
   const displayedTables = tables || (table ? [table] : []);
   const heading = displayedTables[0]?.title || chapter?.name || graph?.name || "Cross Section Sand Bar";
   const points = String(graph?.post || "").split(",").map(Number).filter(Number.isFinite);
@@ -71,12 +73,12 @@ export function GeneratedSection({ table, tables, graph, chapter, pageNumber, di
   const svgPoints = points.map((value, index) => `${20 + index * (250 / Math.max(points.length - 1, 1))},${110 - ((value - min) / Math.max(max - min, .1)) * 82}`).join(" ");
   return <section className="dsr-preview-page relative flex aspect-[1/1.414] w-full max-w-[794px] flex-col overflow-hidden bg-white text-black shadow-xl">
     <div className="pointer-events-none absolute inset-4 border border-black" />
-    <PreviewWatermark />
-    <header className="mx-16 mt-7 border-b border-black pb-2 font-serif leading-tight"><p className="text-[15px] italic">{headerText}</p><p className="text-[12px] italic">{district} District, Punjab</p><p className="mt-1 text-[10px]">{heading}</p></header>
+    {showWatermark && <PreviewWatermark />}
+    <header className="mx-16 mt-7 border-b border-black pb-2 font-serif leading-tight"><p className="text-[15px] italic">{headerText}</p><p className="text-[12px] italic">{district} District</p><p className="text-[12px] italic">Punjab</p><p className="mt-1 text-[10px]">{heading}</p></header>
     <div className="relative mx-14 mb-12 mt-4 min-h-0 flex-1 overflow-auto font-serif">
       {displayedTables.length ? <div className="space-y-4">{displayedTables.map((currentTable, tableIndex) => <section key={`${currentTable.title}-${tableIndex}`} className="break-inside-avoid"><h2 className="mb-1.5 font-serif text-[11px] font-bold">{currentTable.title}</h2><table className="w-full table-fixed border-collapse font-serif text-[10px] leading-[1.35]"><thead><tr>{currentTable.columns.map((column) => <th key={column.key} className="border border-black bg-white p-1.5 text-left align-top font-bold">{column.label}</th>)}</tr></thead><tbody>{currentTable.rows.length ? currentTable.rows.map((row, index) => <tr key={index} className="break-inside-avoid">{currentTable.columns.map((column) => <td key={column.key} className="whitespace-pre-line break-words border border-black bg-white p-1.5 align-top">{row[column.key] || "-"}</td>)}</tr>) : <tr><td className="border border-black bg-white p-3 text-center text-slate-500" colSpan={Math.max(currentTable.columns.length, 1)}>No data entered yet</td></tr>}</tbody></table></section>)}</div> : chapter ? <><h2 className="mb-8 text-center text-xl font-bold uppercase">{chapter.name}</h2><div className="border-t border-black pt-6 text-[13px] leading-7 whitespace-pre-wrap">{chapter.summary || "Chapter content will appear here once it is entered and saved in the chapter editor."}</div></> : <><h2 className="mb-2 text-center text-sm font-bold">CROSS SECTION SAND BAR</h2><p className="text-center text-xs font-bold">{heading}</p><svg viewBox="0 0 290 140" className="mx-auto mt-5 w-full max-w-md border border-slate-300"><line x1="20" y1="110" x2="270" y2="110" stroke="#64748b"/><line x1="20" y1="20" x2="20" y2="110" stroke="#64748b"/><polyline points={svgPoints} fill="none" stroke="#b86d32" strokeWidth="2"/>{Number.isFinite(Number(graph?.red)) && <line x1="20" y1={110 - ((Number(graph?.red) - min) / Math.max(max - min, .1)) * 82} x2="270" y2={110 - ((Number(graph?.red) - min) / Math.max(max - min, .1)) * 82} stroke="#dc2626"/>}{Number.isFinite(Number(graph?.thal)) && <line x1="20" y1={110 - ((Number(graph?.thal) - min) / Math.max(max - min, .1)) * 82} x2="270" y2={110 - ((Number(graph?.thal) - min) / Math.max(max - min, .1)) * 82} stroke="#2563eb"/>}</svg><div className="mt-4 grid grid-cols-2 gap-2 text-[10px]"><p>Area: {graph?.area || "-"} Ha</p><p>Bulk density: {graph?.bulk || "-"}</p><p>Post monsoon: {graph?.post || "-"}</p><p>Mining: {graph?.pct || "-"}%</p></div></>}
     </div>
-    <footer className="absolute bottom-7 left-16 right-16 flex items-center justify-between border-t border-slate-300 pt-2 font-serif text-[9px]"><span><span className="block font-bold uppercase">{footerText}</span>{footerText2 && <span className="mt-0.5 block">{footerText2}</span>}</span><span>Page {pageNumber}</span></footer>
+    <footer className="absolute bottom-7 left-16 right-16 flex items-center justify-between border-t border-slate-300 pt-2 font-serif text-[9px]"><span><span className="block font-bold uppercase">{footerText}</span>{footerText2 && <span className="mt-0.5 block">{footerText2}</span>}</span><span>{pageNumber} | Page</span></footer>
   </section>;
 }
 
@@ -97,21 +99,42 @@ function PreviewWatermark() {
   </div>;
 }
 
-export function UploadedSection({ upload, pageNumber, sourcePageNumber = 1, district, headerText, footerText, footerText2 }: { upload: PreviewUpload; pageNumber: number; sourcePageNumber?: number; district: string; headerText: string; footerText: string; footerText2?: string }) {
+function GeneratedContentsSection({ entries, pageNumber, district, headerText, footerText, footerText2, showWatermark }: { entries: ContentEntry[]; pageNumber: number; district: string; headerText: string; footerText: string; footerText2?: string; showWatermark: boolean }) {
+  return <section className="dsr-preview-page relative flex aspect-[1/1.414] w-full max-w-[794px] flex-col overflow-hidden bg-white text-black shadow-xl">
+    <div className="pointer-events-none absolute inset-4 border border-black" />
+    {showWatermark && <PreviewWatermark />}
+    <header className="mx-16 mt-7 border-b border-black pb-2 font-serif leading-tight"><p className="text-[15px] italic">{headerText}</p><p className="text-[12px] italic">{district} District</p><p className="text-[12px] italic">Punjab</p></header>
+    <div className="relative mx-14 mb-16 mt-4 min-h-0 flex-1 overflow-hidden font-serif">
+      <h2 className="mb-4 text-center text-xl font-bold">Content</h2>
+      <table className="w-full table-fixed border-collapse text-[10px]"><thead><tr><th className="w-24 border border-black p-2">Chapter No.</th><th className="border border-black p-2">Subject</th><th className="w-24 border border-black p-2">Page No.</th></tr></thead><tbody>{entries.map((entry) => <tr key={`${entry.chapterNo}-${entry.subject}`}><td className="border border-black p-2 text-center">{entry.chapterNo}</td><td className="border border-black p-2">{entry.subject}</td><td className="border border-black p-2 text-center">{entry.pageLabel}</td></tr>)}</tbody></table>
+    </div>
+    <footer className="absolute bottom-7 left-16 right-16 flex items-center justify-between border-t border-slate-300 pt-2 font-serif text-[9px]"><span><span className="block font-bold uppercase">{footerText}</span>{footerText2 && <span className="mt-0.5 block">{footerText2}</span>}</span><span>{pageNumber} | Page</span></footer>
+  </section>;
+}
+
+export function UploadedSection({ upload, pageNumber, sourcePageNumber = 1, district, headerText, footerText, footerText2, preserveUploadedFrame = false, showWatermark }: { upload: PreviewUpload; pageNumber: number; sourcePageNumber?: number; district: string; headerText: string; footerText: string; footerText2?: string; preserveUploadedFrame?: boolean; showWatermark: boolean }) {
+  if (preserveUploadedFrame) return (
+    <section className="dsr-preview-page relative aspect-[1/1.414] w-full max-w-[794px] overflow-hidden bg-white text-black shadow-xl">
+      <UploadedFilePreview src={upload.url} pdfPage={sourcePageNumber} title={`${upload.title} - PDF page ${sourcePageNumber}`} alt={upload.title} className="h-full w-full bg-white" imageStyle={{ objectFit: "contain" }} />
+      {showWatermark && <PreviewWatermark />}
+      <span className="absolute bottom-[5.7%] right-[7%] z-20 bg-white px-2 py-1 font-serif text-[9px]">{pageNumber} | Page</span>
+    </section>
+  );
   return (
     <section className="dsr-preview-page relative flex aspect-[1/1.414] w-full max-w-[794px] flex-col overflow-hidden bg-white text-black shadow-xl">
       <div className="pointer-events-none absolute inset-4 border border-black" />
-      <PreviewWatermark />
+      {showWatermark && <PreviewWatermark />}
       <header className="mx-16 mt-7 border-b border-black pb-2 font-serif leading-tight">
         <p className="text-[15px] italic">{headerText}</p>
-        <p className="max-w-[520px] text-[12px] italic">{district} District, Punjab</p>
+        <p className="max-w-[520px] text-[12px] italic">{district} District</p>
+        <p className="max-w-[520px] text-[12px] italic">Punjab</p>
       </header>
       <div className="relative mx-14 mb-12 mt-3 flex min-h-0 flex-1 items-center justify-center overflow-hidden">
         <UploadedFilePreview src={upload.url} pdfPage={sourcePageNumber} title={`${upload.title} - PDF page ${sourcePageNumber}`} alt={upload.title} className="h-full w-full bg-white" imageStyle={{ objectFit: "contain" }} />
       </div>
       <footer className="absolute bottom-7 left-16 right-16 flex items-center justify-between border-t border-slate-300 pt-2 font-serif text-[9px]">
         <span><span className="block font-bold uppercase">{footerText}</span>{footerText2 && <span className="mt-0.5 block">{footerText2}</span>}</span>
-        <span>Page {pageNumber}</span>
+        <span>{pageNumber} | Page</span>
       </footer>
     </section>
   );
@@ -144,6 +167,10 @@ export default function ReportPreviewPage() {
   });
 
   const state = project?.projectState || {};
+  const storedDistrict = String(project?.district || "").trim();
+  const projectLabel = `${project?.title || ""} ${project?.projectName || ""}`.toLowerCase();
+  const inferredDistrict = punjabDistricts.find((item) => projectLabel.includes(item.toLowerCase()));
+  const reportDistrict = storedDistrict && storedDistrict.toLowerCase() !== "punjab" ? storedDistrict : inferredDistrict || "Punjab";
   const frontMatter = state["front-matter"] as FrontMatterState | undefined;
   const chaptersState = state.chapters as { chapters?: Chapter[] } | Chapter[] | undefined;
   const platesState = state.plates as { plates?: Plate[] } | Plate[] | undefined;
@@ -249,6 +276,7 @@ export default function ReportPreviewPage() {
   const chapterUploadUrls = new Set(reportChapters.map((chapter) => chapter.file?.url).filter(Boolean));
   const unmatchedChapterUploads = chapterUploads.filter((upload) => !chapterUploadUrls.has(upload.url));
   const chapterUploadKey = chapterUploads.map((upload) => `${upload.url}:${upload.name}`).join("|");
+  const autoGenerateContents = frameSettings.autoGenerateContents !== false;
 
   useEffect(() => {
     let active = true;
@@ -275,18 +303,40 @@ export default function ReportPreviewPage() {
     const upload = chapter.file?.url
       ? chapterUploads.find((item) => item.url === chapter.file?.url)
       : undefined;
-    return upload ? [{ sectionName: "Chapters", chapterTitle: chapter.name }, ...uploadedPreviewPages(upload)] : [];
+    return upload ? [...(frameSettings.chapterTitlePages ? [{ sectionName: "Chapters", chapterTitle: chapter.name }] : []), ...uploadedPreviewPages(upload)] : [];
   });
-  const previewPages: Array<{ sectionName: string; title?: string; chapterTitle?: string; upload?: PreviewUpload; sourcePageNumber?: number; table?: ReportDataTable; graph?: ReportCrossSection; chapter?: ReportChapter }> = [
-    ...frontMatterUploads.map((upload) => ({ sectionName: "Front Matter", upload })),
+  const frontPreviewPages = frontMatterUploads.filter((upload) => !autoGenerateContents || upload.id !== "contents").map((upload) => ({ sectionName: "Front Matter", upload }));
+  if (autoGenerateContents) {
+    const certificateIndex = frontPreviewPages.findIndex((page) => page.upload.id === "certificate");
+    const coverIndex = frontPreviewPages.findIndex((page) => page.upload.id === "cover");
+    const insertAt = certificateIndex >= 0 ? certificateIndex + 1 : coverIndex >= 0 ? coverIndex + 1 : 0;
+    const expectedRows = reportChapters.filter((chapter) => chapter.file?.url).length + 1 + annexureSections.length;
+    const expectedContentPages = Math.max(1, Math.ceil(expectedRows / 18));
+    const contentPages = Array.from({ length: expectedContentPages }, (_, contentsPageIndex) => ({ sectionName: "Front Matter", contents: true, contentsPageIndex }));
+    frontPreviewPages.splice(insertAt, 0, ...(contentPages as Array<typeof frontPreviewPages[number] & { contents: boolean; contentsPageIndex: number }>));
+  }
+  const previewPages: Array<{ sectionName: string; title?: string; chapterTitle?: string; upload?: PreviewUpload; sourcePageNumber?: number; table?: ReportDataTable; graph?: ReportCrossSection; chapter?: ReportChapter; contents?: boolean; contentsPageIndex?: number }> = [
+    ...frontPreviewPages,
     ...chapterPreviewPages, ...unmatchedChapterUploads.flatMap(uploadedPreviewPages),
     { sectionName: "Plates and Maps", title: "Plates and Maps" }, ...plateUploads.map((upload) => ({ sectionName: "Plates and Maps", upload })), ...otherUploads.map((upload) => ({ sectionName: "Plates and Maps", upload })),
     ...annexureSections.flatMap((annexure) => [{ sectionName: annexure, title: annexure }, ...tables.filter((table) => annexureMatches(table.title, annexure)).map((table) => ({ sectionName: annexure, table })), ...annexureUploads.filter((upload) => annexureMatches(upload.title, annexure)).map((upload) => ({ sectionName: annexure, upload }))]),
   ];
+  const previewMarkers = previewPages.flatMap((page, pageIndex) => {
+    if (page.chapterTitle) return [];
+    const chapterIndex = page.upload ? reportChapters.findIndex((chapter) => chapter.file?.url === page.upload?.url) : -1;
+    if (chapterIndex >= 0 && (!page.sourcePageNumber || page.sourcePageNumber === 1)) return [{ chapterNo: chapterIndex + 1, subject: reportChapters[chapterIndex].name.replace(/^\s*chapter\s+\d+\s*[-:–—.]?\s*/i, ""), startPage: pageIndex }];
+    if (page.title && (page.sectionName === "Plates and Maps" || page.sectionName.startsWith("Annexure"))) return [{ chapterNo: page.sectionName.startsWith("Annexure") ? page.sectionName.replace("Annexure ", "") : "-", subject: sectionDisplayName(page.sectionName), startPage: pageIndex }];
+    return [];
+  });
+  const previewContentEntries: ContentEntry[] = previewMarkers.map((marker, markerIndex) => {
+    const endPage = (previewMarkers[markerIndex + 1]?.startPage || previewPages.length) - 1;
+    return { chapterNo: marker.chapterNo, subject: marker.subject, pageCount: endPage - marker.startPage + 1, pageLabel: marker.startPage === endPage ? String(marker.startPage + 1) : `${marker.startPage + 1} - ${endPage + 1}` };
+  });
 
   const reportSections = previewPages.flatMap((page, pageIndex) => {
     let label = "";
     if (page.chapterTitle) label = page.chapterTitle;
+    else if (page.contents) label = page.contentsPageIndex ? `Content Page ${page.contentsPageIndex + 1}` : "Content Page";
     else if (page.sectionName === "Front Matter" && page.upload) label = page.upload.title;
     else if (page.title) label = sectionDisplayName(page.sectionName);
     else if (page.sectionName === "Chapters" && page.upload && !reportChapters.length) label = page.upload.title;
@@ -332,12 +382,18 @@ export default function ReportPreviewPage() {
       const { document } = await createSectionPdf();
       const skipped: string[] = [];
       const sections: Array<{ title: string; startPage: number }> = [];
-      const appendUpload = async (upload: PreviewUpload, sectionName: string) => {
+      const preformattedPages = new Set<number>();
+      const tocMarkers: Array<{ chapterNo: number | string; subject: string; startPage: number }> = [];
+      let generatedContentsIndex = -1;
+      const appendUpload = async (upload: PreviewUpload, sectionName: string, preserveUploadedFrame = false) => {
         try {
           const startPage = document.getPageCount();
-          await appendUploadedDocument(document, upload);
+          await appendUploadedDocument(document, upload, { preserveOriginalPage: preserveUploadedFrame });
           const endPage = document.getPageCount();
           if (endPage > startPage) {
+            if (preserveUploadedFrame) {
+              for (let pageIndex = startPage; pageIndex < endPage; pageIndex += 1) preformattedPages.add(pageIndex);
+            }
             // Frame settings are saved against the report section (for example
             // "Chapters"), not the individual uploaded file title.
             sections.push({ title: sectionName, startPage });
@@ -353,28 +409,68 @@ export default function ReportPreviewPage() {
         await appendReportSectionTitle(document, title);
         sections.push({ title: "Chapters", startPage });
       };
-      for (const upload of frontMatterUploads) await appendUpload(upload, "Front Matter");
-      for (const chapter of reportChapters) {
+      if (autoGenerateContents) {
+        const beforeContents = frontMatterUploads.filter((upload) => upload.id === "cover" || upload.id === "certificate");
+        for (const upload of beforeContents) await appendUpload(upload, "Front Matter");
+        generatedContentsIndex = document.getPageCount();
+        document.addPage([595.28, 841.89]);
+        sections.push({ title: "Front Matter", startPage: generatedContentsIndex });
+        for (const upload of frontMatterUploads.filter((upload) => upload.id !== "contents" && !beforeContents.includes(upload))) await appendUpload(upload, "Front Matter");
+      } else {
+        for (const upload of frontMatterUploads) await appendUpload(upload, "Front Matter");
+      }
+      for (let chapterIndex = 0; chapterIndex < reportChapters.length; chapterIndex += 1) {
+        const chapter = reportChapters[chapterIndex];
         const upload = chapter.file?.url
           ? chapterUploads.find((item) => item.url === chapter.file?.url)
           : undefined;
         if (upload) {
-          await addChapterTitle(chapter.name);
-          await appendUpload(upload, "Chapters");
+          tocMarkers.push({ chapterNo: chapterIndex + 1, subject: chapter.name.replace(/^\s*chapter\s+\d+\s*[-:–—.]?\s*/i, ""), startPage: document.getPageCount() });
+          if (frameSettings.chapterTitlePages) await addChapterTitle(chapter.name);
+          await appendUpload(upload, "Chapters", true);
         }
       }
-      for (const upload of unmatchedChapterUploads) await appendUpload(upload, "Chapters");
+      for (const upload of unmatchedChapterUploads) await appendUpload(upload, "Chapters", true);
+      tocMarkers.push({ chapterNo: "-", subject: sectionDisplayName("Plates and Maps"), startPage: document.getPageCount() });
       await addSectionTitle("Plates and Maps");
       for (const upload of [...plateUploads, ...otherUploads]) await appendUpload(upload, "Plates and Maps");
       for (const annexure of annexureSections) {
+        tocMarkers.push({ chapterNo: annexure.replace("Annexure ", ""), subject: sectionDisplayName(annexure), startPage: document.getPageCount() });
         await addSectionTitle(annexure);
         const annexureTables = tables.filter((table) => annexureMatches(table.title, annexure));
-        if (annexureTables.length) { const startPage = document.getPageCount(); await appendGeneratedReportContent(document, { district: project?.district || "Punjab", tables: annexureTables, graphs: [] }); if (document.getPageCount() > startPage) sections.push({ title: annexure, startPage }); }
+        if (annexureTables.length) { const startPage = document.getPageCount(); await appendGeneratedReportContent(document, { district: reportDistrict, tables: annexureTables, graphs: [] }); if (document.getPageCount() > startPage) sections.push({ title: annexure, startPage }); }
         for (const upload of annexureUploads.filter((item) => annexureMatches(item.title, annexure))) await appendUpload(upload, annexure);
       }
       if (document.getPageCount() === 0) throw new Error("No readable uploaded documents found");
+      if (autoGenerateContents && generatedContentsIndex >= 0) {
+        const makeContentEntries = (extraContentsPages: number): ContentEntry[] => tocMarkers.map((marker, markerIndex) => {
+          const startPage = marker.startPage + extraContentsPages;
+          const endPage = (tocMarkers[markerIndex + 1]?.startPage || document.getPageCount()) - 1 + extraContentsPages;
+          return {
+            chapterNo: marker.chapterNo,
+            subject: marker.subject,
+            pageCount: endPage - startPage + 1,
+            pageLabel: startPage === endPage ? String(startPage + 1) : `${startPage + 1} - ${endPage + 1}`,
+          };
+        });
+        const { document: provisionalContents } = await createSectionPdf();
+        await appendGeneratedContentPage(provisionalContents, makeContentEntries(0));
+        const extraContentsPages = provisionalContents.getPageCount() - 1;
+        const { document: contentsDocument } = await createSectionPdf();
+        await appendGeneratedContentPage(contentsDocument, makeContentEntries(extraContentsPages));
+        const contentsPages = await document.copyPages(contentsDocument, contentsDocument.getPageIndices());
+        document.removePage(generatedContentsIndex);
+        contentsPages.forEach((contentsPage, offset) => document.insertPage(generatedContentsIndex + offset, contentsPage));
+        if (extraContentsPages) {
+          sections.forEach((item) => { if (item.startPage > generatedContentsIndex) item.startPage += extraContentsPages; });
+          const shiftedPreformatted = [...preformattedPages].map((pageIndex) => pageIndex > generatedContentsIndex ? pageIndex + extraContentsPages : pageIndex);
+          preformattedPages.clear();
+          shiftedPreformatted.forEach((pageIndex) => preformattedPages.add(pageIndex));
+        }
+      }
 
       let finalSections = sections;
+      let finalPreformattedPages = preformattedPages;
       if (excludedPages.size) {
         const oldPageCount = document.getPageCount();
         const keptOldIndexes = Array.from({ length: oldPageCount }, (_, index) => index).filter((index) => !excludedPages.has(index));
@@ -391,9 +487,10 @@ export default function ReportPreviewPage() {
         });
         [...excludedPages].filter((index) => index >= 0 && index < oldPageCount).sort((a, b) => b - a).forEach((index) => document.removePage(index));
         finalSections = remappedSections;
+        finalPreformattedPages = new Set(keptOldIndexes.flatMap((oldIndex, newIndex) => preformattedPages.has(oldIndex) ? [newIndex] : []));
       }
 
-      await applyDsrReportFrame(document, finalSections, project?.district || "Punjab", frameSettings);
+      await applyDsrReportFrame(document, finalSections, reportDistrict, frameSettings, finalPreformattedPages);
       return { document, skipped };
   };
 
@@ -490,8 +587,8 @@ export default function ReportPreviewPage() {
         <div className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-800"><Settings2 size={16} /> Report Header &amp; Footer Settings</div>
         <div className="grid gap-3 md:grid-cols-4 md:items-end">
           <label className="text-xs font-semibold text-slate-600">Default header<input value={frameSettings.headerText || ""} onChange={(event) => setFrameSettings((current) => ({ ...current, headerText: event.target.value }))} placeholder="District Survey Report" className="mt-1 w-full rounded-lg border px-3 py-2 font-normal" /></label>
-          <label className="text-xs font-semibold text-slate-600">Default footer<input value={frameSettings.footerText || ""} onChange={(event) => setFrameSettings((current) => ({ ...current, footerText: event.target.value }))} placeholder="Prepared by: District Survey Report Committee" className="mt-1 w-full rounded-lg border px-3 py-2 font-normal" /></label>
-          <label className="text-xs font-semibold text-slate-600">Default footer second line<input value={frameSettings.footerText2 || ""} onChange={(event) => setFrameSettings((current) => ({ ...current, footerText2: event.target.value }))} placeholder="Optional second line" className="mt-1 w-full rounded-lg border px-3 py-2 font-normal" /></label>
+          <label className="text-xs font-semibold text-slate-600">Default footer<input value={frameSettings.footerText || ""} onChange={(event) => setFrameSettings((current) => ({ ...current, footerText: event.target.value }))} placeholder={`PREPARED BY: SUB-DIVISIONAL COMMITTEE OF ${reportDistrict.toUpperCase()} DISTRICT`} className="mt-1 w-full rounded-lg border px-3 py-2 font-normal" /></label>
+          <label className="text-xs font-semibold text-slate-600">Default footer second line<input value={frameSettings.footerText2 || ""} onChange={(event) => setFrameSettings((current) => ({ ...current, footerText2: event.target.value }))} placeholder={REFERENCE_FOOTER_LINE2} className="mt-1 w-full rounded-lg border px-3 py-2 font-normal" /></label>
           <label className="text-xs font-semibold text-slate-600">Section override<select value={selectedFrameSection} onChange={(event) => setSelectedFrameSection(event.target.value)} className="mt-1 w-full rounded-lg border bg-white px-3 py-2 font-normal">{frameSections.map((section) => <option key={section}>{section}</option>)}</select></label>
           <button className="module-btn-primary justify-center" disabled={savingFormat} onClick={saveFormat}><Save size={16} />{savingFormat ? "Saving..." : "Save Format"}</button>
         </div>
@@ -528,11 +625,20 @@ export default function ReportPreviewPage() {
           ) : previewPages.map((page, index) => {
             const override = frameSettings.sectionOverrides?.[page.sectionName];
             const headerText = override?.headerText || frameSettings.headerText || "District Survey Report";
-            const footerText = override?.footerText || frameSettings.footerText || "Prepared by: District Survey Report Committee";
+            const footerText = override?.footerText || frameSettings.footerText || `PREPARED BY: SUB-DIVISIONAL COMMITTEE OF ${reportDistrict.toUpperCase()} DISTRICT`;
             const footerText2 = override?.footerText2 || frameSettings.footerText2 || "";
+            const showWatermark = Boolean(frameSettings.showWatermark);
             
             const sectionId = reportSections.find((item) => item.pageIndex === index)?.id;
-            const content = page.chapterTitle ? <SectionTitlePage title={page.chapterTitle} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} footerText2={footerText2} /> : page.title ? <SectionTitlePage title={sectionDisplayName(page.title)} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} footerText2={footerText2} /> : page.upload ? <UploadedSection upload={page.upload} sourcePageNumber={page.sourcePageNumber} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} footerText2={footerText2} /> : <GeneratedSection table={page.table} graph={page.graph} chapter={page.chapter} pageNumber={index + 1} district={project?.district || "Punjab"} headerText={headerText} footerText={footerText} footerText2={footerText2} />;
+            const content = page.contents
+              ? <GeneratedContentsSection entries={previewContentEntries.slice((page.contentsPageIndex || 0) * 18, ((page.contentsPageIndex || 0) + 1) * 18)} pageNumber={index + 1} district={reportDistrict} headerText={headerText} footerText={footerText} footerText2={footerText2} showWatermark={showWatermark} />
+              : page.chapterTitle
+                ? <SectionTitlePage title={page.chapterTitle} pageNumber={index + 1} district={reportDistrict} headerText={headerText} footerText={footerText} footerText2={footerText2} showWatermark={showWatermark} />
+                : page.title
+                  ? <SectionTitlePage title={sectionDisplayName(page.title)} pageNumber={index + 1} district={reportDistrict} headerText={headerText} footerText={footerText} footerText2={footerText2} showWatermark={showWatermark} />
+                  : page.upload
+                    ? <UploadedSection upload={page.upload} sourcePageNumber={page.sourcePageNumber} pageNumber={index + 1} district={reportDistrict} headerText={headerText} footerText={footerText} footerText2={footerText2} preserveUploadedFrame={page.sectionName === "Chapters"} showWatermark={showWatermark} />
+                    : <GeneratedSection table={page.table} graph={page.graph} chapter={page.chapter} pageNumber={index + 1} district={reportDistrict} headerText={headerText} footerText={footerText} footerText2={footerText2} showWatermark={showWatermark} />;
             return <div key={page.chapterTitle ? `chapter-title-${page.chapterTitle}-${index}` : page.title ? `section-${page.title}-${index}` : page.upload ? `${page.upload.id}-source-page-${page.sourcePageNumber || 1}` : `generated-${index}`} id={sectionId} className="flex w-full scroll-mt-24 justify-center">{content}</div>;
           })}
         </article>

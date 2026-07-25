@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import PageHeader from "../../components/layout/PageHeader";
 import { projectsApi } from "../../api/projects.api";
 import { useAuth } from "../../security/auth.context";
-import type { ReportFrameSettings } from "../../utils/sectionPdf";
+import { REFERENCE_FOOTER_LINE2, type ReportFrameSettings } from "../../utils/sectionPdf";
 
 type FinalizedFormat = ReportFrameSettings & {
   finalizedAt?: string;
@@ -38,8 +38,11 @@ const sections = [
 
 const defaultFormat: FinalizedFormat = {
   headerText: "District Survey Report",
-  footerText: "PREPARED BY: DISTRICT SURVEY REPORT COMMITTEE",
+  footerText: "",
   footerText2: "",
+  showWatermark: false,
+  autoGenerateContents: true,
+  chapterTitlePages: false,
   sectionTitles: {},
   sectionOverrides: {},
 };
@@ -58,7 +61,12 @@ export default function DsrFormatDesignerPage() {
 
   useEffect(() => {
     const saved = project?.projectState?.["report-format"] as FinalizedFormat | undefined;
-    if (saved) setFormat({ ...defaultFormat, ...saved });
+    const district = String(project?.district || "Punjab");
+    const referenceFooter = `PREPARED BY: SUB-DIVISIONAL COMMITTEE OF ${district.toUpperCase()} DISTRICT`;
+    if (saved) {
+      const legacyFooter = !saved.footerText || saved.footerText.trim().toUpperCase() === "PREPARED BY: DISTRICT SURVEY REPORT COMMITTEE";
+      setFormat({ ...defaultFormat, ...saved, footerText: legacyFooter ? referenceFooter : saved.footerText, footerText2: saved.footerText2 || "" });
+    } else setFormat({ ...defaultFormat, footerText: referenceFooter });
   }, [project]);
 
   const override = format.sectionOverrides?.[section] || {};
@@ -125,8 +133,13 @@ export default function DsrFormatDesignerPage() {
               <input value={format.footerText || ""} onChange={(event) => setFormat((current) => ({ ...current, footerText: event.target.value, finalizedAt: undefined, finalizedBy: undefined }))} className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-normal" />
             </label>
             <label className="text-xs font-bold text-slate-600">Default footer second line
-              <input value={format.footerText2 || ""} onChange={(event) => setFormat((current) => ({ ...current, footerText2: event.target.value, finalizedAt: undefined, finalizedBy: undefined }))} placeholder="Optional second line" className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-normal" />
+              <input value={format.footerText2 || ""} onChange={(event) => setFormat((current) => ({ ...current, footerText2: event.target.value, finalizedAt: undefined, finalizedBy: undefined }))} placeholder={REFERENCE_FOOTER_LINE2} className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-normal" />
             </label>
+            <div className="grid gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <label className="flex items-center justify-between gap-3 text-xs font-bold text-slate-700"><span>Auto-generate contents page<small className="mt-0.5 block font-normal text-slate-500">Rebuilds page ranges after final merge</small></span><input type="checkbox" checked={format.autoGenerateContents !== false} onChange={(event) => setFormat((current) => ({ ...current, autoGenerateContents: event.target.checked, finalizedAt: undefined, finalizedBy: undefined }))} className="h-4 w-4" /></label>
+              <label className="flex items-center justify-between gap-3 border-t border-slate-200 pt-2 text-xs font-bold text-slate-700"><span>Show representational watermark<small className="mt-0.5 block font-normal text-slate-500">Can be disabled for the approved final copy</small></span><input type="checkbox" checked={Boolean(format.showWatermark)} onChange={(event) => setFormat((current) => ({ ...current, showWatermark: event.target.checked, finalizedAt: undefined, finalizedBy: undefined }))} className="h-4 w-4" /></label>
+              <label className="flex items-center justify-between gap-3 border-t border-slate-200 pt-2 text-xs font-bold text-slate-700"><span>Standalone chapter-title pages<small className="mt-0.5 block font-normal text-slate-500">Adds a separator page before each chapter</small></span><input type="checkbox" checked={Boolean(format.chapterTitlePages)} onChange={(event) => setFormat((current) => ({ ...current, chapterTitlePages: event.target.checked, finalizedAt: undefined, finalizedBy: undefined }))} className="h-4 w-4" /></label>
+            </div>
             <label className="text-xs font-bold text-slate-600">Design a section
               <select value={section} onChange={(event) => setSection(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-normal">
                 {sections.map((item) => <option key={item}>{item}</option>)}
@@ -161,12 +174,13 @@ export default function DsrFormatDesignerPage() {
           <div className="mb-4 flex items-center justify-between"><h2 className="font-extrabold text-slate-900">Live section preview</h2><span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-500">A4 preview</span></div>
           <div className="mx-auto aspect-[1/1.414] w-full max-w-[720px] bg-white p-4 shadow-xl">
             <div className="relative flex h-full flex-col border border-black px-12 py-8 font-serif text-black">
-              <header className="border-b border-black pb-2"><p className="text-[15px] italic">{previewHeader}</p><p className="text-[12px] italic">{project?.district || "Punjab"} District, Punjab</p></header>
+              {format.showWatermark && <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden"><span className="-rotate-[32deg] whitespace-nowrap text-4xl font-bold tracking-wider text-slate-500/20">REPRESENTATIONAL DATA ONLY</span></div>}
+              <header className="border-b border-black pb-2"><p className="text-[15px] italic">{previewHeader}</p><p className="text-[12px] italic">{project?.district || "Punjab"} District</p><p className="text-[12px] italic">Punjab</p></header>
               <main className="flex flex-1 flex-col items-center justify-center">
                 <h1 className="max-w-lg border-b border-black pb-4 text-center text-2xl font-bold uppercase">{previewTitle}</h1>
                 <p className="mt-8 max-w-md text-center text-sm leading-6 text-slate-500">Uploaded or generated content for this section will appear inside this safe content area.</p>
               </main>
-              <footer className="flex items-center justify-between border-t border-slate-400 pt-2 text-[9px]"><span><span className="block font-bold uppercase">{previewFooter}</span>{previewFooter2 && <span className="mt-0.5 block">{previewFooter2}</span>}</span><span>Page 1</span></footer>
+              <footer className="flex items-center justify-between border-t border-slate-400 pt-2 text-[9px]"><span><span className="block font-bold uppercase">{previewFooter}</span>{previewFooter2 && <span className="mt-0.5 block">{previewFooter2}</span>}</span><span>1 | Page</span></footer>
             </div>
           </div>
         </section>
