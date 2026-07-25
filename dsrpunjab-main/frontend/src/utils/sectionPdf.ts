@@ -8,7 +8,7 @@ export type PdfUpload = { name: string; url?: string } | null | undefined;
 export type ReportDataTable = { title: string; columns: Array<{ key: string; label: string }>; rows: Record<string, string>[] };
 export type ReportCrossSection = { name?: string; dist?: string; post?: string; red?: string; thal?: string; area?: string; noMine?: string; bulk?: string; pct?: string; calcThick?: string };
 export type ReportChapter = { name: string; summary: string };
-export type ReportFrameSettings = { headerText?: string; footerText?: string; sectionTitles?: Record<string, string>; sectionOverrides?: Record<string, { headerText?: string; footerText?: string }> };
+export type ReportFrameSettings = { headerText?: string; footerText?: string; footerText2?: string; sectionTitles?: Record<string, string>; sectionOverrides?: Record<string, { headerText?: string; footerText?: string; footerText2?: string }> };
 
 const A4_WIDTH = 595.28;
 const A4_HEIGHT = 841.89;
@@ -346,6 +346,7 @@ export async function applyDsrReportFrame(document: PDFDocument, sections: Array
     const override = settings.sectionOverrides?.[section];
     const title = override?.headerText || settings.headerText || "District Survey Report";
     const footer = override?.footerText || settings.footerText || "PREPARED BY: DISTRICT SURVEY REPORT COMMITTEE";
+    const footer2 = override?.footerText2 || settings.footerText2 || "";
 
     page.drawRectangle({ x: left, y: bottom, width: width - left * 2, height: height - bottom * 2, borderColor: rgb(0, 0, 0), borderWidth: 0.65 * scale, opacity: 1 });
     page.drawText(title, { x: 76 * scale, y: top - 19 * scale, font: italic, size: 10 * scale, color: rgb(0, 0, 0) });
@@ -353,7 +354,8 @@ export async function applyDsrReportFrame(document: PDFDocument, sections: Array
     page.drawLine({ start: { x: 74 * scale, y: top - 49 * scale }, end: { x: width - 74 * scale, y: top - 49 * scale }, thickness: 0.55 * scale, color: rgb(0, 0, 0) });
     page.drawLine({ start: { x: 74 * scale, y: bottom + 42 * scale }, end: { x: width - 74 * scale, y: bottom + 42 * scale }, thickness: 0.35 * scale, color: rgb(0.55, 0.55, 0.55) });
 
-    page.drawText(footer, { x: 130 * scale, y: bottom + 18 * scale, font: bold, size: 6.8 * scale, color: rgb(0, 0, 0) });
+    page.drawText(footer, { x: 130 * scale, y: bottom + (footer2 ? 24 : 18) * scale, font: bold, size: 6.8 * scale, color: rgb(0, 0, 0) });
+    if (footer2) page.drawText(footer2, { x: 130 * scale, y: bottom + 12 * scale, font: regular, size: 6.5 * scale, color: rgb(0, 0, 0) });
     page.drawText(`Page ${index + 1}`, { x: width - 108 * scale, y: bottom + 29 * scale, font: regular, size: 8 * scale, color: rgb(0.22, 0.22, 0.22) });
   });
 }

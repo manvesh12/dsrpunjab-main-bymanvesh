@@ -39,6 +39,7 @@ const sections = [
 const defaultFormat: FinalizedFormat = {
   headerText: "District Survey Report",
   footerText: "PREPARED BY: DISTRICT SURVEY REPORT COMMITTEE",
+  footerText2: "",
   sectionTitles: {},
   sectionOverrides: {},
 };
@@ -63,8 +64,9 @@ export default function DsrFormatDesignerPage() {
   const override = format.sectionOverrides?.[section] || {};
   const previewHeader = override.headerText?.trim() || format.headerText?.trim() || defaultFormat.headerText!;
   const previewFooter = override.footerText?.trim() || format.footerText?.trim() || defaultFormat.footerText!;
+  const previewFooter2 = override.footerText2?.trim() || format.footerText2?.trim() || "";
   const previewTitle = format.sectionTitles?.[section]?.trim() || section;
-  const updateOverride = (field: "headerText" | "footerText", value: string) =>
+  const updateOverride = (field: "headerText" | "footerText" | "footerText2", value: string) =>
     setFormat((current) => ({
       ...current,
       finalizedAt: undefined,
@@ -122,6 +124,9 @@ export default function DsrFormatDesignerPage() {
             <label className="text-xs font-bold text-slate-600">Default report footer
               <input value={format.footerText || ""} onChange={(event) => setFormat((current) => ({ ...current, footerText: event.target.value, finalizedAt: undefined, finalizedBy: undefined }))} className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-normal" />
             </label>
+            <label className="text-xs font-bold text-slate-600">Default footer second line
+              <input value={format.footerText2 || ""} onChange={(event) => setFormat((current) => ({ ...current, footerText2: event.target.value, finalizedAt: undefined, finalizedBy: undefined }))} placeholder="Optional second line" className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-normal" />
+            </label>
             <label className="text-xs font-bold text-slate-600">Design a section
               <select value={section} onChange={(event) => setSection(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-normal">
                 {sections.map((item) => <option key={item}>{item}</option>)}
@@ -141,6 +146,9 @@ export default function DsrFormatDesignerPage() {
               <label className="text-xs font-bold text-slate-600">Custom footer
                 <input value={override.footerText || ""} onChange={(event) => updateOverride("footerText", event.target.value)} placeholder="Use default report footer" className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal" />
               </label>
+              <label className="text-xs font-bold text-slate-600">Custom footer second line
+                <input value={override.footerText2 || ""} onChange={(event) => updateOverride("footerText2", event.target.value)} placeholder="Use default second line" className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal" />
+              </label>
               <button type="button" onClick={() => setFormat((current) => ({ ...current, finalizedAt: undefined, finalizedBy: undefined, sectionTitles: { ...current.sectionTitles, [section]: "" }, sectionOverrides: { ...current.sectionOverrides, [section]: {} } }))} className="module-btn justify-center"><RotateCcw size={15} /> Reset this section</button>
             </div>
           </div>
@@ -158,7 +166,7 @@ export default function DsrFormatDesignerPage() {
                 <h1 className="max-w-lg border-b border-black pb-4 text-center text-2xl font-bold uppercase">{previewTitle}</h1>
                 <p className="mt-8 max-w-md text-center text-sm leading-6 text-slate-500">Uploaded or generated content for this section will appear inside this safe content area.</p>
               </main>
-              <footer className="flex items-center justify-between border-t border-slate-400 pt-2 text-[9px]"><span className="font-bold uppercase">{previewFooter}</span><span>Page 1</span></footer>
+              <footer className="flex items-center justify-between border-t border-slate-400 pt-2 text-[9px]"><span><span className="block font-bold uppercase">{previewFooter}</span>{previewFooter2 && <span className="mt-0.5 block">{previewFooter2}</span>}</span><span>Page 1</span></footer>
             </div>
           </div>
         </section>
