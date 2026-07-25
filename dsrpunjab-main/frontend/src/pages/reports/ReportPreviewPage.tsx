@@ -171,6 +171,7 @@ export default function ReportPreviewPage() {
   const [pageManagerPageCount, setPageManagerPageCount] = useState(0);
   const [excludedReportPages, setExcludedReportPages] = useState<Set<number>>(new Set());
   const [uploadPageCounts, setUploadPageCounts] = useState<Record<string, number>>({});
+  const [includeWatermark, setIncludeWatermark] = useState(false);
   const { data: project, isLoading } = useQuery({
     queryKey: ["project", projectId, "preview"],
     queryFn: () => projectsApi.get(projectId),
@@ -192,7 +193,10 @@ export default function ReportPreviewPage() {
 
   useEffect(() => {
     const saved = state["report-format"] as ReportFrameSettings | undefined;
-    if (saved) setFrameSettings(saved);
+    if (saved) {
+      setFrameSettings(saved);
+      setIncludeWatermark(Boolean(saved.showWatermark));
+    }
   }, [project?.id]);
 
   useEffect(() => () => {
@@ -515,7 +519,7 @@ export default function ReportPreviewPage() {
         finalPreformattedPages = new Set(keptOldIndexes.flatMap((oldIndex, newIndex) => preformattedPages.has(oldIndex) ? [newIndex] : []));
       }
 
-      await applyDsrReportFrame(document, finalSections, reportDistrict, frameSettings, finalPreformattedPages);
+      await applyDsrReportFrame(document, finalSections, reportDistrict, { ...frameSettings, showWatermark: includeWatermark }, finalPreformattedPages);
       return { document, skipped };
   };
 
@@ -610,6 +614,13 @@ export default function ReportPreviewPage() {
       <>
       <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-800"><Settings2 size={16} /> Report Header &amp; Footer Settings</div>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <div><p className="text-xs font-bold text-slate-800">Representational watermark</p><p className="mt-0.5 text-xs text-slate-500">Choose whether “REPRESENTATIONAL DATA ONLY” appears behind every report page.</p></div>
+          <div className="inline-flex rounded-lg border border-slate-300 bg-white p-1">
+            <button type="button" onClick={() => setIncludeWatermark(true)} className={`rounded-md px-3 py-1.5 text-xs font-bold ${includeWatermark ? "bg-blue-700 text-white" : "text-slate-600 hover:bg-slate-100"}`}>With Watermark</button>
+            <button type="button" onClick={() => setIncludeWatermark(false)} className={`rounded-md px-3 py-1.5 text-xs font-bold ${!includeWatermark ? "bg-blue-700 text-white" : "text-slate-600 hover:bg-slate-100"}`}>Without Watermark</button>
+          </div>
+        </div>
         <div className="grid gap-3 md:grid-cols-4 md:items-end">
           <label className="text-xs font-semibold text-slate-600">Default header<input value={frameSettings.headerText || ""} onChange={(event) => setFrameSettings((current) => ({ ...current, headerText: event.target.value }))} placeholder="District Survey Report" className="mt-1 w-full rounded-lg border px-3 py-2 font-normal" /></label>
           <label className="text-xs font-semibold text-slate-600">Default footer<input value={frameSettings.footerText || ""} onChange={(event) => setFrameSettings((current) => ({ ...current, footerText: event.target.value }))} placeholder={`PREPARED BY: SUB-DIVISIONAL COMMITTEE OF ${reportDistrict.toUpperCase()} DISTRICT`} className="mt-1 w-full rounded-lg border px-3 py-2 font-normal" /></label>
@@ -652,7 +663,7 @@ export default function ReportPreviewPage() {
             const headerText = override?.headerText || frameSettings.headerText || "District Survey Report";
             const footerText = override?.footerText || frameSettings.footerText || `PREPARED BY: SUB-DIVISIONAL COMMITTEE OF ${reportDistrict.toUpperCase()} DISTRICT`;
             const footerText2 = override?.footerText2 || frameSettings.footerText2 || "";
-            const showWatermark = Boolean(frameSettings.showWatermark);
+            const showWatermark = includeWatermark;
             
             const sectionId = reportSections.find((item) => item.pageIndex === index)?.id;
             const content = page.contents
