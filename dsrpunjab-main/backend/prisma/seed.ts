@@ -89,13 +89,66 @@ async function main() {
     }
   }
 
-  const allPermissionIds = Array.from(createdPermissions.values());
-  await prisma.role.create({
-    data: {
-      name: "STATE_ADMIN",
-      permissions: { create: allPermissionIds.map((permissionId) => ({ permissionId })) },
-    },
-  });
+  const permissionIds = (actions: string[]) =>
+    actions
+      .map((action) => createdPermissions.get(action))
+      .filter((permissionId): permissionId is bigint => permissionId !== undefined);
+
+  const rolePermissions = {
+    STATE_ADMIN: Array.from(createdPermissions.keys()),
+    DMO: [
+      "DASHBOARD_VIEW",
+      "PROJECT_VIEW",
+      "PROJECT_CREATE",
+      "PROJECT_EDIT",
+      "REPORT_VIEW",
+      "REPORT_GENERATE",
+      "REPORT_DOWNLOAD",
+    ],
+    COE_SENSRS: [
+      "DASHBOARD_VIEW",
+      "PROJECT_VIEW",
+      "PROJECT_EDIT",
+      "SECTION_FRONT_MATTER_EDIT",
+      "SECTION_CERTIFICATE_EDIT",
+      "SECTION_CHAPTERS_1_5_EDIT",
+      "SECTION_CHAPTERS_6_10_EDIT",
+      "SECTION_PLATES_EDIT",
+      "SECTION_CROSS_SECTIONS_EDIT",
+      "REPORT_VIEW",
+      "REPORT_GENERATE",
+      "REPORT_DOWNLOAD",
+    ],
+    REVIEWER: [
+      "DASHBOARD_VIEW",
+      "PROJECT_VIEW",
+      "SECTION_REVIEW_ONLY",
+      "REPORT_VIEW",
+      "REPORT_APPROVE",
+    ],
+    HEAD_OFFICE: [
+      "DASHBOARD_VIEW",
+      "PROJECT_VIEW",
+      "SECTION_REVIEW_ONLY",
+      "REPORT_VIEW",
+      "REPORT_GENERATE",
+      "REPORT_DOWNLOAD",
+      "REPORT_APPROVE",
+    ],
+  } as const;
+
+  await Promise.all(
+    Object.entries(rolePermissions).map(([name, actions]) =>
+      prisma.role.create({
+        data: {
+          name,
+          permissions: {
+            create: permissionIds([...actions]).map((permissionId) => ({ permissionId })),
+          },
+        },
+      })
+    )
+  );
 
   const password = await bcrypt.hash("Gov@2026!Secure", 10);
   await prisma.user.create({
@@ -108,6 +161,53 @@ async function main() {
       stateId: state.id,
       active: true,
     },
+  });
+
+  const jalandhar = districts.find((district) => district.code === "JAL");
+  if (!jalandhar) throw new Error("Jalandhar district was not created.");
+
+  await prisma.user.createMany({
+    data: [
+      {
+        username: "dmo.jalandhar",
+        email: "dmo.jalandhar@punjab.gov.in",
+        password,
+        fullName: "DMO Jalandhar",
+        role: "DMO",
+        stateId: state.id,
+        districtId: jalandhar.id,
+        active: true,
+      },
+      {
+        username: "coe.sensrs",
+        email: "coe.sensrs@punjab.gov.in",
+        password,
+        fullName: "COE SENSRS",
+        role: "COE_SENSRS",
+        stateId: state.id,
+        districtId: jalandhar.id,
+        active: true,
+      },
+      {
+        username: "reviewer.dsr",
+        email: "reviewer.dsr@punjab.gov.in",
+        password,
+        fullName: "DSR Reviewer",
+        role: "REVIEWER",
+        stateId: state.id,
+        districtId: jalandhar.id,
+        active: true,
+      },
+      {
+        username: "head.office",
+        email: "head.office@punjab.gov.in",
+        password,
+        fullName: "Head Office",
+        role: "HEAD_OFFICE",
+        stateId: state.id,
+        active: true,
+      },
+    ],
   });
 
   for (const district of districts) {
@@ -141,7 +241,9 @@ async function main() {
     skipDuplicates: true,
   });
 
-  console.log(`Seed complete: state.admin is the only user and STATE_ADMIN is the only role; ${districts.length} districts created.`);
+  console.log(
+    `Seed complete: 5 users and ${Object.keys(rolePermissions).length} roles; ${districts.length} districts created.`
+  );
 }
 
 main()
