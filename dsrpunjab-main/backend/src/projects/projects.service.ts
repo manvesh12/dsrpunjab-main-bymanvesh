@@ -13,7 +13,10 @@ export class ProjectsService {
     private readonly storage: Pick<StorageService, "deleteFile">
   ) {}
 
-  list(user: AuthUser) { return this.repository.list(assignedDistrictFor(user)); }
+  list(user: AuthUser) {
+    const districtId = assignedDistrictFor(user);
+    return this.repository.listAccessible(user.id, districtId, canAdmin(user.role));
+  }
 
   async create(body: any, user: AuthUser) {
     const userDistrict = assignedDistrictFor(user);
@@ -60,6 +63,7 @@ export class ProjectsService {
       remarks: `DSR project created for ${created.year || "2025-26"}`,
       performedBy: user.id
     });
+    await this.repository.assignWorkflowMembers(created.id, districtId, user.id);
     return { bulk: false as const, project: created };
   }
 

@@ -4,7 +4,7 @@ import type { AuthUser } from "../authentication/auth-user.js";
 import { canAdmin } from "./role.policy.js";
 
 export function assignedDistrictFor(user: AuthUser): bigint | null {
-  if (canAdmin(user.role)) return null;
+  if (canAdmin(user.role) || user.role === "HEAD_OFFICE") return null;
   const districtId = user.districtId;
   if (!districtId) {
     throw new ApiError(403, "DISTRICT_NOT_ASSIGNED", "Your account has no district assignment. Please contact the administrator.");
@@ -13,7 +13,7 @@ export function assignedDistrictFor(user: AuthUser): bigint | null {
 }
 
 export function canAccessProjectDistrict(user: AuthUser, districtId?: bigint | null) {
-  return canAdmin(user.role) || (Boolean(districtId) && user.districtId === districtId);
+  return canAdmin(user.role) || user.role === "HEAD_OFFICE" || (Boolean(districtId) && user.districtId === districtId);
 }
 
 export function assertProjectDistrictAccess<T extends any>(project: T | null, user: AuthUser): asserts project is T {
