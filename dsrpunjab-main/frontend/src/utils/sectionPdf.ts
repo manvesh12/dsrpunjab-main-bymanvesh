@@ -41,17 +41,16 @@ export function drawPdfHeading(page: PDFPage, font: PDFFont, text: string, y = 7
   page.drawText(safe, { x: (page.getWidth() - font.widthOfTextAtSize(safe, size)) / 2, y, size, font, color: rgb(0.06, 0.09, 0.16) });
 }
 
-export async function appendUploadedDocument(target: PDFDocument, upload: PdfUpload, options: { preserveOriginalPage?: boolean } = {}) {
-  if (!upload?.url) return false;
+async function readUpload(upload: Exclude<PdfUpload, null | undefined>) {
   let data: ArrayBuffer;
   let contentType = "";
-  if (/^(blob:|data:)/i.test(upload.url)) {
+  if (/^(blob:|data:)/i.test(upload.url || "")) {
     const response = await fetch(upload.url);
     if (!response.ok) throw new Error(`Could not read ${upload.name}`);
     data = await response.arrayBuffer();
     contentType = String(response.headers.get("content-type") || "").toLowerCase();
   } else {
-    const response = await apiClient.get<ArrayBuffer>(upload.url, {
+    const response = await apiClient.get<ArrayBuffer>(upload.url!, {
       responseType: "arraybuffer",
       timeout: 60_000,
     });
@@ -59,6 +58,22 @@ export async function appendUploadedDocument(target: PDFDocument, upload: PdfUpl
     contentType = String(response.headers["content-type"] || "").toLowerCase();
   }
   if (!data.byteLength) throw new Error(`${upload.name} is empty`);
+  return { data, contentType };
+}
+
+/** Returns the number of source pages so the on-screen report can mirror the final PDF. */
+export async function uploadedDocumentPageCount(upload: PdfUpload) {
+  if (!upload?.url) return 0;
+  const { data, contentType } = await readUpload(upload);
+  if (contentType.includes("pdf") || upload.name.toLowerCase().endsWith(".pdf")) {
+    return (await PDFDocument.load(data)).getPageCount();
+  }
+  return 1;
+}
+
+export async function appendUploadedDocument(target: PDFDocument, upload: PdfUpload, options: { preserveOriginalPage?: boolean } = {}) {
+  if (!upload?.url) return false;
+  const { data, contentType } = await readUpload(upload);
   if (contentType.includes("pdf") || upload.name.toLowerCase().endsWith(".pdf")) {
     const source = await PDFDocument.load(data);
     if (options.preserveOriginalPage) {

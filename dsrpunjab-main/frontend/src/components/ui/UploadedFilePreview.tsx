@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
 import { apiClient } from "../../api/client";
 import { resolveUploadUrl } from "../../api/uploads.api";
+import { loadPdfJS } from "../../utils/dsrParser";
 
 type UploadedFilePreviewProps = {
   src: string;
@@ -57,13 +58,30 @@ export default function UploadedFilePreview({
 
     apiClient
       .get(resolved, { responseType: "blob" })
-      .then((response) => {
+      .then(async (response) => {
         if (cancelled) return;
         const blob = response.data as Blob;
         const responseType = blob.type || response.headers["content-type"] || "";
         if (responseType.includes("text/html")) {
           setFailed(true);
           setPreviewSrc("");
+          return;
+        }
+        const isPdf = responseType.toLowerCase().includes("pdf") || /\.pdf($|[?#])/i.test(src);
+        if (isPdf && pdfPage) {
+          const pdfjs = await loadPdfJS();
+          const pdf = await pdfjs.getDocument({ data: await blob.arrayBuffer() }).promise;
+          const sourcePage = await pdf.getPage(Math.min(Math.max(pdfPage, 1), pdf.numPages));
+          const viewport = sourcePage.getViewport({ scale: 1.65 });
+          const canvas = document.createElement("canvas");
+          const context = canvas.getContext("2d");
+          if (!context) throw new Error("PDF preview canvas is unavailable");
+          canvas.width = Math.ceil(viewport.width);
+          canvas.height = Math.ceil(viewport.height);
+          await sourcePage.render({ canvasContext: context, viewport }).promise;
+          if (cancelled) return;
+          setContentType("image/png");
+          setPreviewSrc(canvas.toDataURL("image/png"));
           return;
         }
         objectUrl = URL.createObjectURL(blob);
@@ -81,7 +99,7 @@ export default function UploadedFilePreview({
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [src]);
+  }, [src, pdfPage]);
 
   if (failed) {
     return (
