@@ -53,6 +53,17 @@ function reportOrder(title: string) {
   return 5;
 }
 
+function uploadIdentity(upload: PreviewUpload) {
+  try {
+    const parsed = new URL(upload.url, window.location.origin);
+    const downloadId = parsed.pathname.match(/\/(?:api\/)?files\/download\/([^/]+)$/i)?.[1];
+    if (downloadId) return `file:${decodeURIComponent(downloadId).toLowerCase()}`;
+    return `url:${parsed.origin.toLowerCase()}${parsed.pathname.toLowerCase()}`;
+  } catch {
+    return `url:${upload.url.split(/[?#]/, 1)[0].toLowerCase()}`;
+  }
+}
+
 export function SectionTitlePage({ title, pageNumber, district, headerText, footerText, footerText2, showWatermark }: { title: string; pageNumber: number; district: string; headerText: string; footerText: string; footerText2?: string; showWatermark: boolean }) {
   return <section className="dsr-preview-page relative flex aspect-[1/1.414] w-full max-w-[794px] flex-col items-center justify-center overflow-hidden bg-white text-black shadow-xl">
     <div className="pointer-events-none absolute inset-4 border border-black" />
@@ -267,7 +278,13 @@ export default function ReportPreviewPage() {
     name: file.fileName,
     url: uploadsApi.getDownloadUrl(file.annexureId),
   }));
-  const uniqueUploads = uploads.filter((upload, index) => uploads.findIndex((item) => item.url === upload.url) === index).sort((a, b) => reportOrder(a.title) - reportOrder(b.title));
+  const seenUploadIds = new Set<string>();
+  const uniqueUploads = uploads.filter((upload) => {
+    const identity = uploadIdentity(upload);
+    if (seenUploadIds.has(identity)) return false;
+    seenUploadIds.add(identity);
+    return true;
+  }).sort((a, b) => reportOrder(a.title) - reportOrder(b.title));
   const frontMatterUploads = uniqueUploads.filter((item) => reportOrder(item.title) === 0);
   const chapterUploads = uniqueUploads.filter((item) => reportOrder(item.title) === 1);
   const plateUploads = uniqueUploads.filter((item) => reportOrder(item.title) === 4);
