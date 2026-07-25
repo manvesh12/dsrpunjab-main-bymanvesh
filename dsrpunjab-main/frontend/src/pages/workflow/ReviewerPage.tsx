@@ -35,6 +35,8 @@ import type {
 } from "../../types/workflow.types";
 import { projectsApi, type ProjectDetail } from "../../api/projects.api";
 import { workflowCompletion } from "../../utils/projectProgress";
+import { useAuth } from "../../security/auth.context";
+import { Permission } from "../../security/access";
 
 // ─────────────────────────────────────────────────────────
 // Constants
@@ -95,6 +97,8 @@ function saveNotifs(projectId: string, notifs: ReviewNotification[]) {
 type ActiveTab = "workflow" | "notes" | "notifications" | "review";
 
 export default function ReviewerPage() {
+  const { hasPermission } = useAuth();
+  const canDecide = hasPermission(Permission.ReportApprove);
   const { projectId = "default" } = useParams();
   const [tab, setTab] = useState<ActiveTab>("workflow");
   const [summary, setSummary] = useState<WorkflowSummary | null>(null);
@@ -235,7 +239,7 @@ export default function ReviewerPage() {
     { id: "workflow",      label: "Workflow",       icon: <ClipboardList size={15} /> },
     { id: "notes",         label: "Review Notes",   icon: <MessageSquareText size={15} /> },
     { id: "notifications", label: "Notifications",  icon: <Bell size={15} />, badge: unreadCount },
-    { id: "review",        label: "Approve/Return", icon: <ShieldCheck size={15} /> },
+    ...(canDecide ? [{ id: "review" as ActiveTab, label: "Approve/Return", icon: <ShieldCheck size={15} /> }] : []),
   ];
 
   return (
@@ -517,7 +521,7 @@ export default function ReviewerPage() {
       )}
 
       {/* ── Tab: Review & Approve ── */}
-      {tab === "review" && (
+      {canDecide && tab === "review" && (
         <div className="space-y-5">
           {summary?.status === "approved" && (
             <div className="flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 p-4 text-green-700">
@@ -609,7 +613,7 @@ export default function ReviewerPage() {
       )}
 
       {/* ── Review Modal ── */}
-      {reviewModalOpen && (
+      {canDecide && reviewModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">

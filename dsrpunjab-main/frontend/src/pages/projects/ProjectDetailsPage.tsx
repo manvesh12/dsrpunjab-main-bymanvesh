@@ -29,7 +29,7 @@ const modulesTemplate = [
   ["Plates & Maps", "District, geology and mining maps", "plates", Map, [Permission.SectionPlates]],
   ["Cross Sections", "River profiles and cross-section graphs", "cross-sections", ChartNoAxesCombined, [Permission.SectionCrossSections]],
   ["Annexures", "Annexures I-VII and B-K", "annexures", Layers3, [Permission.ProjectEdit]],
-  ["Replenishment", "Survey inputs and replenishment calculations", "replenishment", RefreshCw, [Permission.ProjectEdit]],
+  ["Replenishment", "Survey inputs and replenishment calculations", "replenishment", RefreshCw, [Permission.SectionReplenishment]],
   ["Model DSR", "Project-specific compiled model report", "model-dsr", FileCheck2, [Permission.ProjectEdit]],
   ["Reviewer & Workflow", "Sequential approval, e-signatures and review notes", "reviewer", ShieldCheck, [Permission.ReportApprove, Permission.SectionReviewOnly]],
   ["Report Preview", "Review the compiled document", "preview", Images, [Permission.ProjectView]],
@@ -45,6 +45,7 @@ function modulePath(projectId: string, path: string) {
 export default function ProjectDetailsPage() {
   const { projectId = "1" } = useParams();
   const { user } = useAuth();
+  const canSaveAll = hasAnyPermission(user, [Permission.ProjectEdit]);
   const [savingAll, setSavingAll] = useState(false);
 
   const { data: project, isLoading, refetch } = useQuery({
@@ -62,6 +63,7 @@ export default function ProjectDetailsPage() {
       progress: moduleProgress(path, project),
     };
   });
+  const visibleModules = modules.filter((module) => hasAnyPermission(user, module.permissions));
   if (isGlobalAdmin(user)) modules.splice(modules.length - 2, 0, {
     title: "DSR Format Designer",
     description: "Redesign, preview and finalize section-wise report formatting",
@@ -71,7 +73,7 @@ export default function ProjectDetailsPage() {
     progress: (project?.projectState?.["report-format"] as { finalizedAt?: string } | undefined)?.finalizedAt ? 100 : 0,
   });
 
-  const completedSections = modules.filter(m => m.progress === 100).length;
+  const completedSections = visibleModules.filter(m => m.progress === 100).length;
   const overallProgress = overallProjectProgress(project);
 
   const handleSaveAllSections = async () => {
@@ -95,10 +97,10 @@ export default function ProjectDetailsPage() {
         description={project ? `Project #${project.id} - ${project.year || "Financial Year 2025-26"} - ${project.mineral || "Sand and Minor Minerals"}` : `Loading...`}
         action={
           <div className="flex gap-2">
-            <button className="module-btn-primary" disabled={savingAll || isLoading} onClick={handleSaveAllSections}>
+            {canSaveAll && <button className="module-btn-primary" disabled={savingAll || isLoading} onClick={handleSaveAllSections}>
               <Save size={17} />
               {savingAll ? "Saving..." : "Save All Sections"}
-            </button>
+            </button>}
             <Link to="/projects" className="module-btn">Back to Projects</Link>
           </div>
         }
@@ -106,7 +108,7 @@ export default function ProjectDetailsPage() {
       
       <section className="mb-6 grid gap-4 sm:grid-cols-3">
         <Stat label="Overall progress" value={`${isLoading ? "--" : overallProgress}%`} />
-        <Stat label="Sections completed" value={`${isLoading ? "--" : completedSections} / ${modules.length}`} />
+        <Stat label="Sections completed" value={`${isLoading ? "--" : completedSections} / ${visibleModules.length}`} />
         <Stat 
           label="Last updated" 
           value={project?.updatedAt ? new Date(project.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "Just now"} 
@@ -114,7 +116,7 @@ export default function ProjectDetailsPage() {
       </section>
       
       <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-        {modules.map(({ title, description, path, Icon, permissions, progress }) => {
+        {visibleModules.map(({ title, description, path, Icon, permissions, progress }) => {
           const accessible = hasAnyPermission(user, permissions);
           const content = (
             <>

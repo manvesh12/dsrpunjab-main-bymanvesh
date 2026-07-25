@@ -73,7 +73,7 @@ export default function AppRoutes() {
           }
         />
 
-        <Route path="/projects/:projectId" element={<ProjectDetailsPage />} />
+        <Route path="/projects/:projectId" element={<PermissionGuard permissions={[Permission.ProjectView]} fallback={<NotAccessible />}><ProjectDetailsPage /></PermissionGuard>} />
         
         {/* Data Entry & Project Editing Routes */}
         <Route element={<PermissionGuard permissions={[Permission.ProjectEdit]} fallback={<NotAccessible />}><Outlet /></PermissionGuard>}>
@@ -84,9 +84,9 @@ export default function AppRoutes() {
           <Route path="/projects/:projectId/annexures" element={<AnnexuresPage />} />
           {["1","2","3","4","5","6","7"].map((annexure) => <Route key={annexure} path={`/projects/:projectId/annexures/${annexure}`} element={<AnnexureEditorPage annexure={annexure} />} />)}
           {["B","C","D","E","F","G","H","I","J","K"].map((letter) => <Route key={letter} path={`/projects/:projectId/annexures/additional/${letter.toLowerCase()}`} element={<AdditionalAnnexureEditorPage letter={letter} />} />)}
-          <Route path="/projects/:projectId/replenishment" element={<ReplenishmentBuilderPage />} />
           <Route path="/projects/:projectId/model-dsr" element={<ModelDsrPage />} />
         </Route>
+        <Route path="/projects/:projectId/replenishment" element={<PermissionGuard permissions={[Permission.SectionReplenishment]} fallback={<NotAccessible />}><ReplenishmentBuilderPage /></PermissionGuard>} />
 
         <Route path="/projects/:projectId/preview" element={<ReportPreviewPage />} />
         <Route path="/projects/:projectId/format-designer" element={<RoleGuard roles={["STATE_ADMIN"]} fallback={<NotAccessible />}><DsrFormatDesignerPage /></RoleGuard>} />
@@ -100,19 +100,16 @@ export default function AppRoutes() {
           element={<PermissionGuard permissions={[Permission.ReportApprove, Permission.SectionReviewOnly]} fallback={<NotAccessible />}><ReviewerPage /></PermissionGuard>}
         />
 
-        <Route
-          path="/districts"
-          element={<DistrictsPage />}
-        />
+        <Route path="/districts" element={<RoleGuard roles={["STATE_ADMIN", "DMO"]} fallback={<NotAccessible />}><DistrictsPage /></RoleGuard>} />
 
         <Route
           path="/reports"
-          element={<ReportsPage />}
+          element={<PermissionGuard permissions={[Permission.ReportView]} fallback={<NotAccessible />}><ReportsPage /></PermissionGuard>}
         />
 
         <Route
           path="/analytics"
-          element={<AnalyticsPage />}
+          element={<RoleGuard roles={["STATE_ADMIN"]} fallback={<NotAccessible />}><AnalyticsPage /></RoleGuard>}
         />
 
         <Route
@@ -122,16 +119,16 @@ export default function AppRoutes() {
 
         <Route
           path="/users"
-          element={<UsersPage />}
+          element={<PermissionGuard permissions={[Permission.UserView]} fallback={<NotAccessible />}><UsersPage /></PermissionGuard>}
         />
         <Route
           path="/audit"
-          element={<AuditPage />}
+          element={<PermissionGuard permissions={[Permission.UserView]} fallback={<NotAccessible />}><AuditPage /></PermissionGuard>}
         />
 
         <Route
           path="/settings"
-          element={<SettingsPage />}
+          element={<PermissionGuard permissions={[Permission.UserEdit]} fallback={<NotAccessible />}><SettingsPage /></PermissionGuard>}
         />
 
         <Route

@@ -4,12 +4,15 @@ import Header from "./Header";
 import Sidebar from "./Sidebar";
 import SectionReviewWidget from "../ui/SectionReviewWidget";
 import { ArrowLeft } from "lucide-react";
+import { useAuth } from "../../security/auth.context";
+import { Permission } from "../../security/access";
 
 export default function PortalLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const params = useParams();
   const location = useLocation();
+  const { hasPermission } = useAuth();
 
   // Show floating panels only when inside a project
   const hasProject = !!params.projectId;
@@ -35,14 +38,13 @@ export default function PortalLayout() {
 
       <div className={collapsed ? "lg:pl-20" : "lg:pl-72"}>
         <Header onMenuClick={() => setSidebarOpen(true)} />
-
         <main id="main-content" className="p-4 md:p-6 lg:p-8 text-slate-900 dark:text-slate-100 transition-colors">
           <Outlet />
         </main>
       </div>
 
       {/* Bottom-right: Context-aware section review widget (on DSR section pages only) */}
-      {isOnSectionPage && <SectionReviewWidget />}
+      {isOnSectionPage && (hasPermission(Permission.SectionReviewOnly) || hasPermission(Permission.ReportApprove)) && <SectionReviewWidget />}
 
       {/* Left-edge: Floating Back to Project arrow tab (visible on section pages only) */}
       {isOnSectionPage && <BackToProjectTab projectId={params.projectId!} />}

@@ -85,7 +85,7 @@ export class InvitationService {
     let successCount = 0;
     let failedCount = 0;
     const errors: Array<{ row: number; email: string; reason: string }> = [];
-    const validRoles = ["STATE_ADMIN"];
+    const validRoles = ["STATE_ADMIN", "DMO", "COE_SENSRS", "REVIEWER", "HEAD_OFFICE"];
 
     for (let index = 0; index < rows.length; index++) {
       const row = rows[index];

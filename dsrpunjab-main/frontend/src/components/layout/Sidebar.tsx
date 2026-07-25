@@ -6,7 +6,7 @@ import {
 } from "../../utils/constants";
 import { useAuth } from "../../security/auth.context";
 import { AccessControl } from "../auth/AccessControl";
-import { Permission } from "../../security/access";
+import { normalizedRole, Permission } from "../../security/access";
 const RoutePermissionMap: Record<string, string[]> = {
   "/dashboard": [],
   "/projects": [Permission.ProjectView],
@@ -30,6 +30,14 @@ type SidebarProps = {
 
 export default function Sidebar({ open, onClose, collapsed, onCollapsedChange }: SidebarProps) {
   const { user } = useAuth();
+  const role = normalizedRole(user);
+  const visiblePaths: Record<string, string[]> = {
+    COE_SENSRS: ["/dashboard", "/projects", "/notifications"],
+    REVIEWER: ["/dashboard", "/projects", "/workflow", "/notifications"],
+    DMO: ["/dashboard", "/projects", "/districts", "/reports", "/notifications"],
+    HEAD_OFFICE: ["/dashboard", "/projects", "/reports", "/notifications"],
+  };
+  const canShowPath = (path: string) => role === "STATE_ADMIN" || (visiblePaths[role] || []).includes(path);
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `sidebar-link flex items-center gap-3 border-l-[3px] px-3 py-2.5 text-sm font-semibold transition-colors ${
@@ -84,7 +92,7 @@ export default function Sidebar({ open, onClose, collapsed, onCollapsedChange }:
             Portal
           </p>
 
-          {navigationItems.map((item) => (
+          {navigationItems.filter((item) => canShowPath(item.path)).map((item) => (
             <AccessControl key={item.path} requiredPermissions={RoutePermissionMap[item.path] || []}>
               <NavLink
                 to={item.path}
@@ -97,11 +105,9 @@ export default function Sidebar({ open, onClose, collapsed, onCollapsedChange }:
             </AccessControl>
           ))}
 
-          <p className={`mb-2 mt-6 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 ${collapsed ? "hidden" : ""}`}>
-            Administration
-          </p>
+          {role === "STATE_ADMIN" && <p className={`mb-2 mt-6 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 ${collapsed ? "hidden" : ""}`}>Administration</p>}
 
-          {adminNavigationItems.map((item) => (
+          {adminNavigationItems.filter((item) => canShowPath(item.path)).map((item) => (
             <AccessControl key={item.path} requiredPermissions={RoutePermissionMap[item.path] || []}>
               <NavLink
                 to={item.path}

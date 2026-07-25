@@ -19,6 +19,7 @@ export const Permission = {
   SectionChaptersSecondHalf: "SECTION_CHAPTERS_6_10_EDIT",
   SectionPlates: "SECTION_PLATES_EDIT",
   SectionCrossSections: "SECTION_CROSS_SECTIONS_EDIT",
+  SectionReplenishment: "SECTION_REPLENISHMENT_EDIT",
   SectionReviewOnly: "SECTION_REVIEW_ONLY",
 } as const;
 

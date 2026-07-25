@@ -75,7 +75,11 @@ const roleDetails: Record<DashboardRole, { eyebrow: string; title: string; descr
 };
 
 function dashboardRole(role: string, canReview: boolean, canGenerate: boolean) {
-  return "state" as const;
+  if (role === "STATE_ADMIN") return "state" as const;
+  if (role === "DMO") return "district" as const;
+  if (role === "REVIEWER" || canReview) return "review" as const;
+  if (role === "HEAD_OFFICE" && canGenerate) return "publishing" as const;
+  return "preparation" as const;
 }
 
 function projectStatus(project: ProjectListItem) {
@@ -117,6 +121,31 @@ export default function DashboardPage() {
   const notices = noticeSetting?.value || "Use the portal only for official District Survey Report preparation, review and approval activities.";
   const actions = roleActions(profile, canCreate, canReview, canGenerate);
   const metrics = roleMetrics(profile, projects.length, workProjects.length, reviewProjects.length, completedProjects.length, readyToGenerate.length);
+
+  if (role === "COE_SENSRS") {
+    return (
+      <main className="space-y-5 pb-6">
+        <section className="border border-slate-300 bg-white p-6 dark:border-slate-700 dark:bg-slate-900">
+          <p className="text-[11px] font-extrabold uppercase tracking-[.12em] text-[#a6580d]">COE SENSRS</p>
+          <h1 className="mt-2 text-2xl font-extrabold text-[#102f55] dark:text-white">Replenishment Workspace</h1>
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Open an assigned project to prepare survey inputs, calculations, evidence and the replenishment report.</p>
+        </section>
+        <section className="border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900">
+          <PanelTitle icon={FolderKanban} title="Assigned projects" subtitle="Only the Replenishment section is available for this role" />
+          {projectsLoading ? <EmptyState text="Loading assigned projects..." /> : projects.length === 0 ? <EmptyState text="No project is currently assigned." /> : (
+            <div className="divide-y divide-slate-200 dark:divide-slate-700">
+              {projects.map((project) => (
+                <div key={project.id} className="flex items-center justify-between gap-4 px-5 py-4">
+                  <div><p className="font-extrabold text-[#102f55] dark:text-white">{project.title || project.projectName}</p><p className="mt-1 text-xs text-slate-500">{project.district || "Punjab"} · {project.year || "Financial year not set"}</p></div>
+                  <Link to={`/projects/${project.id}/replenishment`} className="inline-flex items-center gap-1 text-xs font-extrabold text-[#123c6e] hover:underline dark:text-blue-300">Open Replenishment <ArrowRight size={14} /></Link>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="space-y-5 pb-6">

@@ -25,16 +25,28 @@ const PUNJAB_DISTRICTS = [
 ];
 
 const ALL_ROLES: UserRole[] = [
-  'State Admin',
+  'State Admin', 'DMO', 'COE SENSRS', 'Reviewer', 'Head Office',
 ];
 
 const ROLE_COLORS: Record<UserRole, { bg: string; text: string; border: string }> = {
   'State Admin':    { bg: 'bg-blue-55 dark:bg-blue-900/40',   text: 'text-blue-700 dark:text-blue-300',   border: 'border-blue-200 dark:border-blue-700/50' },
+  'DMO': { bg: 'bg-teal-50', text: 'text-teal-700', border: 'border-teal-200' },
+  'COE SENSRS': { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+  'Reviewer': { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
+  'Head Office': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
 };
 
 const ROLE_TO_BACKEND: Record<UserRole, string> = {
   'State Admin': 'STATE_ADMIN',
+  'DMO': 'DMO',
+  'COE SENSRS': 'COE_SENSRS',
+  'Reviewer': 'REVIEWER',
+  'Head Office': 'HEAD_OFFICE',
 };
+
+function displayRole(role: string): UserRole {
+  return ({ STATE_ADMIN: 'State Admin', DMO: 'DMO', COE_SENSRS: 'COE SENSRS', REVIEWER: 'Reviewer', HEAD_OFFICE: 'Head Office' } as Record<string, UserRole>)[role] || 'Reviewer';
+}
 
 function roleCode(role: UserRole | string) {
   return ROLE_TO_BACKEND[role as UserRole] || String(role).toUpperCase().replace(/\s+/g, "_");
@@ -492,6 +504,7 @@ export const UserManagementPanel: React.FC = () => {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('All');
   const [filterDistrict, setFilterDistrict] = useState('All');
+  const [showAddUser, setShowAddUser] = useState(false);
 
   const filtered = portalUsers.filter(u => {
     const matchSearch = !search || u.fullName.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase());
@@ -542,13 +555,14 @@ export const UserManagementPanel: React.FC = () => {
               <div className="w-10 h-10 bg-blue-50 dark:bg-blue-600/20 border border-blue-100 dark:border-blue-600/30 rounded-xl flex items-center justify-center">
                 <Users size={20} className="text-blue-600 dark:text-blue-400" />
               </div>
-              <h1 className="text-2xl font-black text-slate-900 dark:text-white">Administrator Account</h1>
+              <h1 className="text-2xl font-black text-slate-900 dark:text-white">User & Role Management</h1>
             </div>
             <p className="text-sm text-slate-500 dark:text-slate-400 font-medium ml-13">
-              Review the single State Administrator account and its statewide access.
+              Manage authorised users and their role-based project access.
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <button onClick={() => setShowAddUser(true)} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-700"><Plus size={15} /> Invite user</button>
             <button
               onClick={() => refetch()}
               disabled={isFetching}
@@ -671,7 +685,7 @@ export const UserManagementPanel: React.FC = () => {
 
                     {/* Role */}
                     <td className="px-5 py-4">
-                      <RoleBadge role="State Admin" />
+                      <RoleBadge role={displayRole(user.role)} />
                     </td>
 
                     {/* District */}
@@ -684,7 +698,7 @@ export const UserManagementPanel: React.FC = () => {
 
                     <td className="px-5 py-4 hidden lg:table-cell">
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-                        <Shield size={11} /> Full statewide access
+                        <Shield size={11} /> {user.role === "STATE_ADMIN" ? "Full statewide access" : displayRole(user.role)}
                       </span>
                     </td>
 
@@ -717,6 +731,7 @@ export const UserManagementPanel: React.FC = () => {
           </div>
         </div>
       </div>
+      {showAddUser && <AddUserModal onClose={() => setShowAddUser(false)} onSuccess={() => { setShowAddUser(false); queryClient.invalidateQueries({ queryKey: ['users'] }); }} />}
     </div>
   );
 };
