@@ -272,12 +272,20 @@ export default function ReportPreviewPage() {
   reportPlates.forEach((plate, index) => {
     if (plate.url) uploads.push({ id: `plate-${index}`, title: `Plate - ${plate.name}`, name: plate.fileName || plate.name, url: plate.url });
   });
-  (project?.files || []).forEach((file) => uploads.push({
-    id: `project-${String(file.id)}`,
-    title: `${uploadSectionLabel(file)} - ${file.fileName}`,
-    name: file.fileName,
-    url: uploadsApi.getDownloadUrl(file.annexureId),
-  }));
+  const hasSavedFrontMatter = Boolean(frontMatter?.coverFile?.url || frontMatter?.certFile?.url || frontMatter?.contentFile?.url || frontMatter?.prefaceFile?.url);
+  (project?.files || []).forEach((file) => {
+    const sectionLabel = uploadSectionLabel(file);
+    // The file register retains replaced uploads. Once the current Front
+    // Matter slots are saved in project state, those slots are authoritative
+    // and historical register entries must not reappear in the final report.
+    if (hasSavedFrontMatter && sectionLabel === "Front Matter") return;
+    uploads.push({
+      id: `project-${String(file.id)}`,
+      title: `${sectionLabel} - ${file.fileName}`,
+      name: file.fileName,
+      url: uploadsApi.getDownloadUrl(file.annexureId),
+    });
+  });
   const seenUploadIds = new Set<string>();
   const uniqueUploads = uploads.filter((upload) => {
     const identity = uploadIdentity(upload);
