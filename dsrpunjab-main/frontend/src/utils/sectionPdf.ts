@@ -205,12 +205,29 @@ export async function appendGeneratedReportContent(target: PDFDocument, input: {
     pdf.text("Orange: post-monsoon elevation   Red: red line   Blue: thalweg", 25, 184);
   });
 
+  let nextTableY = 42;
+  if (input.tables.length && hasPage) {
+    pdf.addPage();
+    nextTableY = 42;
+  }
+  if (input.tables.length) hasPage = true;
+
   input.tables.forEach((table) => {
-    addPage();
+    const titleLines = pdf.splitTextToSize(table.title, 160) as string[];
+    const titleHeight = Math.max(titleLines.length, 1) * 4.5;
+    // Keep consecutive tables together on the current page whenever there is
+    // enough room for the next title, header and at least one data row.
+    if (nextTableY + titleHeight + 15 > 270) {
+      pdf.addPage();
+      nextTableY = 42;
+    }
+    pdf.setFont("times", "bold");
+    pdf.setFontSize(10);
+    pdf.text(titleLines, 24, nextTableY, { lineHeightFactor: 1.15 });
     autoTable(pdf, {
       // Match the approved DSR annexure format: the report frame supplies the
       // heading, while the table starts below it and stays clear of the footer.
-      startY: 42,
+      startY: nextTableY + titleHeight + 2,
       head: [table.columns.map((column) => column.label)],
       body: table.rows.length ? table.rows.map((row) => table.columns.map((column) => String(row[column.key] || ""))) : [["No data entered yet"]],
       theme: "grid",
@@ -243,6 +260,8 @@ export async function appendGeneratedReportContent(target: PDFDocument, input: {
       rowPageBreak: "avoid",
       showHead: "everyPage",
     });
+    const completedTable = (pdf as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable;
+    nextTableY = (completedTable?.finalY || nextTableY + titleHeight + 12) + 8;
   });
 
   const generated = await PDFDocument.load(pdf.output("arraybuffer"));

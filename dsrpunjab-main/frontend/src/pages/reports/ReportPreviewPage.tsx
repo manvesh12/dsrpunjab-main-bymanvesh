@@ -61,8 +61,9 @@ export function SectionTitlePage({ title, pageNumber, district, headerText, foot
   </section>;
 }
 
-export function GeneratedSection({ table, graph, chapter, pageNumber, district, headerText, footerText }: { table?: ReportDataTable; graph?: ReportCrossSection; chapter?: ReportChapter; pageNumber: number; district: string; headerText: string; footerText: string }) {
-  const heading = table?.title || chapter?.name || graph?.name || "Cross Section Sand Bar";
+export function GeneratedSection({ table, tables, graph, chapter, pageNumber, district, headerText, footerText }: { table?: ReportDataTable; tables?: ReportDataTable[]; graph?: ReportCrossSection; chapter?: ReportChapter; pageNumber: number; district: string; headerText: string; footerText: string }) {
+  const displayedTables = tables || (table ? [table] : []);
+  const heading = displayedTables[0]?.title || chapter?.name || graph?.name || "Cross Section Sand Bar";
   const points = String(graph?.post || "").split(",").map(Number).filter(Number.isFinite);
   const levels = [...points, Number(graph?.red), Number(graph?.thal)].filter(Number.isFinite);
   const min = levels.length ? Math.min(...levels) : 0;
@@ -73,7 +74,7 @@ export function GeneratedSection({ table, graph, chapter, pageNumber, district, 
     <PreviewWatermark />
     <header className="mx-16 mt-7 border-b border-black pb-2 font-serif leading-tight"><p className="text-[15px] italic">{headerText}</p><p className="text-[12px] italic">{district} District, Punjab</p><p className="mt-1 text-[10px]">{heading}</p></header>
     <div className="relative mx-14 mb-12 mt-4 min-h-0 flex-1 overflow-auto font-serif">
-      {table ? <table className="w-full table-fixed border-collapse font-serif text-[10px] leading-[1.35]"><thead><tr>{table.columns.map((column) => <th key={column.key} className="border border-black bg-white p-1.5 text-left align-top font-bold">{column.label}</th>)}</tr></thead><tbody>{table.rows.length ? table.rows.map((row, index) => <tr key={index} className="break-inside-avoid">{table.columns.map((column) => <td key={column.key} className="whitespace-pre-line break-words border border-black bg-white p-1.5 align-top">{row[column.key] || "-"}</td>)}</tr>) : <tr><td className="border border-black bg-white p-3 text-center text-slate-500" colSpan={Math.max(table.columns.length, 1)}>No data entered yet</td></tr>}</tbody></table> : chapter ? <><h2 className="mb-8 text-center text-xl font-bold uppercase">{chapter.name}</h2><div className="border-t border-black pt-6 text-[13px] leading-7 whitespace-pre-wrap">{chapter.summary || "Chapter content will appear here once it is entered and saved in the chapter editor."}</div></> : <><h2 className="mb-2 text-center text-sm font-bold">CROSS SECTION SAND BAR</h2><p className="text-center text-xs font-bold">{heading}</p><svg viewBox="0 0 290 140" className="mx-auto mt-5 w-full max-w-md border border-slate-300"><line x1="20" y1="110" x2="270" y2="110" stroke="#64748b"/><line x1="20" y1="20" x2="20" y2="110" stroke="#64748b"/><polyline points={svgPoints} fill="none" stroke="#b86d32" strokeWidth="2"/>{Number.isFinite(Number(graph?.red)) && <line x1="20" y1={110 - ((Number(graph?.red) - min) / Math.max(max - min, .1)) * 82} x2="270" y2={110 - ((Number(graph?.red) - min) / Math.max(max - min, .1)) * 82} stroke="#dc2626"/>}{Number.isFinite(Number(graph?.thal)) && <line x1="20" y1={110 - ((Number(graph?.thal) - min) / Math.max(max - min, .1)) * 82} x2="270" y2={110 - ((Number(graph?.thal) - min) / Math.max(max - min, .1)) * 82} stroke="#2563eb"/>}</svg><div className="mt-4 grid grid-cols-2 gap-2 text-[10px]"><p>Area: {graph?.area || "-"} Ha</p><p>Bulk density: {graph?.bulk || "-"}</p><p>Post monsoon: {graph?.post || "-"}</p><p>Mining: {graph?.pct || "-"}%</p></div></>}
+      {displayedTables.length ? <div className="space-y-4">{displayedTables.map((currentTable, tableIndex) => <section key={`${currentTable.title}-${tableIndex}`} className="break-inside-avoid"><h2 className="mb-1.5 font-serif text-[11px] font-bold">{currentTable.title}</h2><table className="w-full table-fixed border-collapse font-serif text-[10px] leading-[1.35]"><thead><tr>{currentTable.columns.map((column) => <th key={column.key} className="border border-black bg-white p-1.5 text-left align-top font-bold">{column.label}</th>)}</tr></thead><tbody>{currentTable.rows.length ? currentTable.rows.map((row, index) => <tr key={index} className="break-inside-avoid">{currentTable.columns.map((column) => <td key={column.key} className="whitespace-pre-line break-words border border-black bg-white p-1.5 align-top">{row[column.key] || "-"}</td>)}</tr>) : <tr><td className="border border-black bg-white p-3 text-center text-slate-500" colSpan={Math.max(currentTable.columns.length, 1)}>No data entered yet</td></tr>}</tbody></table></section>)}</div> : chapter ? <><h2 className="mb-8 text-center text-xl font-bold uppercase">{chapter.name}</h2><div className="border-t border-black pt-6 text-[13px] leading-7 whitespace-pre-wrap">{chapter.summary || "Chapter content will appear here once it is entered and saved in the chapter editor."}</div></> : <><h2 className="mb-2 text-center text-sm font-bold">CROSS SECTION SAND BAR</h2><p className="text-center text-xs font-bold">{heading}</p><svg viewBox="0 0 290 140" className="mx-auto mt-5 w-full max-w-md border border-slate-300"><line x1="20" y1="110" x2="270" y2="110" stroke="#64748b"/><line x1="20" y1="20" x2="20" y2="110" stroke="#64748b"/><polyline points={svgPoints} fill="none" stroke="#b86d32" strokeWidth="2"/>{Number.isFinite(Number(graph?.red)) && <line x1="20" y1={110 - ((Number(graph?.red) - min) / Math.max(max - min, .1)) * 82} x2="270" y2={110 - ((Number(graph?.red) - min) / Math.max(max - min, .1)) * 82} stroke="#dc2626"/>}{Number.isFinite(Number(graph?.thal)) && <line x1="20" y1={110 - ((Number(graph?.thal) - min) / Math.max(max - min, .1)) * 82} x2="270" y2={110 - ((Number(graph?.thal) - min) / Math.max(max - min, .1)) * 82} stroke="#2563eb"/>}</svg><div className="mt-4 grid grid-cols-2 gap-2 text-[10px]"><p>Area: {graph?.area || "-"} Ha</p><p>Bulk density: {graph?.bulk || "-"}</p><p>Post monsoon: {graph?.post || "-"}</p><p>Mining: {graph?.pct || "-"}%</p></div></>}
     </div>
     <footer className="absolute bottom-7 left-16 right-16 flex items-center justify-between border-t border-slate-300 pt-2 font-serif text-[9px]"><span className="font-bold uppercase">{footerText}</span><span>Page {pageNumber}</span></footer>
   </section>;
@@ -293,13 +294,15 @@ export default function ReportPreviewPage() {
       const { document } = await createSectionPdf();
       const skipped: string[] = [];
       const sections: Array<{ title: string; startPage: number }> = [];
-      const appendUpload = async (upload: PreviewUpload) => {
+      const appendUpload = async (upload: PreviewUpload, sectionName: string) => {
         try {
           const startPage = document.getPageCount();
           await appendUploadedDocument(document, upload);
           const endPage = document.getPageCount();
           if (endPage > startPage) {
-            sections.push({ title: upload.title, startPage });
+            // Frame settings are saved against the report section (for example
+            // "Chapters"), not the individual uploaded file title.
+            sections.push({ title: sectionName, startPage });
           }
         } catch (error) {
           console.warn(`Skipping unreadable final-report upload: ${upload.name}`, error);
@@ -310,26 +313,26 @@ export default function ReportPreviewPage() {
       const addChapterTitle = async (title: string) => {
         const startPage = document.getPageCount();
         await appendReportSectionTitle(document, title);
-        sections.push({ title, startPage });
+        sections.push({ title: "Chapters", startPage });
       };
-      for (const upload of frontMatterUploads) await appendUpload(upload);
+      for (const upload of frontMatterUploads) await appendUpload(upload, "Front Matter");
       for (const chapter of reportChapters) {
         const upload = chapter.file?.url
           ? chapterUploads.find((item) => item.url === chapter.file?.url)
           : undefined;
         if (upload) {
           await addChapterTitle(chapter.name);
-          await appendUpload(upload);
+          await appendUpload(upload, "Chapters");
         }
       }
-      for (const upload of unmatchedChapterUploads) await appendUpload(upload);
+      for (const upload of unmatchedChapterUploads) await appendUpload(upload, "Chapters");
       await addSectionTitle("Plates and Maps");
-      for (const upload of [...plateUploads, ...otherUploads]) await appendUpload(upload);
+      for (const upload of [...plateUploads, ...otherUploads]) await appendUpload(upload, "Plates and Maps");
       for (const annexure of annexureSections) {
         await addSectionTitle(annexure);
         const annexureTables = tables.filter((table) => annexureMatches(table.title, annexure));
         if (annexureTables.length) { const startPage = document.getPageCount(); await appendGeneratedReportContent(document, { district: project?.district || "Punjab", tables: annexureTables, graphs: [] }); if (document.getPageCount() > startPage) sections.push({ title: annexure, startPage }); }
-        for (const upload of annexureUploads.filter((item) => annexureMatches(item.title, annexure))) await appendUpload(upload);
+        for (const upload of annexureUploads.filter((item) => annexureMatches(item.title, annexure))) await appendUpload(upload, annexure);
       }
       if (document.getPageCount() === 0) throw new Error("No readable uploaded documents found");
 
