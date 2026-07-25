@@ -40,5 +40,5 @@ export function hasAllPermissions(user: Pick<User, "permissions"> | null | undef
 
 export function isGlobalAdmin(user?: Pick<User, "role"> | null) {
   const role = normalizedRole(user);
-  return role === "SUPER_ADMIN" || role === "STATE_ADMIN";
+  return role === "STATE_ADMIN";
 }

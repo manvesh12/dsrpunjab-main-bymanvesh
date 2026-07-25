@@ -11,9 +11,9 @@ export interface User {
   username: string;
   fullName: string;
   email: string;
-  /** raw backend role, e.g. "ROLE_SUPER_ADMIN" */
+  /** raw backend role: "STATE_ADMIN" */
   role: string;
-  /** human-readable role, e.g. "Super Admin" */
+  /** human-readable role: "State Admin" */
   uiRole: string;
   /** Array of backend permission strings e.g. ["USER_VIEW", "USER_CREATE"] */
   permissions: string[];

@@ -75,11 +75,7 @@ const roleDetails: Record<DashboardRole, { eyebrow: string; title: string; descr
 };
 
 function dashboardRole(role: string, canReview: boolean, canGenerate: boolean) {
-  if (role === "SUPER_ADMIN" || role === "STATE_ADMIN") return "state" as const;
-  if (canReview || role === "REVIEWER") return "review" as const;
-  if (canGenerate || role === "REPORT_GENERATOR") return "publishing" as const;
-  if (role === "DISTRICT_ADMIN") return "district" as const;
-  return "preparation" as const;
+  return "state" as const;
 }
 
 function projectStatus(project: ProjectListItem) {
@@ -154,7 +150,7 @@ export default function DashboardPage() {
           <PanelTitle icon={FolderKanban} title={details.queueTitle} subtitle={details.queueDescription} to="/projects" />
           {projectsLoading ? <EmptyState text="Loading project register..." /> : projectsError ? <EmptyState text="Project register could not be loaded. Please refresh the page." error /> : queue.length === 0 ? <EmptyState text="No project is waiting for action in this workspace." /> : (
             <div className="divide-y divide-slate-200 dark:divide-slate-700">
-              {queue.map((project) => <ProjectRow key={project.id} project={project} profile={profile} canReview={canReview} canGenerate={canGenerate} canDesignFormat={role === "SUPER_ADMIN" || role === "STATE_ADMIN"} />)}
+              {queue.map((project) => <ProjectRow key={project.id} project={project} profile={profile} canReview={canReview} canGenerate={canGenerate} canDesignFormat={role === "STATE_ADMIN"} />)}
             </div>
           )}
         </article>

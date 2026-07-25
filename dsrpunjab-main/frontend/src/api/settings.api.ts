@@ -24,7 +24,7 @@ export const settingsApi = {
     return data;
   },
 
-  /** Update a setting by key (requires SUPER_ADMIN or STATE_ADMIN) */
+  /** Update a setting by key (requires STATE_ADMIN) */
   update: async (key: SettingKey, value: string): Promise<SystemSetting> => {
     const { data } = await apiClient.put<SystemSetting>(`/settings/${key}`, { value });
     return data;

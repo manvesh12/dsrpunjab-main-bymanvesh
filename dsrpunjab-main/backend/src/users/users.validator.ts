@@ -2,11 +2,10 @@ import { ApiError } from "../common/exceptions/api-error.js";
 import { canAdmin } from "../authorization/role.policy.js";
 
 export function normalizeRole(value: unknown) {
-  const VALID_ROLES = ["SUPER_ADMIN", "STATE_ADMIN", "DISTRICT_ADMIN", "OFFICER_1", "OFFICER_2", "GEOLOGIST", "REVIEWER", "DATA_ENTRY_OPERATOR", "REPORT_GENERATOR"];
-  const role = String(value || "OFFICER_1").toUpperCase();
-  if (role === "DATA_ENTRY") return "DATA_ENTRY_OPERATOR";
-  if (role === "DISTRICT_OFFICER") return "OFFICER_1";
-  return VALID_ROLES.includes(role) ? role : "OFFICER_1";
+  if (value && String(value).toUpperCase() !== "STATE_ADMIN") {
+    throw new ApiError(400, "INVALID_ROLE", "Only STATE_ADMIN is supported.");
+  }
+  return "STATE_ADMIN";
 }
 
 export function requiresDistrict(role: string) { return !canAdmin(role); }
@@ -26,9 +25,9 @@ export function userId(value: string | string[] | undefined) {
 }
 
 export function normalizedBulkRole(rawRole: string) {
-  const clean = rawRole.toUpperCase().trim().replace(/[\s_-]+/g, "");
-  const VALID_ROLES = ["SUPER_ADMIN", "STATE_ADMIN", "DISTRICT_ADMIN", "OFFICER_1", "OFFICER_2", "GEOLOGIST", "REVIEWER", "DATA_ENTRY_OPERATOR", "REPORT_GENERATOR"];
-  return VALID_ROLES.find(role => clean === role.replace(/_/g, "")) || rawRole;
+  return rawRole.toUpperCase().trim().replace(/[\s_-]+/g, "") === "STATEADMIN"
+    ? "STATE_ADMIN"
+    : rawRole;
 }
 
 export function rowValue(row: any, targetKey: string) {

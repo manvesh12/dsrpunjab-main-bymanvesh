@@ -11,19 +11,11 @@ type ProjectNotificationContext = {
   createdBy: bigint | null;
 };
 
-const GLOBAL_ADMIN_ROLES = ["SUPER_ADMIN", "STATE_ADMIN"];
-const DISTRICT_REVIEW_ROLES = ["DISTRICT_ADMIN", "REVIEWER"];
-const DISTRICT_EDITOR_ROLES = ["OFFICER_1", "OFFICER_2", "GEOLOGIST", "DATA_ENTRY_OPERATOR"];
-const DISTRICT_PUBLISH_ROLES = ["DISTRICT_ADMIN", "REPORT_GENERATOR"];
-const REVIEW_RECIPIENT_ROLES = [
-  "OFFICER_1",
-  "OFFICER_2",
-  "GEOLOGIST",
-  "REVIEWER",
-  "DISTRICT_ADMIN",
-  "STATE_ADMIN",
-  "REPORT_GENERATOR",
-] as const;
+const GLOBAL_ADMIN_ROLES = ["STATE_ADMIN"];
+const DISTRICT_REVIEW_ROLES = ["STATE_ADMIN"];
+const DISTRICT_EDITOR_ROLES = ["STATE_ADMIN"];
+const DISTRICT_PUBLISH_ROLES = ["STATE_ADMIN"];
+const REVIEW_RECIPIENT_ROLES = ["STATE_ADMIN"] as const;
 
 export class NotificationsService {
   constructor(private readonly repository: NotificationsRepository) {}
@@ -115,20 +107,14 @@ export class NotificationsService {
       project.districtId ? { role: { in: roles }, districtId: project.districtId } : { role: { in: roles } };
 
     const stageTargetRoles: Record<string, string[]> = {
-      SURVEY_OFFICER_APPROVED: ["GEOLOGIST"],
-      GIS_EXPERT_APPROVED: ["GEOLOGIST"],
-      GEOLOGIST_APPROVED: ["OFFICER_1", "OFFICER_2", "DISTRICT_ADMIN"],
-      DISTRICT_OFFICER_APPROVED: ["REVIEWER"],
-      REVIEWER_APPROVED: ["DISTRICT_ADMIN"],
-      DISTRICT_ADMIN_APPROVED: ["STATE_ADMIN"],
-      STATE_ADMIN_APPROVED: ["REPORT_GENERATOR"],
-      FINAL_REPORT_GENERATED: ["DISTRICT_ADMIN", "REPORT_GENERATOR"],
+      STATE_ADMIN_APPROVED: ["STATE_ADMIN"],
+      FINAL_REPORT_GENERATED: ["STATE_ADMIN"],
     };
 
     let roleConditions: Prisma.UserWhereInput[];
     if (stageTargetRoles[normalizedAction]) {
       roleConditions = [
-        { role: "SUPER_ADMIN" },
+        { role: "STATE_ADMIN" },
         districtCondition(stageTargetRoles[normalizedAction]),
       ];
     } else if (["SUBMIT", "RESUBMIT", "REVIEW"].includes(normalizedAction)) {
@@ -169,12 +155,6 @@ export class NotificationsService {
       FORWARD: "forwarded",
       RETURN: "returned",
       REJECT: "rejected",
-      SURVEY_OFFICER_APPROVED: "completed survey officer approval for",
-      GIS_EXPERT_APPROVED: "completed GIS expert approval for",
-      GEOLOGIST_APPROVED: "completed geologist approval for",
-      DISTRICT_OFFICER_APPROVED: "completed district officer approval for",
-      REVIEWER_APPROVED: "completed reviewer approval for",
-      DISTRICT_ADMIN_APPROVED: "completed district admin approval for",
       STATE_ADMIN_APPROVED: "completed state admin approval for",
       FINAL_REPORT_GENERATED: "generated the final report for",
     };

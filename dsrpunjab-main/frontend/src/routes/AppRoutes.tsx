@@ -87,7 +87,7 @@ export default function AppRoutes() {
         </Route>
 
         <Route path="/projects/:projectId/preview" element={<ReportPreviewPage />} />
-        <Route path="/projects/:projectId/format-designer" element={<RoleGuard roles={["SUPER_ADMIN", "STATE_ADMIN"]} fallback={<NotAccessible />}><DsrFormatDesignerPage /></RoleGuard>} />
+        <Route path="/projects/:projectId/format-designer" element={<RoleGuard roles={["STATE_ADMIN"]} fallback={<NotAccessible />}><DsrFormatDesignerPage /></RoleGuard>} />
         <Route path="/projects/:projectId/generate" element={<PermissionGuard permissions={[Permission.ReportGenerate, Permission.ReportDownload]} fallback={<NotAccessible />}><ReportPreviewPage /></PermissionGuard>} />
         
         <Route path="/projects/:projectId/reviewer" element={<PermissionGuard permissions={[Permission.ReportApprove, Permission.SectionReviewOnly]} fallback={<NotAccessible />}><ReviewerPage /></PermissionGuard>} />
@@ -140,7 +140,7 @@ export default function AppRoutes() {
         <Route
           path="/import-previous-dsr"
           element={
-            <RoleGuard roles={["SUPER_ADMIN", "STATE_ADMIN"]} fallback={<NotAccessible />}>
+            <RoleGuard roles={["STATE_ADMIN"]} fallback={<NotAccessible />}>
               <ImportDsrPage />
             </RoleGuard>
           }

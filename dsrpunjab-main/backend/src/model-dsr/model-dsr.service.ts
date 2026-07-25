@@ -185,7 +185,7 @@ export class ModelDsrService {
   }
 
   private requireAdmin(role: string) {
-    if (role !== "SUPER_ADMIN" && role !== "STATE_ADMIN") {
+    if (role !== "STATE_ADMIN") {
       throw new ApiError(403, "MODEL_DSR_ADMIN_REQUIRED", "Access denied. Only Admins can manage Model DSRs.");
     }
   }

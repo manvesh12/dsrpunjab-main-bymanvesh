@@ -66,7 +66,7 @@ export function requirePermissions(requiredPermissions: string[]) {
         throw new ApiError(401, 'UNAUTHORIZED', 'Authentication required');
       }
 
-      // Bypass for super admin if needed, though they should have all permissions mapped in DB
+      // STATE_ADMIN receives all permissions through the database mapping.
       // We rely on DB-mapped permissions for strict normalized RBAC.
       const userRole = user.role;
       const userPermissions = await getPermissionsForRole(userRole);

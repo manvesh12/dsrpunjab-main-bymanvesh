@@ -9,8 +9,8 @@ export interface BackendUser {
   username: string;
   email: string;
   fullName: string;
-  role: string;        // "ROLE_SUPER_ADMIN" etc.
-  uiRole: string;      // "Super Admin" etc.
+  role: string;        // "STATE_ADMIN"
+  uiRole: string;      // "State Admin"
   permissions: string[];
   scope: {
     districtId: number | null;

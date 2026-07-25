@@ -17,7 +17,7 @@ function defaultSignatures(): SignatureAuthority[] {
     {
       id: 1,
       order: 1,
-      role: "SDO",
+      role: "STATE_ADMIN",
       name: "Sub-Divisional Officer",
       dept: "Department of Geology & Mining, Punjab",
       signed: false,
@@ -25,7 +25,7 @@ function defaultSignatures(): SignatureAuthority[] {
     {
       id: 2,
       order: 2,
-      role: "AXEN",
+      role: "STATE_ADMIN",
       name: "Executive Engineer",
       dept: "Department of Geology & Mining, Punjab",
       signed: false,
@@ -33,7 +33,7 @@ function defaultSignatures(): SignatureAuthority[] {
     {
       id: 3,
       order: 3,
-      role: "REVIEWER_1",
+      role: "STATE_ADMIN",
       name: "Reviewer – Level 1",
       dept: "Punjab State Pollution Control Board",
       signed: false,
@@ -41,7 +41,7 @@ function defaultSignatures(): SignatureAuthority[] {
     {
       id: 4,
       order: 4,
-      role: "REVIEWER_2",
+      role: "STATE_ADMIN",
       name: "Reviewer – Level 2",
       dept: "State Mining Department, Punjab",
       signed: false,

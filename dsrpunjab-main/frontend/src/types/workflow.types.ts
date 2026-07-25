@@ -2,12 +2,7 @@
 
 export type SignMethod = "aadhaar" | "dsc" | "otp";
 
-export type AuthorityRole =
-  | "SDO"
-  | "AXEN"
-  | "REVIEWER_1"
-  | "REVIEWER_2"
-  | "DISTRICT_OWNER";
+export type AuthorityRole = "STATE_ADMIN";
 
 export interface SignatureAuthority {
   id: number;

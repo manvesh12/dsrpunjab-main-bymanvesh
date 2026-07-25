@@ -224,12 +224,6 @@ export class ReplenishmentService {
     
     const WORKFLOW_STAGES = [
       "DRAFT",
-      "SURVEY_OFFICER_APPROVED",
-      "GIS_EXPERT_APPROVED",
-      "GEOLOGIST_APPROVED",
-      "DISTRICT_OFFICER_APPROVED",
-      "REVIEWER_APPROVED",
-      "DISTRICT_ADMIN_APPROVED",
       "STATE_ADMIN_APPROVED",
       "FINAL_REPORT_GENERATED"
     ];

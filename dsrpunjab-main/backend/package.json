@@ -13,6 +13,7 @@
     "prisma:migrate": "prisma db push",
     "seed": "node --max-old-space-size=256 dist/prisma/seed.js",
     "cleanup:uploads": "node scripts/clear-uploaded-files.cjs",
+    "cleanup:roles": "tsx scripts/keep-state-admin-only.ts",
     "test": "tsx --test tests/**/*.test.ts",
     "test:security": "tsx scripts/security-load-test.ts"
   },

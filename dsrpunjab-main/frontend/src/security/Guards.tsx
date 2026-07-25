@@ -30,7 +30,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 }
 
 interface RoleGuardProps {
-  /** Backend uiRole strings e.g. "Super Admin" or raw role e.g. "ROLE_SUPER_ADMIN" */
+  /** The only supported backend role is STATE_ADMIN. */
   roles: string[];
   children: ReactNode;
   fallback?: ReactNode;

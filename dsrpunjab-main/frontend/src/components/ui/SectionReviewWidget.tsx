@@ -28,13 +28,7 @@ const DSR_SECTIONS = [
 ] as const;
 
 const RECIPIENTS = [
-  { id: "OFFICER_1", name: "Survey Officer", role: "Officer 1" },
-  { id: "OFFICER_2", name: "District Officer", role: "Officer 2" },
-  { id: "GEOLOGIST", name: "Geologist", role: "Technical Review" },
-  { id: "REVIEWER", name: "Reviewer", role: "Review Team" },
-  { id: "DISTRICT_ADMIN", name: "District Admin", role: "District Administration" },
   { id: "STATE_ADMIN", name: "State Admin", role: "State Administration" },
-  { id: "REPORT_GENERATOR", name: "Report Generator", role: "Final Publishing" },
 ] as const;
 
 type ReviewNotification = {
@@ -76,7 +70,7 @@ function SectionReviewForm({ pathname, projectId }: ReviewFormProps) {
   const [sectionId, setSectionId] = useState(routeSectionId);
   const [note, setNote] = useState("");
   const [showRecipients, setShowRecipients] = useState(false);
-  const [selected, setSelected] = useState<string[]>(["REVIEWER"]);
+  const [selected, setSelected] = useState<string[]>(["STATE_ADMIN"]);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [deliveredCount, setDeliveredCount] = useState(0);

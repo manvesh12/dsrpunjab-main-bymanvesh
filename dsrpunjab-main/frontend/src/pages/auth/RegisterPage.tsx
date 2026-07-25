@@ -18,13 +18,6 @@ const PUNJAB_DISTRICTS = [
 ];
 
 const ROLES = [
-  { value: "OFFICER_1", label: "Officer 1 (Front Matter + Chapters 1-5)" },
-  { value: "OFFICER_2", label: "Officer 2 (Certificate + Chapters 1-5)" },
-  { value: "DATA_ENTRY_OPERATOR", label: "DEO (Chapters 6-10)" },
-  { value: "GEOLOGIST", label: "Geologist (Plates + Cross Sections)" },
-  { value: "REVIEWER", label: "Reviewer" },
-  { value: "REPORT_GENERATOR", label: "Report Generator" },
-  { value: "DISTRICT_ADMIN", label: "District Admin" },
   { value: "STATE_ADMIN", label: "State Admin" },
 ];
 
@@ -321,7 +314,7 @@ export default function RegisterPage() {
         <p className="text-slate-400 font-medium leading-relaxed mb-10 max-w-sm">
           {isInvited
             ? "You've been invited to join the Smart DSR Portal. Complete your registration below to gain access."
-            : "Register as a coordinator, reviewer, or officer for the Department of Mines & Geology."}
+            : "Register as the State Admin for the Department of Mines & Geology."}
         </p>
 
         {/* Step indicator */}

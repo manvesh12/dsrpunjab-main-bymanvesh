@@ -25,33 +25,15 @@ const PUNJAB_DISTRICTS = [
 ];
 
 const ALL_ROLES: UserRole[] = [
-  'Super Admin', 'State Admin', 'District Admin', 'Officer 1',
-  'Officer 2', 'Geologist', 'Reviewer', 'Data Entry Operator',
-  'Report Generator',
+  'State Admin',
 ];
 
 const ROLE_COLORS: Record<UserRole, { bg: string; text: string; border: string }> = {
-  'Super Admin':    { bg: 'bg-purple-50 dark:bg-purple-900/40', text: 'text-purple-750 dark:text-purple-305', border: 'border-purple-200 dark:border-purple-700/50' },
   'State Admin':    { bg: 'bg-blue-55 dark:bg-blue-900/40',   text: 'text-blue-700 dark:text-blue-300',   border: 'border-blue-200 dark:border-blue-700/50' },
-  'District Admin': { bg: 'bg-indigo-50 dark:bg-indigo-900/40', text: 'text-indigo-700 dark:text-indigo-303', border: 'border-indigo-200 dark:border-indigo-700/50' },
-  'Officer 1':      { bg: 'bg-cyan-50 dark:bg-cyan-900/40',   text: 'text-cyan-705 dark:text-cyan-300',   border: 'border-cyan-200 dark:border-cyan-700/50' },
-  'Officer 2':      { bg: 'bg-teal-50 dark:bg-teal-900/40',   text: 'text-teal-700 dark:text-teal-300',   border: 'border-teal-200 dark:border-teal-700/50' },
-  'Geologist':      { bg: 'bg-amber-50 dark:bg-yellow-900/20', text: 'text-amber-700 dark:text-yellow-300', border: 'border-amber-200 dark:border-yellow-700/30' },
-  'Reviewer':       { bg: 'bg-rose-50 dark:bg-rose-900/40',   text: 'text-rose-700 dark:text-rose-300',   border: 'border-rose-200 dark:border-rose-700/50' },
-  'Data Entry Operator': { bg: 'bg-emerald-50 dark:bg-green-900/40', text: 'text-emerald-700 dark:text-green-300', border: 'border-emerald-200 dark:border-green-700/50' },
-  'Report Generator': { bg: 'bg-slate-100 dark:bg-slate-800/60', text: 'text-slate-700 dark:text-slate-300', border: 'border-slate-300 dark:border-slate-600/50' },
 };
 
 const ROLE_TO_BACKEND: Record<UserRole, string> = {
-  'Super Admin': 'SUPER_ADMIN',
   'State Admin': 'STATE_ADMIN',
-  'District Admin': 'DISTRICT_ADMIN',
-  'Officer 1': 'OFFICER_1',
-  'Officer 2': 'OFFICER_2',
-  'Geologist': 'GEOLOGIST',
-  'Reviewer': 'REVIEWER',
-  'Data Entry Operator': 'DATA_ENTRY_OPERATOR',
-  'Report Generator': 'REPORT_GENERATOR',
 };
 
 function roleCode(role: UserRole | string) {
@@ -109,7 +91,7 @@ export interface AddUserModalProps {
 export function AddUserModal({ onClose, onSuccess }: AddUserModalProps) {
   const [form, setForm] = useState({
     name: '', email: '', mobile: '', department: '', designation: '',
-    district: '', role: '' as UserRole | '', state: 'Punjab',
+    district: 'All', role: 'State Admin' as UserRole, state: 'Punjab',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);

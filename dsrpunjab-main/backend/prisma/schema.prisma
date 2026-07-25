@@ -872,7 +872,7 @@ model Permission {
 
 model Role {
   id                BigInt              @id @default(autoincrement())
-  name              String              @unique // e.g., SUPER_ADMIN
+  name              String              @unique // STATE_ADMIN
   description       String?
   permissions       RolePermission[]
   permissionHistory PermissionHistory[]

@@ -46,36 +46,6 @@ const modulePermissions = {
   ROLE: ["VIEW", "CREATE"],
 };
 
-const rolePermissionMap: Record<string, string[]> = {
-  SUPER_ADMIN: ["*"],
-  STATE_ADMIN: ["*"],
-  DISTRICT_ADMIN: ["DASHBOARD_VIEW", "PROJECT_VIEW", "REPORT_VIEW", "USER_VIEW"],
-  OFFICER_1: [
-    "DASHBOARD_VIEW",
-    "PROJECT_VIEW",
-    "PROJECT_EDIT",
-    "SECTION_FRONT_MATTER_EDIT",
-    "SECTION_CHAPTERS_1_5_EDIT",
-  ],
-  OFFICER_2: [
-    "DASHBOARD_VIEW",
-    "PROJECT_VIEW",
-    "PROJECT_EDIT",
-    "SECTION_CERTIFICATE_EDIT",
-    "SECTION_CHAPTERS_1_5_EDIT",
-  ],
-  GEOLOGIST: [
-    "DASHBOARD_VIEW",
-    "PROJECT_VIEW",
-    "PROJECT_EDIT",
-    "SECTION_PLATES_EDIT",
-    "SECTION_CROSS_SECTIONS_EDIT",
-  ],
-  REVIEWER: ["DASHBOARD_VIEW", "PROJECT_VIEW", "REPORT_VIEW", "REPORT_APPROVE", "SECTION_REVIEW_ONLY"],
-  DATA_ENTRY_OPERATOR: ["DASHBOARD_VIEW", "PROJECT_VIEW", "PROJECT_EDIT", "SECTION_CHAPTERS_6_10_EDIT"],
-  REPORT_GENERATOR: ["DASHBOARD_VIEW", "REPORT_VIEW", "REPORT_GENERATE", "REPORT_DOWNLOAD"],
-};
-
 async function main() {
   console.log("Clearing old seed data...");
   await prisma.notification.deleteMany();
@@ -120,35 +90,15 @@ async function main() {
   }
 
   const allPermissionIds = Array.from(createdPermissions.values());
-  for (const [roleName, actions] of Object.entries(rolePermissionMap)) {
-    const permissionIds = actions.includes("*")
-      ? allPermissionIds
-      : actions.map((action) => createdPermissions.get(action)).filter((id): id is bigint => Boolean(id));
-
-    await prisma.role.create({
-      data: {
-        name: roleName,
-        permissions: { create: permissionIds.map((permissionId) => ({ permissionId })) },
-      },
-    });
-  }
+  await prisma.role.create({
+    data: {
+      name: "STATE_ADMIN",
+      permissions: { create: allPermissionIds.map((permissionId) => ({ permissionId })) },
+    },
+  });
 
   const password = await bcrypt.hash("Gov@2026!Secure", 10);
-  const createdUsers = [];
-
-  createdUsers.push(await prisma.user.create({
-    data: {
-      username: "super.admin",
-      email: "super.admin@punjab.gov.in",
-      password,
-      fullName: "Super Admin",
-      role: "SUPER_ADMIN",
-      stateId: state.id,
-      active: true,
-    },
-  }));
-
-  createdUsers.push(await prisma.user.create({
+  await prisma.user.create({
     data: {
       username: "state.admin",
       email: "state.admin@punjab.gov.in",
@@ -158,37 +108,10 @@ async function main() {
       stateId: state.id,
       active: true,
     },
-  }));
+  });
 
   for (const district of districts) {
-    const code = district.code.toLowerCase();
-    const districtUsers = [
-      ["admin", "District Admin", "DISTRICT_ADMIN"],
-      ["officer1", "Officer 1", "OFFICER_1"],
-      ["officer2", "Officer 2", "OFFICER_2"],
-      ["geologist", "Geologist", "GEOLOGIST"],
-      ["reviewer", "Reviewer", "REVIEWER"],
-      ["deo", "Data Entry Operator", "DATA_ENTRY_OPERATOR"],
-      ["reportgen", "Report Generator", "REPORT_GENERATOR"],
-    ] as const;
-
-    for (const [usernamePrefix, displayRole, role] of districtUsers) {
-      createdUsers.push(await prisma.user.create({
-        data: {
-          username: `${usernamePrefix}.${code}`,
-          email: `${usernamePrefix}.${code}@punjab.gov.in`,
-          password,
-          fullName: `${displayRole} ${district.code}`,
-          role,
-          districtId: district.id,
-          stateId: state.id,
-          accessScope: district.name,
-          active: true,
-        },
-      }));
-    }
-
-    const dsrProject = await prisma.project.create({
+    await prisma.project.create({
       data: {
         projectName: `DSR ${district.name} 2026`,
         projectCode: `DSR-${district.code}-2026`,
@@ -198,7 +121,7 @@ async function main() {
       },
     });
 
-    const replenishmentProject = await prisma.project.create({
+    await prisma.project.create({
       data: {
         projectName: `Replenishment ${district.name} 2026`,
         projectCode: `REP-${district.code}-2026`,
@@ -208,11 +131,6 @@ async function main() {
       },
     });
 
-    const usersForDistrict = createdUsers.filter((user) => String(user.districtId || "") === String(district.id));
-    for (const user of usersForDistrict) {
-      await prisma.projectMember.create({ data: { projectId: dsrProject.id, userId: user.id, role: user.role } });
-      await prisma.projectMember.create({ data: { projectId: replenishmentProject.id, userId: user.id, role: user.role } });
-    }
   }
 
   await prisma.systemSetting.createMany({
@@ -223,7 +141,7 @@ async function main() {
     skipDuplicates: true,
   });
 
-  console.log(`Seed complete: ${createdUsers.length} users, ${districts.length} districts.`);
+  console.log(`Seed complete: state.admin is the only user and STATE_ADMIN is the only role; ${districts.length} districts created.`);
 }
 
 main()
