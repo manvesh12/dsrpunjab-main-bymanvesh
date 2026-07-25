@@ -14,6 +14,7 @@ import ModelDsrPage from "../pages/replenishment/ModelDsrPage";
 import ReviewerPage from "../pages/workflow/ReviewerPage";
 import AnnexuresPage from "../pages/annexures/AnnexuresPage";
 import ReportPreviewPage from "../pages/reports/ReportPreviewPage";
+import DsrFormatDesignerPage from "../pages/reports/DsrFormatDesignerPage";
 import FrontMatterPage from "../pages/dsr-builder/FrontMatterPage";
 import ChaptersPage from "../pages/dsr-builder/ChaptersPage";
 import PlatesPage from "../pages/dsr-builder/PlatesPage";
@@ -86,6 +87,7 @@ export default function AppRoutes() {
         </Route>
 
         <Route path="/projects/:projectId/preview" element={<ReportPreviewPage />} />
+        <Route path="/projects/:projectId/format-designer" element={<RoleGuard roles={["SUPER_ADMIN", "STATE_ADMIN"]} fallback={<NotAccessible />}><DsrFormatDesignerPage /></RoleGuard>} />
         <Route path="/projects/:projectId/generate" element={<PermissionGuard permissions={[Permission.ReportGenerate, Permission.ReportDownload]} fallback={<NotAccessible />}><ReportPreviewPage /></PermissionGuard>} />
         
         <Route path="/projects/:projectId/reviewer" element={<PermissionGuard permissions={[Permission.ReportApprove, Permission.SectionReviewOnly]} fallback={<NotAccessible />}><ReviewerPage /></PermissionGuard>} />

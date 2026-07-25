@@ -10,13 +10,14 @@ import {
   RefreshCw,
   ShieldCheck,
   Save,
+  Palette,
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import PageHeader from "../../components/layout/PageHeader";
 import { useAuth } from "../../security/auth.context";
-import { hasAnyPermission, Permission } from "../../security/access";
+import { hasAnyPermission, isGlobalAdmin, Permission } from "../../security/access";
 import { projectsApi } from "../../api/projects.api";
 import { saveProjectBuilderDrafts } from "../../utils/projectDraftState";
 import { toast } from "sonner";
@@ -60,6 +61,14 @@ export default function ProjectDetailsPage() {
       permissions,
       progress: moduleProgress(path, project),
     };
+  });
+  if (isGlobalAdmin(user)) modules.splice(modules.length - 2, 0, {
+    title: "DSR Format Designer",
+    description: "Redesign, preview and finalize section-wise report formatting",
+    path: "format-designer",
+    Icon: Palette,
+    permissions: [Permission.ProjectEdit],
+    progress: (project?.projectState?.["report-format"] as { finalizedAt?: string } | undefined)?.finalizedAt ? 100 : 0,
   });
 
   const completedSections = modules.filter(m => m.progress === 100).length;
