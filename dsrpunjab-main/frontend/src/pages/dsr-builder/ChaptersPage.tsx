@@ -248,6 +248,14 @@ export default function ChaptersPage() {
         description="10 chapters as per EMGSM 2020. Officer handles chapters 1-5, DEO handles chapters 6-10."
         action={
           <div className="flex gap-2">
+            <a
+              href="/templates/DSR-Chapter-Content-Template.docx"
+              download="DSR-Chapter-Content-Template.docx"
+              className="module-btn"
+            >
+              <Download size={17} />
+              Word Template
+            </a>
             <button
               className="module-btn"
               onClick={async () => {
@@ -278,7 +286,11 @@ export default function ChaptersPage() {
           </div>
         }
       />
-      <div className="h-[calc(100vh-12rem)] flex">
+      <section className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950">
+        <p className="font-bold">Use the official Word template for every chapter upload.</p>
+        <p className="mt-1 text-xs leading-5 text-blue-800">Prepare content inside its fixed A4 margins, replace all bracketed placeholders, then export to PDF. Do not add a header, footer, border, watermark, chapter-title page or manual page numbers—the Final Report Generator adds them automatically.</p>
+      </section>
+      <div className="h-[calc(100vh-17rem)] flex">
         <ResizableLayout leftPanel={leftPanel} rightPanel={rightPanel} leftPanelDefaultSize={60} rightPanelDefaultSize={40} />
       </div>
     </>
