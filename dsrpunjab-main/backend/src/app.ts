@@ -25,6 +25,7 @@ import { searchRouter } from "./search/search.routes.js";
 import { settingsRouter } from "./settings/settings.routes.js";
 import { filesRouter } from "./uploads/uploads.routes.js";
 import { usersRouter } from "./users/users.routes.js";
+import { delegatedSessionRouter } from "./delegated-sessions/delegated-session.routes.js";
 
 export function createApp() {
   const app = express();
@@ -54,6 +55,7 @@ export function createApp() {
   app.use("/api/auth/login", authLimiter);
   app.use("/api/auth/register", authLimiter);
   app.use("/api/auth", authRouter);
+  app.use("/api", delegatedSessionRouter);
   app.use("/api/dashboard", requireAuth, auditMutations, dashboardRouter);
   app.use("/api/files", requireAuth, uploadLimiter, auditMutations, filesRouter);
   app.use("/api/jobs", requireAuth, auditMutations, jobsRouter);

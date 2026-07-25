@@ -47,6 +47,17 @@ export interface BulkInviteResult {
   failed: { email: string; reason: string }[];
 }
 
+export interface DelegatedSession {
+  id: string;
+  recipientEmail: string;
+  label?: string | null;
+  expiresAt: string;
+  activatedAt?: string | null;
+  revokedAt?: string | null;
+  createdAt: string;
+  status: "PENDING" | "ACTIVE" | "EXPIRED" | "REVOKED";
+}
+
 export const usersApi = {
   /** List all users (requires USER_VIEW permission) */
   list: async (): Promise<BackendUserDto[]> => {
@@ -126,5 +137,19 @@ export const usersApi = {
   verifyProfileUpdateOtp: async (payload: { otp: string; fullName: string; email: string; mobileNumber?: string }): Promise<{ message: string }> => {
     const { data } = await apiClient.post("/users/me/update-verify", payload);
     return data;
+  },
+
+  listDelegatedSessions: async (): Promise<DelegatedSession[]> => {
+    const { data } = await apiClient.get<DelegatedSession[]>("/users/me/delegated-sessions");
+    return data;
+  },
+
+  createDelegatedSession: async (payload: { recipientEmail: string; durationMinutes: number; label?: string }): Promise<DelegatedSession> => {
+    const { data } = await apiClient.post<DelegatedSession>("/users/me/delegated-sessions", payload);
+    return data;
+  },
+
+  revokeDelegatedSession: async (id: string): Promise<void> => {
+    await apiClient.delete(`/users/me/delegated-sessions/${id}`);
   },
 };

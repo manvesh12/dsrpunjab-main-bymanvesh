@@ -8,7 +8,8 @@ import {
   passwordResetOtpTemplate,
   registrationOtpTemplate,
   welcomeTemplate,
-  profileUpdateOtpTemplate
+  profileUpdateOtpTemplate,
+  delegatedSessionTemplate
 } from "./email.templates.js";
 import type { EmailDeliveryProvider, EmailMessage } from "./email.types.js";
 
@@ -76,6 +77,9 @@ export class EmailService {
 
   sendWelcomeEmail = (toEmail: string, fullName: string) =>
     this.deliver(toEmail, welcomeTemplate(fullName)).then(() => undefined);
+
+  sendDelegatedSessionEmail = (toEmail: string, ownerName: string, token: string, otp: string, expiresAt: Date) =>
+    this.deliver(toEmail, delegatedSessionTemplate(ownerName, token, otp, expiresAt, this.publicAppUrl)).then(() => undefined);
 }
 
 export const emailService = new EmailService(emailProvider, environment.publicAppUrl);

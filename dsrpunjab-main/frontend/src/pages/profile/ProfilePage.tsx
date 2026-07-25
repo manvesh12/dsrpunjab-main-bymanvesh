@@ -7,6 +7,7 @@ import PageHeader from "../../components/layout/PageHeader";
 import { usersApi } from "../../api/users.api";
 import { useAuth } from "../../security/auth.context";
 import { toast } from "sonner";
+import DelegatedSessionsPanel from "./DelegatedSessionsPanel";
 
 type FormState = {
   fullName: string;
@@ -211,6 +212,8 @@ export default function ProfilePage() {
           </div>
         </aside>
       </div>
+
+      <DelegatedSessionsPanel />
 
       {editing && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">

@@ -129,10 +129,28 @@ model User {
   userSessions          UserSession[]
   loginHistories        LoginHistory[]
   permissionHistories   PermissionHistory[]
+  delegatedSessions     DelegatedSession[]
 
   @@index([role, active])
   @@index([districtId, role])
   @@index([createdAt])
+}
+
+model DelegatedSession {
+  id             String    @id @default(cuid())
+  ownerId        BigInt
+  owner          User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  recipientEmail String
+  label          String?
+  tokenHash      String    @unique
+  otpHash        String
+  expiresAt      DateTime
+  activatedAt    DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([ownerId, createdAt])
+  @@index([expiresAt, revokedAt])
 }
 
 model RefreshToken {

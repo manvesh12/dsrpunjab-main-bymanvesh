@@ -8,8 +8,19 @@ export class TokenService {
       expiresIn: environment.jwtExpiresIn as SignOptions["expiresIn"]
     });
   }
+  signDelegated(user: AuthUser, delegatedSessionId: string, expiresAt: Date) {
+    const secondsRemaining = Math.max(1, Math.floor((expiresAt.getTime() - Date.now()) / 1000));
+    return jwt.sign(
+      { sub: String(user.id), role: user.role, username: user.username, delegatedSessionId },
+      environment.jwtSecret,
+      { expiresIn: secondsRemaining }
+    );
+  }
+  payload(token: string) {
+    return jwt.verify(token, environment.jwtSecret) as { sub?: string; delegatedSessionId?: string };
+  }
   subject(token: string) {
-    const payload = jwt.verify(token, environment.jwtSecret) as { sub?: string };
+    const payload = this.payload(token);
     return payload.sub ? BigInt(payload.sub) : 0n;
   }
 }

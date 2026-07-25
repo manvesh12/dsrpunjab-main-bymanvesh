@@ -32,6 +32,7 @@ import AnalyticsPage from "../pages/analytics/AnalyticsPage";
 import ImportDsrPage from "../pages/import-dsr/ImportDsrPage";
 import NotificationsPage from "../pages/notifications/NotificationsPage";
 import { Permission } from "../security/access";
+import DelegatedSessionLoginPage from "../pages/auth/DelegatedSessionLoginPage";
 export default function AppRoutes() {
   return (
     <Routes>
@@ -45,6 +46,7 @@ export default function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/register/complete" element={<RegisterPage />} />
+      <Route path="/session-login" element={<DelegatedSessionLoginPage />} />
 
       {/* Portal routes */}
       <Route element={

@@ -116,3 +116,25 @@ export function profileUpdateOtpTemplate(fullName: string, otp: string): Message
         <p style="color: #4b5563; font-size: 14px; line-height: 1.5;">If you did not request these profile changes, please ignore this email and notify your portal administrator.</p>`)
   };
 }
+
+export function delegatedSessionTemplate(
+  ownerName: string,
+  token: string,
+  otp: string,
+  expiresAt: Date,
+  publicAppUrl: string
+): MessageContent {
+  const sessionLink = `${publicAppUrl}/session-login?token=${encodeURIComponent(token)}`;
+  const expiry = expiresAt.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+  return {
+    subject: "One-time delegated session - Punjab DSR Portal",
+    text: `${ownerName} has delegated temporary Punjab DSR Portal access to this email address.\n\nOpen: ${sessionLink}\nMFA code: ${otp}\nExpires: ${expiry} IST\n\nThe link and code are single-use. Do not forward this email.`,
+    html: shell("Temporary Dashboard Access", `
+      <p style="color:#4b5563;font-size:16px;line-height:1.5;"><strong>${ownerName}</strong> has delegated temporary dashboard access to this email address.</p>
+      <div style="text-align:center;margin:28px 0;"><a href="${sessionLink}" style="display:inline-block;padding:14px 28px;background:#2563eb;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;">Open secure session</a></div>
+      <p style="color:#4b5563;font-size:14px;">Enter this MFA code after opening the link:</p>
+      ${otpBlock(otp)}
+      <p style="color:#4b5563;font-size:14px;"><strong>Expires:</strong> ${expiry} IST</p>
+      <p style="color:#dc2626;font-size:14px;font-weight:600;">This invitation and MFA code can be used only once. Do not forward this email.</p>`)
+  };
+}

@@ -34,6 +34,12 @@ export interface LoginResponse {
     sectionName: string | null;
   };
   accessLabel: string;
+  delegated?: {
+    sessionId: string;
+    recipientEmail: string;
+    expiresAt: string;
+    ownerName: string;
+  };
 }
 
 export interface ForgotPasswordPayload {
@@ -110,6 +116,19 @@ export const authApi = {
   /** Resend OTP for invited registration */
   resendInvitedOtp: async (token: string) => {
     const { data } = await apiClient.post("/auth/resend-invited-otp", { token });
+    return data;
+  },
+
+  getDelegatedSession: async (token: string) => {
+    const { data } = await apiClient.get(`/auth/delegated-session/${encodeURIComponent(token)}`);
+    return data as { recipientEmailMasked: string; ownerName: string; label?: string; expiresAt: string };
+  },
+
+  verifyDelegatedSession: async (token: string, otp: string): Promise<LoginResponse> => {
+    const { data } = await apiClient.post<LoginResponse>(
+      `/auth/delegated-session/${encodeURIComponent(token)}/verify`,
+      { otp }
+    );
     return data;
   },
 };

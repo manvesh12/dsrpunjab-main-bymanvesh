@@ -69,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       scope: data.scope ?? { districtId: null, blockName: null, sectionName: null },
       accessLabel: data.accessLabel ?? data.uiRole,
       ...(data.profilePhoto ? { profilePhoto: data.profilePhoto } : {}),
+      ...(data.delegated ? { delegated: data.delegated } : {}),
     };
 
     localStorage.setItem(TOKEN_KEY, data.token);

@@ -20,6 +20,12 @@ export interface User {
   scope: UserScope;
   accessLabel: string;
   profilePhoto?: string;
+  delegated?: {
+    sessionId: string;
+    recipientEmail: string;
+    expiresAt: string;
+    ownerName: string;
+  };
 }
 
 export interface AuthState {
@@ -40,4 +46,5 @@ export interface LoginResponse {
   scope: UserScope;
   accessLabel: string;
   profilePhoto?: string | null;
+  delegated?: User["delegated"];
 }
