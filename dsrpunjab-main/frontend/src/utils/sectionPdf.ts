@@ -3,6 +3,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { apiClient } from "../api/client";
 import { downloadBlob } from "./reportExport";
+import { loadPdfJS } from "./dsrParser";
 
 export type PdfUpload = { name: string; url?: string } | null | undefined;
 export type ReportDataTable = { title: string; columns: Array<{ key: string; label: string }>; rows: Record<string, string>[] };
@@ -82,10 +83,47 @@ export async function uploadedDocumentPageCount(upload: PdfUpload) {
   return 1;
 }
 
-export async function appendUploadedDocument(target: PDFDocument, upload: PdfUpload, options: { preserveOriginalPage?: boolean; pageRange?: { start: number; end?: number } } = {}) {
+export async function appendUploadedDocument(target: PDFDocument, upload: PdfUpload, options: { preserveOriginalPage?: boolean; pageRange?: { start: number; end?: number }; renderPdfPagesAsImages?: boolean } = {}) {
   if (!upload?.url) return false;
   const { data, contentType } = await readUpload(upload);
   if (contentType.includes("pdf") || upload.name.toLowerCase().endsWith(".pdf")) {
+    if (options.renderPdfPagesAsImages) {
+      const pdfjs = await loadPdfJS();
+      const pdf = await pdfjs.getDocument({ data: data.slice(0) }).promise;
+      const start = Math.min(Math.max(Math.trunc(options.pageRange?.start || 1), 1), pdf.numPages);
+      const end = Math.min(Math.max(Math.trunc(options.pageRange?.end || pdf.numPages), start), pdf.numPages);
+      for (let pageNumber = start; pageNumber <= end; pageNumber += 1) {
+        const sourcePage = await pdf.getPage(pageNumber);
+        const viewport = sourcePage.getViewport({ scale: 2 });
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d", { alpha: false });
+        if (!context) throw new Error(`Could not render page ${pageNumber} of ${upload.name}`);
+        canvas.width = Math.ceil(viewport.width);
+        canvas.height = Math.ceil(viewport.height);
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        await sourcePage.render({ canvasContext: context, viewport }).promise;
+        const imageBlob = await new Promise<Blob>((resolve, reject) =>
+          canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error(`Could not encode page ${pageNumber} of ${upload.name}`)), "image/jpeg", 0.94),
+        );
+        const image = await target.embedJpg(await imageBlob.arrayBuffer());
+        const scale = Math.min(UPLOAD_SAFE_AREA.width / image.width, UPLOAD_SAFE_AREA.height / image.height);
+        const width = image.width * scale;
+        const height = image.height * scale;
+        const page = target.addPage([A4_WIDTH, A4_HEIGHT]);
+        page.drawImage(image, {
+          x: UPLOAD_SAFE_AREA.x + (UPLOAD_SAFE_AREA.width - width) / 2,
+          y: UPLOAD_SAFE_AREA.y + (UPLOAD_SAFE_AREA.height - height) / 2,
+          width,
+          height,
+        });
+        sourcePage.cleanup();
+        canvas.width = 0;
+        canvas.height = 0;
+      }
+      await pdf.destroy();
+      return true;
+    }
     const source = await PDFDocument.load(data);
     const totalPages = source.getPageCount();
     const start = Math.min(Math.max(Math.trunc(options.pageRange?.start || 1), 1), totalPages);

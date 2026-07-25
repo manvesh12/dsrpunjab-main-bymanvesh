@@ -410,10 +410,10 @@ export default function ReportPreviewPage() {
       const preformattedPages = new Set<number>();
       const tocMarkers: Array<{ chapterNo: number | string; subject: string; startPage: number }> = [];
       let generatedContentsIndex = -1;
-      const appendUpload = async (upload: PreviewUpload, sectionName: string, preserveUploadedFrame = false) => {
+      const appendUpload = async (upload: PreviewUpload, sectionName: string, preserveUploadedFrame = false, matchLivePreview = false) => {
         try {
           const startPage = document.getPageCount();
-          await appendUploadedDocument(document, upload, { preserveOriginalPage: preserveUploadedFrame });
+          await appendUploadedDocument(document, upload, { preserveOriginalPage: preserveUploadedFrame, renderPdfPagesAsImages: matchLivePreview });
           const endPage = document.getPageCount();
           if (endPage > startPage) {
             if (preserveUploadedFrame) {
@@ -452,10 +452,10 @@ export default function ReportPreviewPage() {
         if (upload) {
           tocMarkers.push({ chapterNo: chapterIndex + 1, subject: chapter.name.replace(/^\s*chapter\s+\d+\s*[-:–—.]?\s*/i, ""), startPage: document.getPageCount() });
           if (frameSettings.chapterTitlePages !== false) await addChapterTitle(chapter.name);
-          await appendUpload(upload, "Chapters");
+          await appendUpload(upload, "Chapters", false, true);
         }
       }
-      for (const upload of unmatchedChapterUploads) await appendUpload(upload, "Chapters");
+      for (const upload of unmatchedChapterUploads) await appendUpload(upload, "Chapters", false, true);
       tocMarkers.push({ chapterNo: "-", subject: sectionDisplayName("Plates and Maps"), startPage: document.getPageCount() });
       await addSectionTitle("Plates and Maps");
       for (const upload of [...plateUploads, ...otherUploads]) await appendUpload(upload, "Plates and Maps");
