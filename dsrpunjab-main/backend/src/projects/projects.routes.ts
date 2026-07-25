@@ -13,6 +13,8 @@ projectsRouter.post("/:id/rollback", requirePermissions(['PROJECT_EDIT']), proje
 projectsRouter.post("/:id/phases", requirePermissions(['PROJECT_EDIT']), projectsController.nextPhase);
 projectsRouter.get("/:id", requirePermissions(['PROJECT_VIEW']), projectsController.get);
 projectsRouter.put("/:id/state", requirePermissions(['PROJECT_EDIT']), projectsController.updateState);
+projectsRouter.post("/:id/workflow/submit", requireAnyPermission(['PROJECT_EDIT', 'REPORT_APPROVE']), projectsController.submitWorkflow);
+projectsRouter.post("/:id/workflow/reopen", requireAnyPermission(['PROJECT_EDIT', 'REPORT_APPROVE']), projectsController.reopenWorkflow);
 projectsRouter.delete("/:id", requirePermissions(['PROJECT_DELETE']), projectsController.delete);
 
 // New granular persistence routes

@@ -19,6 +19,16 @@ export interface ProjectListItem {
   updatedAt: string;
   projectState?: Record<string, unknown>;
   files?: ProjectFile[];
+  workflow?: ProjectWorkflow;
+}
+
+export type WorkflowStage = "DMO" | "COE_SENSRS" | "REVIEWER" | "HEAD_OFFICE" | "COMPLETED";
+export interface ProjectWorkflow {
+  stage: WorkflowStage;
+  revisionFor?: Exclude<WorkflowStage, "COMPLETED"> | null;
+  updatedAt?: string;
+  updatedBy?: number;
+  remarks?: string;
 }
 
 export interface ProjectDetail extends ProjectListItem {
@@ -152,5 +162,15 @@ export const projectsApi = {
   /** Delete a project */
   delete: async (id: string | number): Promise<void> => {
     await apiClient.delete(`/projects/${id}`);
+  },
+
+  submitWorkflow: async (id: string | number, remarks?: string): Promise<ProjectDetail> => {
+    const { data } = await apiClient.post<ProjectDetail>(`/projects/${id}/workflow/submit`, { remarks });
+    return normalizeProject(data);
+  },
+
+  reopenWorkflow: async (id: string | number, targetRole: Exclude<WorkflowStage, "COMPLETED">, remarks: string): Promise<ProjectDetail> => {
+    const { data } = await apiClient.post<ProjectDetail>(`/projects/${id}/workflow/reopen`, { targetRole, remarks });
+    return normalizeProject(data);
   },
 };

@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import PageHeader from "../../components/layout/PageHeader";
 import { projectsApi, type ProjectListItem } from "../../api/projects.api";
 import { useAuth } from "../../security/auth.context";
-import { isGlobalAdmin, Permission } from "../../security/access";
+import { isGlobalAdmin, normalizedRole, Permission } from "../../security/access";
 import { overallProjectProgress } from "../../utils/projectProgress";
 
 const statusStyles: Record<string, string> = {
@@ -46,6 +46,7 @@ export default function ProjectsPage() {
 
   const canDeleteProjects = hasPermission(Permission.ProjectDelete);
   const canStartNextPhase = hasPermission(Permission.ProjectEdit) && isGlobalAdmin(user);
+  const canCreateProject = normalizedRole(user) === "DMO";
 
   const loadProjects = async () => {
     setLoading(true);
@@ -144,13 +145,13 @@ export default function ProjectsPage() {
         title="My DSR Projects"
         description={user?.scope?.districtId ? "Projects assigned to your district" : "All district survey reports across Punjab"}
         action={
-          <Link
+          canCreateProject ? <Link
             to="/projects/create"
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition-all hover:-translate-y-0.5 hover:shadow-blue-600/40"
           >
             <Plus size={18} />
             New Project
-          </Link>
+          </Link> : null
         }
       />
 

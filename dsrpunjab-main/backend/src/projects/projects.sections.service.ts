@@ -1,10 +1,14 @@
 import { prisma } from "../database/prisma.client.js";
 import { ApiError } from "../common/exceptions/api-error.js";
 import type { Prisma } from "@prisma/client";
+import { assertWorkflowEditable } from "./project-workflow.js";
 
 export class ProjectsSectionsService {
 
-  async saveDraft(projectId: bigint, draftContent: any) {
+  async saveDraft(projectId: bigint, draftContent: any, user: any) {
+    const project = await prisma.project.findUnique({ where: { id: projectId } });
+    if (!project) throw new ApiError(404, "PROJECT_NOT_FOUND", "Project not found.");
+    assertWorkflowEditable(user, project);
     const draft = await prisma.projectDraft.upsert({
       where: { projectId },
       create: {
@@ -19,6 +23,9 @@ export class ProjectsSectionsService {
   }
 
   async updateSection(projectId: bigint, sectionName: string, content: any, user: any, version?: number) {
+    const project = await prisma.project.findUnique({ where: { id: projectId } });
+    if (!project) throw new ApiError(404, "PROJECT_NOT_FOUND", "Project not found.");
+    assertWorkflowEditable(user, project);
     const existing = await prisma.projectSection.findUnique({
       where: { projectId_sectionName: { projectId, sectionName } }
     });

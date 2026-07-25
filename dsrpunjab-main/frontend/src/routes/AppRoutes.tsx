@@ -67,9 +67,11 @@ export default function AppRoutes() {
         <Route
           path="/projects/create"
           element={
-            <PermissionGuard permissions={[Permission.ProjectCreate]} fallback={<NotAccessible />}>
-              <CreateProjectPage />
-            </PermissionGuard>
+            <RoleGuard roles={["DMO"]} fallback={<NotAccessible />}>
+              <PermissionGuard permissions={[Permission.ProjectCreate]} fallback={<NotAccessible />}>
+                <CreateProjectPage />
+              </PermissionGuard>
+            </RoleGuard>
           }
         />
 

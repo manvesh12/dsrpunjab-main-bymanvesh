@@ -1,4 +1,5 @@
 import type { Project } from "@prisma/client";
+import { workflowFor } from "./project-workflow.js";
 
 export function statusForFrontend(status?: string | null) {
   if (!status) return "In Progress";
@@ -26,6 +27,7 @@ export function toProjectDto(project: Project & { files?: { annexureId: string; 
     status: statusForFrontend(project.status),
     createdAt: project.createdAt.toISOString(),
     updatedAt: project.updatedAt.toISOString(),
+    workflow: workflowFor(project),
     ...pdfNames
   };
 }

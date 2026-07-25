@@ -11,13 +11,15 @@ import {
   ShieldCheck,
   Save,
   Palette,
+  Send,
+  RotateCcw,
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import PageHeader from "../../components/layout/PageHeader";
 import { useAuth } from "../../security/auth.context";
-import { hasAnyPermission, isGlobalAdmin, Permission } from "../../security/access";
+import { hasAnyPermission, isGlobalAdmin, normalizedRole, Permission } from "../../security/access";
 import { projectsApi } from "../../api/projects.api";
 import { saveProjectBuilderDrafts } from "../../utils/projectDraftState";
 import { toast } from "sonner";
@@ -75,6 +77,40 @@ export default function ProjectDetailsPage() {
 
   const completedSections = visibleModules.filter(m => m.progress === 100).length;
   const overallProgress = overallProjectProgress(project);
+  const role = normalizedRole(user);
+  const stage = project?.workflow?.stage || "DMO";
+  const isStageEditor = role === "STATE_ADMIN" || role === stage;
+  const canSubmitStage = role === stage && stage !== "COMPLETED";
+  const canReopen = role === "STATE_ADMIN" || (role === "HEAD_OFFICE" && stage === "HEAD_OFFICE");
+
+  const submitStage = async () => {
+    const remarks = window.prompt("Submission remarks (optional)", "") ?? undefined;
+    try {
+      await projectsApi.submitWorkflow(projectId, remarks);
+      await refetch();
+      toast.success("Stage submitted. Your editing access is now locked.");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Could not submit workflow stage.");
+    }
+  };
+
+  const reopenStage = async () => {
+    const targetRole = window.prompt("Reopen for: DMO, COE_SENSRS, REVIEWER, or HEAD_OFFICE", role === "HEAD_OFFICE" ? "REVIEWER" : "DMO");
+    if (!targetRole) return;
+    const normalizedTarget = targetRole.trim().toUpperCase().replaceAll(" ", "_") as "DMO" | "COE_SENSRS" | "REVIEWER" | "HEAD_OFFICE";
+    if (!["DMO", "COE_SENSRS", "REVIEWER", "HEAD_OFFICE"].includes(normalizedTarget)) {
+      toast.error("Invalid workflow role."); return;
+    }
+    const remarks = window.prompt("Reason for reopening/revision (required)", "");
+    if (!remarks?.trim()) return;
+    try {
+      await projectsApi.reopenWorkflow(projectId, normalizedTarget, remarks.trim());
+      await refetch();
+      toast.success(`Project reopened for ${normalizedTarget.replaceAll("_", " ")}.`);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Could not reopen workflow stage.");
+    }
+  };
 
   const handleSaveAllSections = async () => {
     setSavingAll(true);
@@ -97,7 +133,7 @@ export default function ProjectDetailsPage() {
         description={project ? `Project #${project.id} - ${project.year || "Financial Year 2025-26"} - ${project.mineral || "Sand and Minor Minerals"}` : `Loading...`}
         action={
           <div className="flex gap-2">
-            {canSaveAll && <button className="module-btn-primary" disabled={savingAll || isLoading} onClick={handleSaveAllSections}>
+            {canSaveAll && isStageEditor && <button className="module-btn-primary" disabled={savingAll || isLoading} onClick={handleSaveAllSections}>
               <Save size={17} />
               {savingAll ? "Saving..." : "Save All Sections"}
             </button>}
@@ -105,6 +141,23 @@ export default function ProjectDetailsPage() {
           </div>
         }
       />
+
+      <section className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-5 dark:border-blue-900 dark:bg-blue-950/30">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-wider text-blue-600">Current workflow stage</p>
+            <h2 className="mt-1 text-lg font-black text-slate-900 dark:text-white">{stage.replaceAll("_", " ")}</h2>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+              {isStageEditor ? "Editing is open for your role." : `Your portal is read-only until ${stage.replaceAll("_", " ")} submits or an administrator reopens your stage.`}
+              {project?.workflow?.remarks ? ` Latest note: ${project.workflow.remarks}` : ""}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            {canReopen && <button onClick={reopenStage} className="module-btn"><RotateCcw size={16}/> Reopen / request revision</button>}
+            {canSubmitStage && <button onClick={submitStage} className="module-btn-primary"><Send size={16}/> Submit to next stage</button>}
+          </div>
+        </div>
+      </section>
       
       <section className="mb-6 grid gap-4 sm:grid-cols-3">
         <Stat label="Overall progress" value={`${isLoading ? "--" : overallProgress}%`} />

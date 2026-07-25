@@ -96,7 +96,7 @@ async function main() {
       .filter((permissionId): permissionId is bigint => permissionId !== undefined);
 
   const rolePermissions = {
-    STATE_ADMIN: Array.from(createdPermissions.keys()),
+    STATE_ADMIN: Array.from(createdPermissions.keys()).filter((action) => action !== "PROJECT_CREATE"),
     DMO: [
       "DASHBOARD_VIEW",
       "PROJECT_VIEW",

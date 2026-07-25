@@ -7,7 +7,7 @@ export class ProjectsSectionsController {
     try {
       const projectId = BigInt(req.params.id as string);
       const draftContent = req.body;
-      const result = await projectsSectionsService.saveDraft(projectId, draftContent);
+      const result = await projectsSectionsService.saveDraft(projectId, draftContent, req.user);
       res.json(result);
     } catch (err) {
       next(err);

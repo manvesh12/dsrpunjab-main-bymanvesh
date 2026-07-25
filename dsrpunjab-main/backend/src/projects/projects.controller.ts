@@ -33,6 +33,12 @@ export class ProjectsController {
   updateState = async (req: Request, res: Response, next: NextFunction) =>
     this.respond(res, next, async () => ({ success: true, project: toProjectDto(await this.service.updateState(projectId(req.params.id), req.body, req.user!)) }));
 
+  submitWorkflow = async (req: Request, res: Response, next: NextFunction) =>
+    this.respond(res, next, async () => toProjectDto(await this.service.submitWorkflow(projectId(req.params.id), req.body, req.user!)));
+
+  reopenWorkflow = async (req: Request, res: Response, next: NextFunction) =>
+    this.respond(res, next, async () => toProjectDto(await this.service.reopenWorkflow(projectId(req.params.id), req.body, req.user!)));
+
   delete = async (req: Request, res: Response, next: NextFunction) =>
     this.respond(res, next, () => this.service.delete(projectId(req.params.id), req.user!));
 

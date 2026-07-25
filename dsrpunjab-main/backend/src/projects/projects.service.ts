@@ -6,6 +6,9 @@ import { canAdmin } from "../authorization/role.policy.js";
 import { storageService, type StorageService } from "../storage/storage.service.js";
 import { projectsRepository, type ProjectsRepositoryContract } from "./projects.repository.js";
 import { parseProjectStatus, phaseProjectName, readProjectState } from "./projects.validator.js";
+import {
+  assertWorkflowEditable, stateWithWorkflow, workflowFor, WORKFLOW_STAGES, type ProjectWorkflow, type WorkflowStage,
+} from "./project-workflow.js";
 
 export class ProjectsService {
   constructor(
@@ -19,6 +22,9 @@ export class ProjectsService {
   }
 
   async create(body: any, user: AuthUser) {
+    if (user.role !== "DMO") {
+      throw new ApiError(403, "PROJECT_CREATE_DMO_ONLY", "Only the DMO can initiate a new project.");
+    }
     const userDistrict = assignedDistrictFor(user);
     if (Array.isArray(body)) {
       this.requireAdmin(user.role, "Bulk project replacement is restricted to Administrators.");
@@ -55,7 +61,7 @@ export class ProjectsService {
       status: parseProjectStatus(body?.status),
       signatures: 0,
       createdBy: user.id,
-      projectState: this.serializedState(body?.projectState)
+      projectState: this.initialProjectState(body?.projectState, user.id)
     }, true);
     await this.repository.createWorkflow({
       reportId: created.id,
@@ -68,9 +74,12 @@ export class ProjectsService {
   }
 
   async importPackage(id: bigint, body: any, user: AuthUser) {
-    this.requireAdmin(user.role, "Only Administrators can import a project package.");
+    if (user.role !== "DMO") {
+      throw new ApiError(403, "PROJECT_IMPORT_DMO_ONLY", "Only the DMO can import a project package.");
+    }
     const project = await this.repository.find(id);
     assertProjectDistrictAccess(project, user);
+    assertWorkflowEditable(user, project);
     const packageState = typeof body?.projectState === "string" ? readProjectState(body.projectState) : body?.projectState;
     if (!packageState || typeof packageState !== "object" || Array.isArray(packageState)) {
       throw new ApiError(400, "PROJECT_IMPORT_STATE_INVALID", "The import package does not contain a valid project state.");
@@ -163,11 +172,77 @@ export class ProjectsService {
   async updateState(id: bigint, body: any, user: AuthUser) {
     const existing = await this.repository.find(id);
     assertProjectDistrictAccess(existing, user);
+    assertWorkflowEditable(user, existing);
+    const incomingState = body?.state == null
+      ? readProjectState(existing.projectState)
+      : typeof body.state === "string" ? readProjectState(body.state) : body.state;
+    const protectedState = { ...(incomingState || {}), workflow: workflowFor(existing) };
     const data: Prisma.ProjectUncheckedUpdateInput = {
-      projectState: body?.state == null ? null : typeof body.state === "string" ? body.state : JSON.stringify(body.state)
+      projectState: JSON.stringify(protectedState)
     };
     if (typeof body?.progress === "number") data.progress = body.progress;
     return this.repository.update(id, data, true);
+  }
+
+  async submitWorkflow(id: bigint, body: any, user: AuthUser) {
+    const project = await this.repository.find(id);
+    assertProjectDistrictAccess(project, user);
+    const current = workflowFor(project);
+    if (current.stage === "COMPLETED") throw new ApiError(409, "WORKFLOW_COMPLETED", "Project workflow is already complete.");
+    if (user.role !== current.stage) {
+      throw new ApiError(403, "WORKFLOW_STAGE_FORBIDDEN", `Only ${current.stage.replaceAll("_", " ")} can submit this stage.`);
+    }
+    const nextByStage: Record<Exclude<WorkflowStage, "COMPLETED">, WorkflowStage> = {
+      DMO: "COE_SENSRS", COE_SENSRS: "REVIEWER", REVIEWER: "HEAD_OFFICE", HEAD_OFFICE: "COMPLETED",
+    };
+    const next = nextByStage[current.stage];
+    const workflow = {
+      stage: next,
+      revisionFor: null,
+      updatedAt: new Date().toISOString(),
+      updatedBy: Number(user.id),
+      remarks: String(body?.remarks || "").trim().slice(0, 1000) || undefined,
+    } satisfies ProjectWorkflow;
+    const updated = await this.repository.update(id, {
+      projectState: stateWithWorkflow(project.projectState, workflow),
+      status: next === "COMPLETED" ? ProjectStatus.COMPLETED : ProjectStatus.IN_PROGRESS,
+    }, true);
+    await this.repository.createWorkflow({
+      reportId: id, action: `WORKFLOW_SUBMITTED_TO_${next}`, remarks: workflow.remarks, performedBy: user.id,
+    });
+    return updated;
+  }
+
+  async reopenWorkflow(id: bigint, body: any, user: AuthUser) {
+    const project = await this.repository.find(id);
+    assertProjectDistrictAccess(project, user);
+    const targetValue = String(body?.targetRole || "").toUpperCase() as WorkflowStage;
+    if (!WORKFLOW_STAGES.slice(0, 4).includes(targetValue as any)) {
+      throw new ApiError(400, "WORKFLOW_TARGET_INVALID", "Select DMO, COE SENSRS, Reviewer, or Head Office.");
+    }
+    const target = targetValue as Exclude<WorkflowStage, "COMPLETED">;
+    const isAdmin = user.role === "STATE_ADMIN";
+    const isHeadOfficeRevision = user.role === "HEAD_OFFICE" && workflowFor(project).stage === "HEAD_OFFICE" && target !== "HEAD_OFFICE";
+    if (!isAdmin && !isHeadOfficeRevision) {
+      throw new ApiError(403, "WORKFLOW_REOPEN_FORBIDDEN", "Only State Admin can reopen a stage; Head Office can request revision at final review.");
+    }
+    const remarks = String(body?.remarks || "").trim().slice(0, 1000);
+    if (!remarks) throw new ApiError(400, "WORKFLOW_REMARKS_REQUIRED", "Revision/reopen remarks are required.");
+    const workflow = {
+      stage: target,
+      revisionFor: target,
+      updatedAt: new Date().toISOString(),
+      updatedBy: Number(user.id),
+      remarks,
+    } satisfies ProjectWorkflow;
+    const updated = await this.repository.update(id, {
+      projectState: stateWithWorkflow(project.projectState, workflow),
+      status: ProjectStatus.IN_PROGRESS,
+    }, true);
+    await this.repository.createWorkflow({
+      reportId: id, action: `WORKFLOW_REOPENED_FOR_${target}`, remarks, performedBy: user.id,
+    });
+    return updated;
   }
 
   async delete(id: bigint, user: AuthUser) {
@@ -182,6 +257,14 @@ export class ProjectsService {
 
   private serializedState(state: unknown) {
     return typeof state === "string" ? state : state ? JSON.stringify(state) : null;
+  }
+
+  private initialProjectState(state: unknown, userId: bigint) {
+    const base = typeof state === "string" ? readProjectState(state) : state && typeof state === "object" ? state : {};
+    return JSON.stringify({
+      ...base,
+      workflow: { stage: "DMO", updatedAt: new Date().toISOString(), updatedBy: Number(userId) },
+    });
   }
 
   private async requestedDistrictId(body: any) {
