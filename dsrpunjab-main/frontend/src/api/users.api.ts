@@ -103,6 +103,19 @@ export const usersApi = {
     return `${apiClient.defaults.baseURL}/users/export`;
   },
 
+  /** Download the authenticated user roster. */
+  exportRoster: async (): Promise<void> => {
+    const response = await apiClient.get("/users/export", { responseType: "blob" });
+    const url = URL.createObjectURL(response.data);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "state-admin-roster.xlsx";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  },
+
   /** Request OTP to update own profile */
   requestProfileUpdateOtp: async (payload: { fullName: string; email: string; mobileNumber?: string }): Promise<{ message: string }> => {
     const { data } = await apiClient.post("/users/me/update-request", payload);

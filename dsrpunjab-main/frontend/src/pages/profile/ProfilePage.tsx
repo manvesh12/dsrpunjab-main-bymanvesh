@@ -1,359 +1,275 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  UserCircle,
-  Lock,
-  Mail,
-  Phone,
-  MapPin,
-  Shield,
-  Clock,
-  Edit3,
-  Save,
-  X,
-  CheckCircle,
-  Key,
-  Activity,
-  Building2,
-  BadgeCheck,
-  Camera,
+  BadgeCheck, Camera, CheckCircle2, KeyRound, LockKeyhole, Mail, MapPin,
+  Pencil, Phone, Save, ShieldCheck, Sparkles, UserRound, X,
 } from "lucide-react";
 import PageHeader from "../../components/layout/PageHeader";
+import { usersApi } from "../../api/users.api";
 import { useAuth } from "../../security/auth.context";
 import { toast } from "sonner";
 
-type Tab = "overview" | "security" | "activity";
-
-const activityLog = [
-  { action: "Logged in", time: "Today, 2:14 PM", icon: "🔐", color: "blue" },
-  { action: "Edited Annexure II — Jalandhar Project", time: "Today, 1:47 PM", icon: "📝", color: "emerald" },
-  { action: "Downloaded PDF Report", time: "Today, 11:30 AM", icon: "📥", color: "purple" },
-  { action: "Added cross-section graph", time: "Yesterday, 4:05 PM", icon: "📊", color: "amber" },
-  { action: "Submitted review note", time: "Yesterday, 2:30 PM", icon: "✅", color: "emerald" },
-  { action: "Updated profile details", time: "17 Jul 2026, 10:00 AM", icon: "👤", color: "blue" },
-];
+type FormState = {
+  fullName: string;
+  email: string;
+  mobileNumber: string;
+};
 
 export default function ProfilePage() {
   const { user, updateUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState(false);
-  const [profilePhotoPreview, setProfilePhotoPreview] = useState<string | null>(null);
-
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfilePhotoPreview(reader.result as string);
-        toast.success("Profile photo updated! Click save to apply changes.");
-        setEditing(true);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-  const [form, setForm] = useState({
-    fullName: user?.fullName || user?.username || "",
+  const [saving, setSaving] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [form, setForm] = useState<FormState>({
+    fullName: user?.fullName || "",
     email: user?.email || "",
-    mobile: "",
-    designation: "",
-    district: "",
-    department: "Department of Mining & Geology, Punjab",
+    mobileNumber: "",
   });
 
-  const handleSave = () => {
-    setEditing(false);
-    if (profilePhotoPreview) {
-      updateUser({ profilePhoto: profilePhotoPreview });
-    }
-    toast.success("Profile updated successfully!");
-  };
-
-  const handleCancel = () => {
-    setEditing(false);
-    setProfilePhotoPreview(null);
-    setForm({
-      fullName: user?.fullName || user?.username || "",
+  useEffect(() => {
+    setForm((current) => ({
+      ...current,
+      fullName: user?.fullName || "",
       email: user?.email || "",
-      mobile: form.mobile,
-      designation: form.designation,
-      district: form.district,
-      department: form.department,
+    }));
+  }, [user?.fullName, user?.email]);
+
+  const initials = (user?.fullName || user?.username || "SA")
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  const resetEditor = () => {
+    setEditing(false);
+    setOtpSent(false);
+    setOtp("");
+    setPhotoPreview(null);
+    setForm({
+      fullName: user?.fullName || "",
+      email: user?.email || "",
+      mobileNumber: "",
     });
   };
 
-  const initials = (user?.fullName || user?.username || "U")
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+  const selectPhoto = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select a valid image.");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Profile image must be smaller than 2 MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPhotoPreview(String(reader.result));
+      setEditing(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const requestOtp = async () => {
+    if (!form.fullName.trim() || !form.email.trim()) {
+      toast.error("Name and email are required.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const response = await usersApi.requestProfileUpdateOtp(form);
+      setOtpSent(true);
+      toast.success(response.message || "Verification code sent.");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Could not send verification code.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveProfile = async () => {
+    if (otp.length < 4) {
+      toast.error("Enter the verification code sent to your email.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const response = await usersApi.verifyProfileUpdateOtp({ ...form, otp });
+      updateUser({
+        fullName: form.fullName.trim(),
+        email: form.email.trim(),
+        ...(photoPreview ? { profilePhoto: photoPreview } : {}),
+      });
+      toast.success(response.message || "Profile updated successfully.");
+      setEditing(false);
+      setOtpSent(false);
+      setOtp("");
+      setPhotoPreview(null);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Profile update failed.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const avatar = photoPreview || user?.profilePhoto;
 
   return (
-    <>
+    <div className="mx-auto w-full max-w-7xl pb-10">
       <PageHeader
         title="My Profile"
-        description="View and manage your account information, security settings, and activity."
+        description="Manage your State Administrator identity and account security."
         action={
-          <div className="flex items-center gap-2 text-slate-500 bg-white/50 px-3 py-1.5 rounded-full border border-slate-200">
-            <UserCircle size={16} />
-            <span className="text-sm font-semibold">{user?.uiRole || "User"}</span>
-          </div>
+          <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+            <CheckCircle2 size={14} /> Active account
+          </span>
         }
       />
 
-      {/* Profile hero card */}
-      <div className="mb-6 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="h-24 bg-gradient-to-r from-blue-600 to-indigo-700" />
-        <div className="px-6 pb-6 -mt-10 flex items-end justify-between">
-          <div className="flex items-end gap-5">
-            {/* Avatar */}
-            <div className="relative group">
-              <div className="flex size-20 items-center justify-center rounded-2xl border-4 border-white bg-blue-600 text-white text-2xl font-black shadow-md overflow-hidden">
-                {profilePhotoPreview || (user as any)?.profilePhoto ? (
-                  <img 
-                    src={profilePhotoPreview || (user as any)?.profilePhoto} 
-                    alt="Profile" 
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  initials
-                )}
+      <section className="relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-blue-950 to-blue-700 p-6 text-white shadow-xl shadow-blue-950/15 sm:p-8">
+        <div className="absolute -right-16 -top-20 size-64 rounded-full bg-cyan-400/20 blur-3xl" />
+        <div className="absolute bottom-0 right-1/3 size-40 rounded-full bg-blue-300/10 blur-2xl" />
+        <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-5">
+            <div className="relative">
+              <div className="flex size-24 items-center justify-center overflow-hidden rounded-3xl border-4 border-white/20 bg-white/10 text-3xl font-black shadow-2xl backdrop-blur">
+                {avatar ? <img src={avatar} alt="State Admin" className="size-full object-cover" /> : initials}
               </div>
-              <label title="Upload Profile Photo" className="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-2xl border-4 border-transparent backdrop-blur-sm">
-                <Camera size={20} />
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  className="hidden" 
-                  onChange={handlePhotoUpload}
-                />
-              </label>
-            </div>
-            <div className="mb-1">
-              <h2 className="text-xl font-black text-slate-900 leading-tight">
-                {user?.fullName || user?.username || "Unknown User"}
-              </h2>
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-bold text-blue-700">
-                  <BadgeCheck size={11} />
-                  {user?.uiRole || "User"}
-                </span>
-                <span className="text-xs text-slate-500">{user?.email}</span>
-              </div>
-            </div>
-          </div>
-          {!editing && activeTab === "overview" && (
-            <button
-              onClick={() => setEditing(true)}
-              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
-            >
-              <Edit3 size={15} /> Edit Profile
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-2 p-1 bg-white/40 border border-slate-200/60 rounded-xl mb-6 w-fit shadow-sm backdrop-blur-sm">
-        {(
-          [
-            { id: "overview", label: "Overview", icon: <UserCircle size={16} /> },
-            { id: "security", label: "Security", icon: <Lock size={16} /> },
-            { id: "activity", label: "Activity", icon: <Activity size={16} /> },
-          ] as { id: Tab; label: string; icon: React.ReactNode }[]
-        ).map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => { setActiveTab(tab.id); setEditing(false); }}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm transition-all duration-200 ${
-              activeTab === tab.id
-                ? "bg-blue-600 text-white shadow-md"
-                : "text-slate-600 hover:bg-white hover:text-blue-700"
-            }`}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Overview Tab ── */}
-      {activeTab === "overview" && (
-        <div className="grid lg:grid-cols-3 gap-6 max-w-5xl">
-          {/* Left: editable fields */}
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50">
-              <div className="flex items-center gap-2">
-                <UserCircle size={18} className="text-blue-600" />
-                <h2 className="font-bold text-slate-800">Personal Information</h2>
-              </div>
-              {editing && (
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleSave}
-                    className="flex items-center gap-1.5 rounded-lg bg-blue-600 text-white px-3 py-1.5 text-xs font-bold hover:bg-blue-700 transition-colors"
-                  >
-                    <Save size={13} /> Save
-                  </button>
-                  <button
-                    onClick={handleCancel}
-                    className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 px-3 py-1.5 text-xs font-bold hover:bg-slate-50 transition-colors"
-                  >
-                    <X size={13} /> Cancel
-                  </button>
-                </div>
-              )}
-            </div>
-            <div className="p-6 grid sm:grid-cols-2 gap-5">
-              {[
-                { key: "fullName", label: "Full Name", icon: <UserCircle size={15} />, type: "text" },
-                { key: "email", label: "Email Address", icon: <Mail size={15} />, type: "email" },
-                { key: "mobile", label: "Mobile Number", icon: <Phone size={15} />, type: "text", placeholder: "+91 98765 43210" },
-                { key: "designation", label: "Designation", icon: <Building2 size={15} />, type: "text", placeholder: "e.g. District Officer" },
-                { key: "district", label: "District", icon: <MapPin size={15} />, type: "text", placeholder: "e.g. Ludhiana" },
-                { key: "department", label: "Department", icon: <Shield size={15} />, type: "text" },
-              ].map(({ key, label, icon, type, placeholder }) => (
-                <div key={key}>
-                  <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                    {icon} {label}
-                  </label>
-                  {editing ? (
-                    <input
-                      type={type}
-                      value={(form as any)[key]}
-                      placeholder={placeholder}
-                      onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all bg-slate-50"
-                    />
-                  ) : (
-                    <div className="text-sm font-semibold text-slate-800 px-3 py-2 rounded-xl bg-slate-50 border border-slate-100">
-                      {(form as any)[key] || <span className="text-slate-400 font-normal">Not set</span>}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Right: stats */}
-          <div className="space-y-4">
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
-                <h3 className="font-bold text-slate-800 text-sm">Account Info</h3>
-              </div>
-              <div className="p-5 space-y-4">
-                {[
-                  { label: "Username", value: user?.username, icon: <UserCircle size={14} /> },
-                  { label: "Role", value: user?.uiRole, icon: <Shield size={14} /> },
-                  { label: "Member Since", value: "Jan 2025", icon: <Clock size={14} /> },
-                  { label: "Last Login", value: "Today, 2:14 PM", icon: <CheckCircle size={14} /> },
-                ].map(({ label, value, icon }) => (
-                  <div key={label} className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
-                      {icon} {label}
-                    </span>
-                    <span className="text-xs font-bold text-slate-800">{value || "—"}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <BadgeCheck size={18} className="text-blue-600" />
-                <span className="font-bold text-blue-800 text-sm">Verified Account</span>
-              </div>
-              <p className="text-xs text-blue-600 leading-relaxed">
-                Your account is verified and linked to the Punjab DSR Portal. Contact admin for role changes.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Security Tab ── */}
-      {activeTab === "security" && (
-        <div className="max-w-2xl space-y-5">
-          {/* Password */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="flex items-center gap-2 px-6 py-4 border-b border-slate-100 bg-slate-50">
-              <Key size={18} className="text-blue-600" />
-              <h2 className="font-bold text-slate-800">Password</h2>
-            </div>
-            <div className="p-6 space-y-4">
-              <p className="text-sm text-slate-500">
-                For security reasons, password changes are handled via a reset email sent to your registered address.
-              </p>
               <button
-                onClick={() => toast.info("Password reset email sent to " + (user?.email || "your email"))}
-                className="flex items-center gap-2 rounded-xl bg-blue-600 text-white px-4 py-2.5 text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm"
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute -bottom-2 -right-2 flex size-9 items-center justify-center rounded-xl bg-white text-blue-700 shadow-lg transition hover:scale-105"
+                aria-label="Change profile photo"
               >
-                <Lock size={16} /> Request Password Reset
+                <Camera size={17} />
               </button>
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={selectPhoto} />
+            </div>
+            <div>
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-blue-100">Punjab DSR Portal</span>
+                <BadgeCheck size={18} className="text-cyan-300" />
+              </div>
+              <h2 className="text-2xl font-black sm:text-3xl">{user?.fullName || "State Admin"}</h2>
+              <p className="mt-1 text-sm text-blue-100">{user?.email}</p>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-extrabold text-blue-800 shadow-lg transition hover:-translate-y-0.5 hover:bg-blue-50"
+          >
+            <Pencil size={15} /> Edit profile
+          </button>
+        </div>
+      </section>
 
-          {/* Sessions */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="flex items-center gap-2 px-6 py-4 border-b border-slate-100 bg-slate-50">
-              <Shield size={18} className="text-emerald-600" />
-              <h2 className="font-bold text-slate-800">Active Sessions</h2>
+      <div className="grid gap-6 lg:grid-cols-[1.5fr_0.8fr]">
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5 dark:border-slate-800">
+            <div>
+              <h3 className="font-black text-slate-900 dark:text-white">Administrator details</h3>
+              <p className="mt-1 text-xs text-slate-500">Verified identity used across portal activity and reports.</p>
             </div>
-            <div className="p-6 space-y-3">
-              {[
-                { device: "Chrome on Windows", location: "Chandigarh, Punjab", time: "Active now", current: true },
-                { device: "Safari on iPhone", location: "Ludhiana, Punjab", time: "2 hours ago", current: false },
-              ].map((session, i) => (
-                <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50">
-                  <div>
-                    <p className="text-sm font-bold text-slate-800">{session.device}</p>
-                    <p className="text-xs text-slate-500">{session.location} · {session.time}</p>
-                  </div>
-                  {session.current ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold px-2.5 py-0.5">
-                      <CheckCircle size={10} /> Current
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => toast.success("Session revoked")}
-                      className="text-xs text-red-600 font-semibold hover:underline"
-                    >
-                      Revoke
-                    </button>
-                  )}
-                </div>
-              ))}
+            <UserRound className="text-blue-600" size={22} />
+          </div>
+
+          <div className="grid gap-4 p-6 sm:grid-cols-2">
+            <Detail icon={<UserRound />} label="Full name" value={user?.fullName || "State Admin"} />
+            <Detail icon={<Mail />} label="Official email" value={user?.email || "—"} />
+            <Detail icon={<ShieldCheck />} label="Access level" value="State Admin · Full access" />
+            <Detail icon={<MapPin />} label="Jurisdiction" value={user?.accessLabel || "Punjab · All districts"} />
+            <Detail icon={<Sparkles />} label="Username" value={user?.username || "state.admin"} />
+            <Detail icon={<CheckCircle2 />} label="Account status" value="Active and verified" />
+          </div>
+        </section>
+
+        <aside className="space-y-5">
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5 dark:border-blue-900 dark:bg-blue-950/30">
+            <div className="mb-3 flex size-10 items-center justify-center rounded-xl bg-blue-600 text-white">
+              <ShieldCheck size={20} />
+            </div>
+            <h3 className="font-black text-slate-900 dark:text-white">Single administrator mode</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+              This account has statewide access. No additional portal roles are enabled.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+                <LockKeyhole size={19} />
+              </div>
+              <div>
+                <p className="font-bold text-slate-900 dark:text-white">Password security</p>
+                <p className="text-xs text-slate-500">Use Forgot Password on login to reset securely.</p>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      {editing && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5 dark:border-slate-800">
+              <div>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white">Update profile</h3>
+                <p className="text-xs text-slate-500">Changes are protected with email verification.</p>
+              </div>
+              <button onClick={resetEditor} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><X size={18} /></button>
+            </div>
+            <div className="space-y-4 p-6">
+              <Field icon={<UserRound />} label="Full name" value={form.fullName} onChange={(value) => setForm({ ...form, fullName: value })} disabled={otpSent} />
+              <Field icon={<Mail />} label="Official email" value={form.email} type="email" onChange={(value) => setForm({ ...form, email: value })} disabled={otpSent} />
+              <Field icon={<Phone />} label="Mobile number (optional)" value={form.mobileNumber} onChange={(value) => setForm({ ...form, mobileNumber: value })} disabled={otpSent} />
+              {otpSent && <Field icon={<KeyRound />} label="Verification code" value={otp} onChange={setOtp} autoFocus />}
+            </div>
+            <div className="flex justify-end gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4 dark:border-slate-800 dark:bg-slate-950/40">
+              <button onClick={resetEditor} className="rounded-xl px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-800">Cancel</button>
+              <button
+                onClick={otpSent ? saveProfile : requestOtp}
+                disabled={saving}
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 disabled:opacity-60"
+              >
+                {otpSent ? <Save size={15} /> : <Mail size={15} />}
+                {saving ? "Please wait…" : otpSent ? "Verify & save" : "Send verification code"}
+              </button>
             </div>
           </div>
         </div>
       )}
+    </div>
+  );
+}
 
-      {/* ── Activity Tab ── */}
-      {activeTab === "activity" && (
-        <div className="max-w-2xl">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="flex items-center gap-2 px-6 py-4 border-b border-slate-100 bg-slate-50">
-              <Activity size={18} className="text-purple-600" />
-              <h2 className="font-bold text-slate-800">Recent Activity</h2>
-            </div>
-            <div className="divide-y divide-slate-100">
-              {activityLog.map((item, i) => (
-                <div key={i} className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50/60 transition-colors">
-                  <span className="text-xl w-8 text-center">{item.icon}</span>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-slate-800">{item.action}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{item.time}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="px-6 py-4 text-center border-t border-slate-100">
-              <button className="text-xs font-bold text-blue-600 hover:underline">
-                Load More
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+function Detail({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+      <div className="mb-2 flex items-center gap-2 text-slate-400 [&>svg]:size-15">{icon}<span className="text-[11px] font-bold uppercase tracking-wider">{label}</span></div>
+      <p className="truncate text-sm font-bold text-slate-800 dark:text-slate-100">{value}</p>
+    </div>
+  );
+}
+
+function Field({ icon, label, value, onChange, type = "text", disabled, autoFocus }: {
+  icon: React.ReactNode; label: string; value: string; onChange: (value: string) => void;
+  type?: string; disabled?: boolean; autoFocus?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-2 flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300 [&>svg]:size-14">{icon}{label}</span>
+      <input
+        type={type}
+        value={value}
+        disabled={disabled}
+        autoFocus={autoFocus}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+      />
+    </label>
   );
 }

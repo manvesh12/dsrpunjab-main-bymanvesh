@@ -481,49 +481,29 @@ function RoleDropdown({ currentRole, onUpdate, onClose }: {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export const UserManagementPanel: React.FC = () => {
-  const { user: currentUser, loginAs } = useAuth();
+  const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: portalUsers = [] } = useQuery({
+  const { data: portalUsers = [], isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ['users'],
     queryFn: usersApi.list,
   });
 
   const [search, setSearch] = useState('');
-  const [filterRole, setFilterRole] = useState<string>('All');
   const [filterStatus, setFilterStatus] = useState<string>('All');
   const [filterDistrict, setFilterDistrict] = useState('All');
-  const [showAddUser, setShowAddUser] = useState(false);
-  const [showBulkInvite, setShowBulkInvite] = useState(false);
-  const [editingRole, setEditingRole] = useState<string | null>(null);
 
   const filtered = portalUsers.filter(u => {
     const matchSearch = !search || u.fullName.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase());
-    const matchRole = filterRole === 'All' || u.role === roleCode(filterRole);
     const matchStatus = filterStatus === 'All' || (filterStatus === 'active' ? u.active : !u.active);
     const matchDistrict = filterDistrict === 'All' || u.district === filterDistrict;
-    return matchSearch && matchRole && matchStatus && matchDistrict;
+    return matchSearch && matchStatus && matchDistrict;
   });
 
   const stats = {
     total: portalUsers.length,
     active: portalUsers.filter(u => u.active).length,
     inactive: portalUsers.filter(u => !u.active).length,
-  };
-
-  const updateRoleMutation = useMutation({
-    mutationFn: ({ id, role }: { id: string; role: string }) => usersApi.update(id, { role: roleCode(role) }),
-    onSuccess: () => {
-      toast.success('Role updated');
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-    },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || 'Failed to update role');
-    }
-  });
-
-  const handleRoleUpdate = (userId: string, role: UserRole) => {
-    updateRoleMutation.mutate({ id: userId, role });
   };
 
   const toggleStatusMutation = useMutation({
@@ -538,14 +518,21 @@ export const UserManagementPanel: React.FC = () => {
   });
 
   const handleStatusToggle = (userId: string, active: boolean) => {
+    if (portalUsers.length === 1 || String(currentUser?.username).toLowerCase() === 'state.admin') {
+      toast.info('The primary State Admin account must remain active.');
+      return;
+    }
     toggleStatusMutation.mutate({ id: userId, active: !active });
   };
 
+  const exportMutation = useMutation({
+    mutationFn: usersApi.exportRoster,
+    onSuccess: () => toast.success('Administrator roster downloaded.'),
+    onError: (err: any) => toast.error(err?.response?.data?.message || 'Could not download the roster.'),
+  });
+
   return (
     <div className="min-h-full text-slate-900 dark:text-white font-sans">
-
-      {showAddUser && <AddUserModal onClose={() => setShowAddUser(false)} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['users'] })} />}
-      {showBulkInvite && <BulkInviteModal onClose={() => { setShowBulkInvite(false); queryClient.invalidateQueries({ queryKey: ['users'] }); }} />}
 
       <div className="p-6 max-w-full">
         {/* Page Header */}
@@ -555,30 +542,32 @@ export const UserManagementPanel: React.FC = () => {
               <div className="w-10 h-10 bg-blue-50 dark:bg-blue-600/20 border border-blue-100 dark:border-blue-600/30 rounded-xl flex items-center justify-center">
                 <Users size={20} className="text-blue-600 dark:text-blue-400" />
               </div>
-              <h1 className="text-2xl font-black text-slate-900 dark:text-white">User Management</h1>
+              <h1 className="text-2xl font-black text-slate-900 dark:text-white">Administrator Account</h1>
             </div>
             <p className="text-sm text-slate-500 dark:text-slate-400 font-medium ml-13">
-              Manage portal users, roles, upload/review rights, and assigned access scopes
+              Review the single State Administrator account and its statewide access.
             </p>
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setShowBulkInvite(true)}
-              className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 dark:border-slate-700 hover:border-purple-600 text-slate-700 dark:text-slate-300 hover:text-purple-600 dark:hover:text-white bg-white dark:bg-slate-900 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-xl text-sm font-bold transition-all"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl text-sm font-bold transition-all disabled:opacity-60"
             >
-              <Upload size={15} /> Bulk Invite
+              <RefreshCw size={15} className={isFetching ? 'animate-spin' : ''} /> Refresh
             </button>
             <button
-              onClick={() => setShowAddUser(true)}
+              onClick={() => exportMutation.mutate()}
+              disabled={exportMutation.isPending || portalUsers.length === 0}
               className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-blue-600/25"
             >
-              <Plus size={15} /> Add User
+              <Download size={15} /> Export roster
             </button>
           </div>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           {[
             { label: 'Total Users',  value: stats.total,    color: 'text-blue-600 dark:text-blue-400',    bg: 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800/80 shadow-sm' },
             { label: 'Active',       value: stats.active,   color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800/80 shadow-sm' },
@@ -605,16 +594,6 @@ export const UserManagementPanel: React.FC = () => {
                 className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-205 dark:border-slate-700/80 text-slate-900 dark:text-white rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium placeholder:text-slate-400 dark:placeholder:text-slate-550 transition-all"
               />
             </div>
-
-            {/* Role filter */}
-            <select
-              value={filterRole}
-              onChange={e => setFilterRole(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 text-slate-805 dark:text-white rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
-            >
-              <option value="All">All Roles</option>
-              {ALL_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-            </select>
 
             {/* Status filter */}
             <select
@@ -656,17 +635,20 @@ export const UserManagementPanel: React.FC = () => {
                   <th className="text-left px-5 py-3.5 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">User</th>
                   <th className="text-left px-5 py-3.5 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Role</th>
                   <th className="text-left px-5 py-3.5 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">District</th>
-                  <th className="text-left px-5 py-3.5 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Upload</th>
-                  <th className="text-left px-5 py-3.5 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Review</th>
+                  <th className="text-left px-5 py-3.5 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Access</th>
                   <th className="text-left px-5 py-3.5 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</th>
                   <th className="text-left px-5 py-3.5 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden xl:table-cell">Joined</th>
                   <th className="text-right px-5 py-3.5 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                {filtered.length === 0 ? (
+                {isLoading ? (
+                  <tr><td colSpan={7} className="py-16 text-center text-sm font-semibold text-slate-500">Loading administrator account…</td></tr>
+                ) : error ? (
+                  <tr><td colSpan={7} className="py-16 text-center text-sm font-semibold text-rose-600">Could not load the administrator account. Use Refresh to try again.</td></tr>
+                ) : filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-16 text-slate-500 dark:text-slate-400 font-medium">
+                    <td colSpan={7} className="text-center py-16 text-slate-500 dark:text-slate-400 font-medium">
                       <div className="flex flex-col items-center gap-3">
                         <Users size={32} className="opacity-30" />
                         <span>No users found matching your filters</span>
@@ -689,22 +671,7 @@ export const UserManagementPanel: React.FC = () => {
 
                     {/* Role */}
                     <td className="px-5 py-4">
-                      <div className="relative">
-                        <button
-                          onClick={() => setEditingRole(editingRole === user.id ? null : user.id)}
-                          className="flex items-center gap-1 group/role"
-                        >
-                          <RoleBadge role={user.role as UserRole} />
-                          <ChevronDown size={12} className="text-slate-450 dark:text-slate-600 group-hover/role:text-slate-600 dark:group-hover/role:text-slate-400 transition-colors" />
-                        </button>
-                        {editingRole === user.id && (
-                          <RoleDropdown
-                            currentRole={user.role as UserRole}
-                            onUpdate={(role) => handleRoleUpdate(user.id, role)}
-                            onClose={() => setEditingRole(null)}
-                          />
-                        )}
-                      </div>
+                      <RoleBadge role="State Admin" />
                     </td>
 
                     {/* District */}
@@ -715,26 +682,10 @@ export const UserManagementPanel: React.FC = () => {
                       </div>
                     </td>
 
-                    {/* Upload */}
                     <td className="px-5 py-4 hidden lg:table-cell">
-                      <button
-                        className={`w-8 h-4.5 rounded-full relative transition-all duration-200 bg-emerald-600`}
-                        style={{ width: 32, height: 18 }}
-                        disabled
-                      >
-                        <span className={`absolute top-0.5 w-3.5 h-3.5 bg-white rounded-full shadow transition-all duration-200 left-[14px]`} style={{ width: 14, height: 14 }} />
-                      </button>
-                    </td>
-
-                    {/* Review */}
-                    <td className="px-5 py-4 hidden lg:table-cell">
-                      <button
-                        className={`relative transition-all duration-200 bg-blue-600`}
-                        style={{ width: 32, height: 18, borderRadius: 9 }}
-                        disabled
-                      >
-                        <span className={`absolute top-0.5 bg-white rounded-full shadow transition-all duration-200 left-[14px]`} style={{ width: 14, height: 14 }} />
-                      </button>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                        <Shield size={11} /> Full statewide access
+                      </span>
                     </td>
 
                     {/* Status */}
@@ -749,24 +700,13 @@ export const UserManagementPanel: React.FC = () => {
 
                     {/* Actions */}
                     <td className="px-5 py-4">
-                      <div className="flex items-center gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => { loginAs(user.id); toast.info(`Logged in as ${user.fullName}`); }}
-                          title="Login as this user"
-                          className="w-8 h-8 bg-emerald-55 hover:bg-emerald-600 dark:bg-emerald-950/30 dark:hover:bg-emerald-600 border border-emerald-200 dark:border-emerald-700/40 hover:border-emerald-500 dark:hover:border-emerald-500 text-emerald-600 dark:text-emerald-400 hover:text-white dark:hover:text-white rounded-lg flex items-center justify-center transition-all"
-                        >
-                          <Eye size={13} />
-                        </button>
+                      <div className="flex items-center gap-2 justify-end">
                         <button
                           onClick={() => handleStatusToggle(user.id, user.active)}
-                          title={user.active ? 'Deactivate user' : 'Activate user'}
-                          className={`w-8 h-8 border rounded-lg flex items-center justify-center transition-all ${
-                            user.active
-                              ? 'bg-red-50 hover:bg-red-600 dark:bg-red-950/30 dark:hover:bg-red-650 border-red-250 dark:border-red-700/40 hover:border-red-500 dark:hover:border-red-500 text-red-600 dark:text-red-400 hover:text-white dark:hover:text-white'
-                              : 'bg-emerald-50 hover:bg-emerald-600 dark:bg-emerald-950/30 dark:hover:bg-emerald-600 border border-emerald-200 dark:border-emerald-700/40 hover:border-emerald-500 dark:hover:border-emerald-500 text-emerald-600 dark:text-emerald-400 hover:text-white dark:hover:text-white'
-                          }`}
+                          title="Primary account is protected"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-300"
                         >
-                          {user.status === 'active' ? <Lock size={13} /> : <UserCheck size={13} />}
+                          <Lock size={12} /> Protected
                         </button>
                       </div>
                     </td>
