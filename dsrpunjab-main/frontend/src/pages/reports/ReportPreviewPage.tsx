@@ -97,7 +97,7 @@ function PreviewWatermark() {
   </div>;
 }
 
-export function UploadedSection({ upload, pageNumber, district, headerText, footerText }: { upload: PreviewUpload; pageNumber: number; district: string; headerText: string; footerText: string }) {
+export function UploadedSection({ upload, pageNumber, sourcePageNumber = 1, district, headerText, footerText }: { upload: PreviewUpload; pageNumber: number; sourcePageNumber?: number; district: string; headerText: string; footerText: string }) {
   return (
     <section className="dsr-preview-page relative flex aspect-[1/1.414] w-full max-w-[794px] flex-col overflow-hidden bg-white text-black shadow-xl">
       <div className="pointer-events-none absolute inset-4 border border-black" />
@@ -107,7 +107,7 @@ export function UploadedSection({ upload, pageNumber, district, headerText, foot
         <p className="max-w-[520px] text-[12px] italic">{district} District, Punjab</p>
       </header>
       <div className="relative mx-14 mb-12 mt-3 flex min-h-0 flex-1 items-center justify-center overflow-hidden">
-        <UploadedFilePreview src={upload.url} title={upload.title} alt={upload.title} className="h-full w-full bg-white" imageStyle={{ objectFit: "contain" }} />
+        <UploadedFilePreview src={upload.url} pdfPage={sourcePageNumber} title={`${upload.title} - PDF page ${sourcePageNumber}`} alt={upload.title} className="h-full w-full bg-white" imageStyle={{ objectFit: "contain" }} />
       </div>
       <footer className="absolute bottom-7 left-16 right-16 flex items-center justify-between border-t border-slate-300 pt-2 font-serif text-[9px]">
         <span className="font-bold uppercase">{footerText}</span>

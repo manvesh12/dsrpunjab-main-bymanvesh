@@ -5,6 +5,7 @@ import { resolveUploadUrl } from "../../api/uploads.api";
 
 type UploadedFilePreviewProps = {
   src: string;
+  pdfPage?: number;
   title?: string;
   alt?: string;
   small?: boolean;
@@ -23,6 +24,7 @@ function isImageUrl(src: string) {
 
 export default function UploadedFilePreview({
   src,
+  pdfPage,
   title = "Uploaded preview",
   alt = "Uploaded preview",
   small = false,
@@ -120,7 +122,7 @@ export default function UploadedFilePreview({
   return (
     <iframe
       title={title}
-      src={`${previewSrc}#toolbar=0&navpanes=0&pagemode=none&view=FitH&zoom=page-fit`}
+      src={`${previewSrc}#page=${pdfPage || 1}&toolbar=0&navpanes=0&pagemode=none&view=FitH&zoom=page-fit`}
       className={className || (small ? "mt-3 h-48 w-full rounded-lg border bg-white" : "absolute inset-0 w-full h-full")}
       style={{
         border: small ? "1px solid rgb(203 213 225)" : "0",

@@ -16,7 +16,7 @@ import {
 import { toast } from "sonner";
 import { useParams } from "react-router-dom";
 import jsPDF from "jspdf";
-import { rgb } from "pdf-lib";
+import { PDFDocument, rgb } from "pdf-lib";
 import { get } from "idb-keyval";
 import PageHeader from "../../components/layout/PageHeader";
 import ResizableLayout from "../../components/layout/ResizableLayout";
@@ -56,6 +56,23 @@ interface CustomSection {
 type ProjectChapter = { name: string; summary: string; file?: { name: string; url: string } };
 type ProjectPlate = { name: string; summary: string; fileName?: string; url?: string };
 type ProjectUpload = { sectionId: string; title: string; name: string; url: string };
+
+async function uploadedPdfPageCount(upload: ProjectUpload) {
+  if (!upload.name.toLowerCase().endsWith(".pdf")) return 1;
+  let data: ArrayBuffer;
+  if (/^(blob:|data:)/i.test(upload.url)) {
+    const response = await fetch(upload.url);
+    if (!response.ok) throw new Error(`Could not read ${upload.name}`);
+    data = await response.arrayBuffer();
+  } else {
+    const response = await apiClient.get<ArrayBuffer>(upload.url, {
+      responseType: "arraybuffer",
+      timeout: 60_000,
+    });
+    data = response.data;
+  }
+  return (await PDFDocument.load(data)).getPageCount();
+}
 
 function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (character) => ({
@@ -1646,8 +1663,11 @@ function PreviewPanel({
     id: `${upload.url}-${index}`,
     sectionId: upload.sectionId,
     title: upload.title,
+    name: upload.name,
     url: upload.url,
   }));
+  const uploadCountKey = uploadedPreviews.map((upload) => `${upload.url}|${upload.name}`).join("||");
+  const [uploadedPageCounts, setUploadedPageCounts] = useState<Record<string, number>>({});
   const frontData = content.frontMatter?.data || {};
   const showGeneratedPreface =
     checkedSet.has("fm-pref") && !content.frontMatter?.prefaceFile?.url && Boolean(frontData.preface);
@@ -1678,6 +1698,25 @@ function PreviewPanel({
   useEffect(() => {
     if (previewScrollRef.current) previewScrollRef.current.scrollTop = 0;
   }, [report.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const uploads = selectedModelUploads(report, project);
+    void Promise.all(
+      uploads.map(async (upload) => {
+        try {
+          return [upload.url, await uploadedPdfPageCount(upload)] as const;
+        } catch {
+          return [upload.url, 1] as const;
+        }
+      })
+    ).then((entries) => {
+      if (!cancelled) setUploadedPageCounts(Object.fromEntries(entries));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [uploadCountKey]);
 
   const previewHtml = `<!doctype html>
 <html>
@@ -1803,11 +1842,14 @@ function PreviewPanel({
 
   uploadedPreviews.forEach((upload, i) => {
     const uploadFrame = frameFor(upload.sectionId);
-    pages.push(
-      <div key={`upload-${upload.id}-${i}`} className="mb-5 flex w-full justify-center">
-        <UploadedSection upload={{ id: upload.id, title: upload.title, name: upload.title, url: upload.url }} pageNumber={pages.length + 1} district={district} headerText={uploadFrame.headerText} footerText={uploadFrame.footerText} />
-      </div>
-    );
+    const sourcePageCount = uploadedPageCounts[upload.url] || 1;
+    for (let sourcePageNumber = 1; sourcePageNumber <= sourcePageCount; sourcePageNumber += 1) {
+      pages.push(
+        <div key={`upload-${upload.id}-${i}-page-${sourcePageNumber}`} className="mb-5 flex w-full justify-center">
+          <UploadedSection upload={{ id: upload.id, title: upload.title, name: upload.name, url: upload.url }} sourcePageNumber={sourcePageNumber} pageNumber={pages.length + 1} district={district} headerText={uploadFrame.headerText} footerText={uploadFrame.footerText} />
+        </div>
+      );
+    }
   });
 
   return (
