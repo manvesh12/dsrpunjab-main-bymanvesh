@@ -42,7 +42,7 @@ const defaultFormat: FinalizedFormat = {
   footerText2: "",
   showWatermark: false,
   autoGenerateContents: true,
-  chapterTitlePages: false,
+  chapterTitlePages: true,
   sectionTitles: {},
   sectionOverrides: {},
 };

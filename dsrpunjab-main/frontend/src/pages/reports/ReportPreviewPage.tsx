@@ -320,7 +320,7 @@ export default function ReportPreviewPage() {
     const upload = chapter.file?.url
       ? chapterUploads.find((item) => item.url === chapter.file?.url)
       : undefined;
-    return upload ? [...(frameSettings.chapterTitlePages ? [{ sectionName: "Chapters", chapterTitle: chapter.name }] : []), ...uploadedPreviewPages(upload)] : [];
+    return upload ? [...(frameSettings.chapterTitlePages !== false ? [{ sectionName: "Chapters", chapterTitle: chapter.name }] : []), ...uploadedPreviewPages(upload)] : [];
   });
   const frontPreviewPages = frontMatterUploads.filter((upload) => !autoGenerateContents || upload.id !== "contents").map((upload) => ({ sectionName: "Front Matter", upload }));
   if (autoGenerateContents) {
@@ -443,11 +443,11 @@ export default function ReportPreviewPage() {
           : undefined;
         if (upload) {
           tocMarkers.push({ chapterNo: chapterIndex + 1, subject: chapter.name.replace(/^\s*chapter\s+\d+\s*[-:–—.]?\s*/i, ""), startPage: document.getPageCount() });
-          if (frameSettings.chapterTitlePages) await addChapterTitle(chapter.name);
-          await appendUpload(upload, "Chapters", true);
+          if (frameSettings.chapterTitlePages !== false) await addChapterTitle(chapter.name);
+          await appendUpload(upload, "Chapters");
         }
       }
-      for (const upload of unmatchedChapterUploads) await appendUpload(upload, "Chapters", true);
+      for (const upload of unmatchedChapterUploads) await appendUpload(upload, "Chapters");
       tocMarkers.push({ chapterNo: "-", subject: sectionDisplayName("Plates and Maps"), startPage: document.getPageCount() });
       await addSectionTitle("Plates and Maps");
       for (const upload of [...plateUploads, ...otherUploads]) await appendUpload(upload, "Plates and Maps");
@@ -654,7 +654,7 @@ export default function ReportPreviewPage() {
                 : page.title
                   ? <SectionTitlePage title={sectionDisplayName(page.title)} pageNumber={index + 1} district={reportDistrict} headerText={headerText} footerText={footerText} footerText2={footerText2} showWatermark={showWatermark} />
                   : page.upload
-                    ? <UploadedSection upload={page.upload} sourcePageNumber={page.sourcePageNumber} pageNumber={index + 1} district={reportDistrict} headerText={headerText} footerText={footerText} footerText2={footerText2} preserveUploadedFrame={page.sectionName === "Chapters"} showWatermark={showWatermark} />
+                    ? <UploadedSection upload={page.upload} sourcePageNumber={page.sourcePageNumber} pageNumber={index + 1} district={reportDistrict} headerText={headerText} footerText={footerText} footerText2={footerText2} showWatermark={showWatermark} />
                     : <GeneratedSection table={page.table} graph={page.graph} chapter={page.chapter} pageNumber={index + 1} district={reportDistrict} headerText={headerText} footerText={footerText} footerText2={footerText2} showWatermark={showWatermark} />;
             return <div key={page.chapterTitle ? `chapter-title-${page.chapterTitle}-${index}` : page.title ? `section-${page.title}-${index}` : page.upload ? `${page.upload.id}-source-page-${page.sourcePageNumber || 1}` : `generated-${index}`} id={sectionId} className="flex w-full scroll-mt-24 justify-center">{content}</div>;
           })}
