@@ -82,17 +82,21 @@ export async function uploadedDocumentPageCount(upload: PdfUpload) {
   return 1;
 }
 
-export async function appendUploadedDocument(target: PDFDocument, upload: PdfUpload, options: { preserveOriginalPage?: boolean } = {}) {
+export async function appendUploadedDocument(target: PDFDocument, upload: PdfUpload, options: { preserveOriginalPage?: boolean; pageRange?: { start: number; end?: number } } = {}) {
   if (!upload?.url) return false;
   const { data, contentType } = await readUpload(upload);
   if (contentType.includes("pdf") || upload.name.toLowerCase().endsWith(".pdf")) {
     const source = await PDFDocument.load(data);
+    const totalPages = source.getPageCount();
+    const start = Math.min(Math.max(Math.trunc(options.pageRange?.start || 1), 1), totalPages);
+    const end = Math.min(Math.max(Math.trunc(options.pageRange?.end || totalPages), start), totalPages);
+    const selectedPageIndices = Array.from({ length: end - start + 1 }, (_, index) => start - 1 + index);
     if (options.preserveOriginalPage) {
-      const pages = await target.copyPages(source, source.getPageIndices());
+      const pages = await target.copyPages(source, selectedPageIndices);
       pages.forEach((page) => target.addPage(page));
       return true;
     }
-    for (const sourcePage of source.getPages()) {
+    for (const sourcePage of selectedPageIndices.map((index) => source.getPage(index))) {
       const embeddedPage = await target.embedPage(sourcePage);
       const sourceSize = sourcePage.getSize();
       const scale = Math.min(
