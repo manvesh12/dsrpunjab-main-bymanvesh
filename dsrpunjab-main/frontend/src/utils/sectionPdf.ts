@@ -227,7 +227,15 @@ export async function appendGeneratedReportContent(target: PDFDocument, input: {
   chapters?: ReportChapter[];
 }) {
   if (!input.tables.length && !input.graphs.length && !input.chapters?.length) return;
-  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  // The final-report route renders annexure tables separately.  Keep wide
+  // schedules (for example Annexure V) on an A3 landscape page, so their
+  // columns retain a usable width instead of being squeezed into portrait A4.
+  const hasDenseTable = input.tables.some((table) => table.columns.length > 10);
+  const tablePageFormat = hasDenseTable ? "a3" : "a4";
+  const tableOrientation = hasDenseTable ? "landscape" : "portrait";
+  const pdf = new jsPDF({ orientation: tableOrientation, unit: "mm", format: tablePageFormat });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const tableMargin = hasDenseTable ? 12 : 24;
   let hasPage = false;
   const addPage = () => { if (hasPage) pdf.addPage(); hasPage = true; };
 
@@ -281,7 +289,7 @@ export async function appendGeneratedReportContent(target: PDFDocument, input: {
   if (input.tables.length) hasPage = true;
 
   input.tables.forEach((table) => {
-    const titleLines = pdf.splitTextToSize(table.title, 160) as string[];
+    const titleLines = pdf.splitTextToSize(table.title, pageWidth - tableMargin * 2) as string[];
     const titleHeight = Math.max(titleLines.length, 1) * 4.5;
     // Keep consecutive tables together on the current page whenever there is
     // enough room for the next title, header and at least one data row.
@@ -291,7 +299,7 @@ export async function appendGeneratedReportContent(target: PDFDocument, input: {
     }
     pdf.setFont("times", "bold");
     pdf.setFontSize(10);
-    pdf.text(titleLines, 24, nextTableY, { lineHeightFactor: 1.15 });
+    pdf.text(titleLines, tableMargin, nextTableY, { lineHeightFactor: 1.15 });
     autoTable(pdf, {
       // Match the approved DSR annexure format: the report frame supplies the
       // heading, while the table starts below it and stays clear of the footer.
@@ -301,8 +309,8 @@ export async function appendGeneratedReportContent(target: PDFDocument, input: {
       theme: "grid",
       styles: {
         font: "times",
-        fontSize: 8,
-        cellPadding: 1.25,
+        fontSize: hasDenseTable ? 6 : 8,
+        cellPadding: hasDenseTable ? 0.65 : 1.25,
         overflow: "linebreak",
         valign: "top",
         textColor: [0, 0, 0],
@@ -311,7 +319,7 @@ export async function appendGeneratedReportContent(target: PDFDocument, input: {
       },
       headStyles: {
         font: "times",
-        fontSize: 8,
+        fontSize: hasDenseTable ? 6 : 8,
         fillColor: [255, 255, 255],
         textColor: [0, 0, 0],
         fontStyle: "bold",
@@ -320,11 +328,12 @@ export async function appendGeneratedReportContent(target: PDFDocument, input: {
       },
       bodyStyles: {
         font: "times",
-        fontSize: 8,
+        fontSize: hasDenseTable ? 6 : 8,
         fillColor: [255, 255, 255],
       },
       alternateRowStyles: { fillColor: [255, 255, 255] },
-      margin: { top: 42, right: 24, bottom: 27, left: 24 },
+      margin: { top: 42, right: tableMargin, bottom: 27, left: tableMargin },
+      tableWidth: pageWidth - tableMargin * 2,
       rowPageBreak: "avoid",
       showHead: "everyPage",
     });
