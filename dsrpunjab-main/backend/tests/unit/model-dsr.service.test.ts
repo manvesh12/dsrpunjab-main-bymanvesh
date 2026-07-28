@@ -43,3 +43,52 @@ test("Model DSR import enforces target project district access", async () => {
     (error: unknown) => error instanceof ApiError && error.status === 403
   );
 });
+
+test("Model DSR import preserves chapter text and uploaded file content", async () => {
+  let savedState: Record<string, any> | undefined;
+  const repository = {
+    sectionCount: async () => 2,
+    findTemplate: async () => ({
+      id: "model",
+      title: "Complete Model",
+      sections: [
+        {
+          id: "chapter-1",
+          sectionName: "Chapter 1 - Introduction",
+          sequence: 1,
+          contentType: SectionContentType.TEXT,
+          configuration: {
+            kind: "chapter",
+            content: "Full introduction content",
+            fileName: "introduction.pdf",
+            fileUrl: "/uploads/introduction.pdf"
+          }
+        },
+        {
+          id: "annexure-1",
+          sectionName: "Annexure A - Leases",
+          sequence: 2,
+          contentType: SectionContentType.TABLE,
+          configuration: { kind: "annexure", rows: [{ lease: "L-1" }] }
+        }
+      ]
+    }),
+    findProject: async () => ({ id: 2n, district: "Jalandhar", projectState: null, projectName: "Test Project" }),
+    importIntoProject: async (_projectId: bigint, projectState: string) => {
+      savedState = JSON.parse(projectState);
+    }
+  } as ModelDsrRepositoryContract;
+  const service = new ModelDsrService(repository);
+
+  const result = await service.import("model", { projectId: "2" }, officer);
+
+  assert.equal(result.chaptersImported, 1);
+  assert.equal(result.annexuresImported, 1);
+  assert.equal(savedState?.chapters[0].name, "Chapter 1 - Introduction");
+  assert.equal(savedState?.chapters[0].summary, "Full introduction content");
+  assert.deepEqual(savedState?.chapters[0].file, {
+    name: "introduction.pdf",
+    url: "/uploads/introduction.pdf"
+  });
+  assert.deepEqual(savedState?.modelDsrAnnexures[0].title, "Annexure A - Leases");
+});

@@ -877,14 +877,14 @@ function PreviewSection({
   rows: Record<string, string>[];
 }) {
   return (
-    <div className="mt-3 overflow-x-auto">
-      <table className="w-full border-collapse text-[8px]">
+    <div className="mt-3 max-w-full overflow-x-auto rounded border border-slate-300">
+      <table className="w-max min-w-full border-collapse text-[10px] leading-snug">
         <thead>
           <tr>
             {columns.map((column) => (
               <th
                 key={column.key}
-                className="border border-slate-400 bg-slate-100 p-1 text-left align-top"
+                className="min-w-28 border border-slate-400 bg-slate-100 p-1.5 text-left align-top font-semibold break-words"
               >
                 {column.label}
               </th>
@@ -898,7 +898,7 @@ function PreviewSection({
                 {columns.map((column) => (
                   <td
                     key={column.key}
-                    className="border border-slate-300 p-1"
+                    className="min-w-28 border border-slate-300 p-1.5 align-top break-words"
                   >
                     {row[column.key] || "—"}
                   </td>

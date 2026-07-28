@@ -131,7 +131,21 @@ export class ModelDsrService {
         id: section.id, name: section.sectionName, sequence: section.sequence,
         contentType: section.contentType, configuration: section.configuration
       }));
-      state.chapters = chapters.map(section => ({ title: section.sectionName, modelDsrSectionId: section.id, importedAt }));
+      state.chapters = chapters.map(section => {
+        const configuration: Record<string, any> = isRecord(section.configuration) ? section.configuration : {};
+        const configuredFile = isRecord(configuration.file) ? configuration.file : undefined;
+        const fileName = String(configuredFile?.name || configuration.fileName || "").trim();
+        const fileUrl = String(configuredFile?.url || configuration.fileUrl || configuration.url || "").trim();
+        return {
+          ...configuration,
+          name: String(configuration.name || configuration.title || section.sectionName),
+          title: String(configuration.title || configuration.name || section.sectionName),
+          summary: String(configuration.summary || configuration.content || configuration.text || ""),
+          ...(fileName && fileUrl ? { file: { name: fileName, url: fileUrl } } : {}),
+          modelDsrSectionId: section.id,
+          importedAt
+        };
+      });
     }
     if (config.replaceAnnexures !== false) {
       state.importedAnnexures = annexures.map(section => ({

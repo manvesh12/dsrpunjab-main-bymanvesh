@@ -63,23 +63,35 @@ export async function exportAnnexurePdf(
   snapshots: AnnexureSnapshot[],
   uploads: PdfUpload[] = [],
 ) {
+  // Annexure V and a few other official schedules have many columns.  An A4
+  // page forces AutoTable to make every column (and consequently the text)
+  // too narrow.  Use A3 landscape for any dense annexure so the actual column
+  // widths stay usable instead of shrinking the content into unreadable text.
+  const pageFormat = snapshots.some((snapshot) => snapshot.columns.length > 10)
+    ? "a3"
+    : "a4";
   const document = new jsPDF({
     orientation: "landscape",
     unit: "mm",
-    format: "a4",
+    format: pageFormat,
   });
+  const pageWidth = document.internal.pageSize.getWidth();
+  const pageHeight = document.internal.pageSize.getHeight();
+  const horizontalMargin = pageFormat === "a3" ? 12 : 10;
   snapshots.forEach((snapshot, index) => {
-    if (index) document.addPage("a4", "landscape");
+    if (index) document.addPage(pageFormat, "landscape");
     document.setFont("helvetica", "bold");
     document.setFontSize(10);
-    document.text("GOVERNMENT OF PUNJAB", 148.5, 12, { align: "center" });
+    document.text("GOVERNMENT OF PUNJAB", pageWidth / 2, 12, { align: "center" });
     document.setFontSize(15);
-    document.text(title.toUpperCase(), 148.5, 21, {
+    document.text(title.toUpperCase(), pageWidth / 2, 21, {
       align: "center",
-      maxWidth: 270,
+      maxWidth: pageWidth - horizontalMargin * 2,
     });
     document.setFontSize(11);
-    document.text(snapshot.title, 14, 31, { maxWidth: 269 });
+    document.text(snapshot.title, horizontalMargin + 4, 31, {
+      maxWidth: pageWidth - horizontalMargin * 2 - 8,
+    });
     autoTable(document, {
       startY: 36,
       head: [snapshot.columns.map((column) => column.label)],
@@ -88,8 +100,10 @@ export async function exportAnnexurePdf(
       ),
       theme: "grid",
       styles: {
-        fontSize: snapshot.columns.length > 10 ? 4.5 : 6.5,
-        cellPadding: 0.8,
+        // Keep text readable; extra page width, not a tiny font, handles
+        // large tables.  The compact padding still keeps the table neat.
+        fontSize: snapshot.columns.length > 10 ? 6 : 6.5,
+        cellPadding: snapshot.columns.length > 10 ? 0.65 : 0.8,
         overflow: "linebreak",
         valign: "middle",
       },
@@ -98,15 +112,15 @@ export async function exportAnnexurePdf(
         textColor: 255,
         fontStyle: "bold",
       },
-      margin: { top: 14, right: 10, bottom: 14, left: 10 },
-      tableWidth: 277,
+      margin: { top: 14, right: horizontalMargin, bottom: 14, left: horizontalMargin },
+      tableWidth: pageWidth - horizontalMargin * 2,
       didDrawPage: ({ pageNumber }) => {
         document.setFontSize(7);
         document.setTextColor(90);
         document.text(
           `District Survey Report • ${title} • Page ${pageNumber}`,
-          148.5,
-          203,
+          pageWidth / 2,
+          pageHeight - 7,
           { align: "center" },
         );
       },
@@ -119,13 +133,13 @@ export async function exportAnnexurePdf(
       document.setTextColor(70);
       document.text(
         `Attached files: ${snapshot.attachments.join(", ")}`,
-        12,
-        Math.min(finalY + 8, 198),
-        { maxWidth: 270 },
+        horizontalMargin + 2,
+        Math.min(finalY + 8, pageHeight - 12),
+        { maxWidth: pageWidth - horizontalMargin * 2 - 4 },
       );
     }
   });
-  if (!snapshots.length) document.text(title, 148.5, 25, { align: "center" });
+  if (!snapshots.length) document.text(title, pageWidth / 2, 25, { align: "center" });
   const merged = await PDFDocument.load(document.output("arraybuffer"));
   for (const upload of uploads) await appendUploadedDocument(merged, upload);
   await saveSectionPdf(merged, `${safeName(title).replaceAll(" ", "-")}.pdf`);

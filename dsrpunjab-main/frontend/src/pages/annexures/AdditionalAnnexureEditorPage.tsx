@@ -458,13 +458,14 @@ export default function AdditionalAnnexureEditorPage({
                           </span>
                           {snap?.title ?? item.title}
                         </h2>
-                        <table className="w-full border-collapse text-[8px]">
+                        <div className="max-w-full overflow-x-auto rounded border border-slate-300">
+                        <table className="w-max min-w-full border-collapse text-[10px] leading-snug">
                           <thead>
                             <tr>
                               {columns.map((column) => (
                                 <th
                                   key={column.key}
-                                  className="border bg-slate-100 p-1 text-left"
+                                  className="min-w-28 border bg-slate-100 p-1.5 text-left align-top font-semibold break-words"
                                 >
                                   {column.label}
                                 </th>
@@ -476,7 +477,7 @@ export default function AdditionalAnnexureEditorPage({
                               snap.rows.map((row, rowIndex) => (
                                 <tr key={rowIndex}>
                                   {columns.map((column) => (
-                                    <td key={column.key} className="border p-1">
+                                    <td key={column.key} className="min-w-28 border p-1.5 align-top break-words">
                                       {row[column.key] || "—"}
                                     </td>
                                   ))}
@@ -494,6 +495,7 @@ export default function AdditionalAnnexureEditorPage({
                             )}
                           </tbody>
                         </table>
+                        </div>
                       </section>
                     );
                   })
