@@ -116,9 +116,12 @@ Annexures, surveys, downloads and workflow do not have empty decorative folders.
 | `notifications/progress-stream.controller.ts` | SSE connection lifecycle and HTTP translation. |
 | `notifications/progress-stream.service.ts` | Redis publish/subscribe implementation. |
 
-## Compatibility adapters
+## Removed compatibility adapters
 
-The thirteen `src/routes/*.ts` files only re-export their new domain routers. The files under `src/lib` similarly re-export authentication, authorization, audit, email, storage, Prisma, validation, mapping and configuration APIs. Active source code does not import these adapters; they exist only to avoid breaking historical imports during deployment or external tooling.
+The old `src/routes` and `src/lib` compatibility folders were removed after all
+active imports had migrated to their owning domain or infrastructure modules.
+New code must import directly from the owning module; do not add pass-through
+barrel files solely to preserve an obsolete internal path.
 
 ## Database and tests
 
