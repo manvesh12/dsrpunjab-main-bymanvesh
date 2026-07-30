@@ -15,7 +15,10 @@ class CapturingProvider implements EmailDeliveryProvider {
 test("invitation template preserves the public registration URL and legacy role label", () => {
   const message = invitationTemplate("abc", "DISTRICT_OWNER", "https://portal.test/legacy");
   assert.match(message.text, /DISTRICT OWNER/);
-  assert.match(message.html, /https:\/\/portal\.test\/legacy\/login\.html\?invite=abc/);
+  assert.match(message.html, /https:\/\/portal\.test\/legacy\/register\?invite=abc/);
+  assert.match(message.html, /Government of Punjab/);
+  assert.match(message.html, /Centre of Excellence \(CoE\) SEnSRS, IIT Ropar/);
+  assert.match(message.html, /coe@sensrs\.com/);
 });
 
 test("email service delegates OTP delivery without exposing provider details", async () => {

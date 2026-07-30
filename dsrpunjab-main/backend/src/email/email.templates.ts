@@ -2,19 +2,43 @@ import type { EmailMessage } from "./email.types.js";
 
 type MessageContent = Omit<EmailMessage, "to">;
 
-function shell(title: string, body: string, color = "#1e3a8a", shadow = true) {
+const DEFAULT_PORTAL_URL = "https://dsrpunjabportal.vercel.app";
+
+function shell(title: string, body: string, color = "#123c6e", shadow = true, portalUrl = DEFAULT_PORTAL_URL) {
+  const baseUrl = portalUrl.replace(/\/$/, "");
   return `
-    <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;${shadow ? " box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);" : ""}">
-      <div style="background-color: ${color}; padding: 24px; text-align: center;">
-        <h2 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600;">Punjab DSR Portal</h2>
-      </div>
-      <div style="padding: 32px 24px; background-color: #ffffff;">
-        <h3 style="color: #1f2937; margin-top: 0; font-size: 20px;">${title}</h3>
-        ${body}
-      </div>
-      <div style="background-color: #f9fafb; padding: 16px; text-align: center; border-top: 1px solid #e5e7eb;">
-        <p style="color: #9ca3af; font-size: 12px; margin: 0;">&copy; ${new Date().getFullYear()} Government of Punjab. All rights reserved.</p>
-      </div>
+    <div style="margin:0;padding:24px 10px;background:#eef2f5;font-family:Arial,'Segoe UI',sans-serif;color:#263442;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #cbd5df;${shadow ? "box-shadow:0 3px 12px rgba(15,45,70,.12);" : ""}">
+        <tr><td style="height:5px;background:#d89421;font-size:0;line-height:0;">&nbsp;</td></tr>
+        <tr>
+          <td style="padding:18px 24px;background:${color};border-bottom:1px solid #0a2948;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>
+              <td width="78" valign="middle"><img src="${baseUrl}/assets/Emblem_of_India.svg.png" width="60" alt="Government of Punjab emblem" style="display:block;width:60px;max-height:72px;object-fit:contain;border:0;"></td>
+              <td valign="middle" style="padding-left:12px;color:#ffffff;">
+                <div style="font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:bold;line-height:1.2;">Government of Punjab</div>
+                <div style="margin-top:5px;font-size:13px;line-height:1.4;color:#e7edf4;">Department of Mines &amp; Geology</div>
+                <div style="margin-top:2px;font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:#f3c96c;">District Survey Report Portal</div>
+              </td>
+            </tr></table>
+          </td>
+        </tr>
+        <tr><td style="padding:30px 30px 24px;background:#ffffff;">
+          <div style="margin:0 0 22px;padding-bottom:12px;border-bottom:2px solid #d89421;font-family:Georgia,'Times New Roman',serif;color:#173b5d;font-size:21px;font-weight:bold;line-height:1.35;">${title}</div>
+          ${body}
+          <p style="margin:26px 0 0;color:#374151;font-size:14px;line-height:1.6;">Regards,<br><strong>District Survey Report Portal</strong><br>Department of Mines &amp; Geology, Government of Punjab</p>
+        </td></tr>
+        <tr><td style="padding:18px 24px;background:#f4f6f8;border-top:1px solid #d8e0e7;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>
+            <td valign="top" style="color:#425466;font-size:12px;line-height:1.65;">
+              <strong style="color:#173b5d;font-size:13px;">Technical Support</strong><br>
+              Centre of Excellence (CoE) SEnSRS, IIT Ropar<br>
+              Indian Institute of Technology Ropar, Rupnagar, Punjab – 140001<br>
+              Email: <a href="mailto:coe@sensrs.com" style="color:#123c6e;text-decoration:underline;">coe@sensrs.com</a> &nbsp;|&nbsp; Website: <a href="https://www.iitrpr.ac.in/" style="color:#123c6e;text-decoration:underline;">www.iitrpr.ac.in</a>
+            </td>
+          </tr></table>
+        </td></tr>
+        <tr><td style="padding:13px 24px;background:#092b4c;text-align:center;color:#bfcddd;font-size:10px;line-height:1.5;">This is an automated official communication. Please do not reply to this email.<br>&copy; ${new Date().getFullYear()} Government of Punjab. All rights reserved.</td></tr>
+      </table>
     </div>
   `;
 }
@@ -80,7 +104,7 @@ export function invitationTemplate(token: string, role: string, publicAppUrl: st
         </div>
         <p style="color: #6b7280; font-size: 14px; margin-bottom: 8px;">If the button doesn't work, copy and paste this link into your browser:</p>
         <p style="word-break: break-all; color: #2563eb; font-size: 14px; margin-top: 0; background-color: #eff6ff; padding: 12px; border-radius: 6px;">${inviteLink}</p>
-        <p style="color: #ef4444; font-size: 14px; font-weight: 500; margin-top: 24px;">Note: This registration link is valid for 7 days and can only be used by this invited email address.</p>`)
+        <p style="color: #ef4444; font-size: 14px; font-weight: 500; margin-top: 24px;">Note: This registration link is valid for 7 days and can only be used by this invited email address.</p>`, "#123c6e", true, publicAppUrl)
   };
 }
 
