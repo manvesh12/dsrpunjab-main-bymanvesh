@@ -39,9 +39,13 @@ const modulesTemplate = [
 ] as const;
 
 function modulePath(projectId: string, path: string) {
-  if (path === "replenishment") return `/projects/${projectId}/generate?tab=replenishment`;
-  if (path === "model-dsr") return `/projects/${projectId}/generate?tab=model-dsr`;
   return `/projects/${projectId}/${path}`;
+}
+
+function apiErrorMessage(error: unknown, fallback: string) {
+  if (!error || typeof error !== "object" || !("response" in error)) return fallback;
+  const response = (error as { response?: { data?: { message?: unknown } } }).response;
+  return typeof response?.data?.message === "string" ? response.data.message : fallback;
 }
 
 export default function ProjectDetailsPage() {
@@ -89,8 +93,8 @@ export default function ProjectDetailsPage() {
       await projectsApi.submitWorkflow(projectId, remarks);
       await refetch();
       toast.success("Stage submitted. Your editing access is now locked.");
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || "Could not submit workflow stage.");
+    } catch (error: unknown) {
+      toast.error(apiErrorMessage(error, "Could not submit workflow stage."));
     }
   };
 
@@ -107,8 +111,8 @@ export default function ProjectDetailsPage() {
       await projectsApi.reopenWorkflow(projectId, normalizedTarget, remarks.trim());
       await refetch();
       toast.success(`Project reopened for ${normalizedTarget.replaceAll("_", " ")}.`);
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || "Could not reopen workflow stage.");
+    } catch (error: unknown) {
+      toast.error(apiErrorMessage(error, "Could not reopen workflow stage."));
     }
   };
 
