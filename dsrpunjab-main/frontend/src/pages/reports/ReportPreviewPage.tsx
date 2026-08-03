@@ -456,10 +456,12 @@ export default function ReportPreviewPage() {
         if (upload) {
           tocMarkers.push({ chapterNo: chapterIndex + 1, subject: chapter.name.replace(/^\s*chapter\s+\d+\s*[-:–—.]?\s*/i, ""), startPage: document.getPageCount() });
           if (frameSettings.chapterTitlePages !== false) await addChapterTitle(chapter.name);
-          await appendUpload(upload, "Chapters", false, true);
+          // Keep the original PDF page as vector content. Rasterising it to a
+          // JPEG made uploaded text, signatures and maps visibly blurry.
+          await appendUpload(upload, "Chapters");
         }
       }
-      for (const upload of unmatchedChapterUploads) await appendUpload(upload, "Chapters", false, true);
+      for (const upload of unmatchedChapterUploads) await appendUpload(upload, "Chapters");
       tocMarkers.push({ chapterNo: "-", subject: sectionDisplayName("Plates and Maps"), startPage: document.getPageCount() });
       await addSectionTitle("Plates and Maps");
       for (const upload of [...plateUploads, ...otherUploads]) await appendUpload(upload, "Plates and Maps");

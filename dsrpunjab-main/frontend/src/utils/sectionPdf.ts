@@ -94,7 +94,7 @@ export async function appendUploadedDocument(target: PDFDocument, upload: PdfUpl
       const end = Math.min(Math.max(Math.trunc(options.pageRange?.end || pdf.numPages), start), pdf.numPages);
       for (let pageNumber = start; pageNumber <= end; pageNumber += 1) {
         const sourcePage = await pdf.getPage(pageNumber);
-        const viewport = sourcePage.getViewport({ scale: 2 });
+        const viewport = sourcePage.getViewport({ scale: 3 });
         const canvas = document.createElement("canvas");
         const context = canvas.getContext("2d", { alpha: false });
         if (!context) throw new Error(`Could not render page ${pageNumber} of ${upload.name}`);
@@ -104,7 +104,7 @@ export async function appendUploadedDocument(target: PDFDocument, upload: PdfUpl
         context.fillRect(0, 0, canvas.width, canvas.height);
         await sourcePage.render({ canvasContext: context, viewport }).promise;
         const imageBlob = await new Promise<Blob>((resolve, reject) =>
-          canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error(`Could not encode page ${pageNumber} of ${upload.name}`)), "image/jpeg", 0.94),
+          canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error(`Could not encode page ${pageNumber} of ${upload.name}`)), "image/jpeg", 0.98),
         );
         const image = await target.embedJpg(await imageBlob.arrayBuffer());
         const scale = Math.min(UPLOAD_SAFE_AREA.width / image.width, UPLOAD_SAFE_AREA.height / image.height);
