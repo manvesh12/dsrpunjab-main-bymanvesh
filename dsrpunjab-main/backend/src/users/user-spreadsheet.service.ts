@@ -34,7 +34,7 @@ export class UserSpreadsheetService {
   invitationTemplate() {
     const rows = [{
       "Full Name": "Example District Officer", Email: "officer@example.gov.in", "Phone/Mobile": "9876543210",
-      Role: "OFFICER", District: "Jalandhar", Department: "Department of Mines & Geology",
+      Role: "OFFICER", District: "Rupnagar", Department: "Department of Mines & Geology",
       Designation: "District Mining Officer", State: "Punjab"
     }];
     const workbook = xlsx.utils.book_new();

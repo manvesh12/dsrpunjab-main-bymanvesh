@@ -80,7 +80,7 @@ const [showBulkInvite, setShowBulkInvite] = useState(false);
   // Users State
   const [users, setUsers] = useState([
     { email: "admin@punjab.gov.in", role: "Super Admin", status: "Active" },
-    { email: "officer.jalandhar@punjab.gov.in", role: "District Officer", status: "Active" },
+    { email: "officer.rupnagar@punjab.gov.in", role: "District Officer", status: "Active" },
     { email: "reviewer@punjab.gov.in", role: "Reviewer", status: "Inactive" },
   ]);
 

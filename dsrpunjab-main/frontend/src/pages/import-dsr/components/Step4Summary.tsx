@@ -19,13 +19,7 @@ interface Step4SummaryProps {
   };
 }
 
-const DISTRICTS = [
-  "Amritsar", "Barnala", "Bathinda", "Faridkot", "Fatehgarh Sahib",
-  "Fazilka", "Ferozepur", "Gurdaspur", "Hoshiarpur", "Jalandhar",
-  "Kapurthala", "Ludhiana", "Malerkotla", "Mansa", "Moga",
-  "Pathankot", "Patiala", "Rupnagar", "Sahibzada Ajit Singh Nagar",
-  "Sangrur", "Shaheed Bhagat Singh Nagar", "Sri Muktsar Sahib", "Tarn Taran"
-];
+const DISTRICTS = ["Rupnagar"];
 
 const initialChapters = [
   { name: "CHAPTER 1 - INTRODUCTION", summary: "Overview of the district and purpose of the DSR under EMGSM 2020 guidelines." },
@@ -55,12 +49,12 @@ export default function Step4Summary({ file, parsedResults, onCancel, draftData 
 
   // Project Details Form State
   const [projectForm, setProjectForm] = useState(() => draftData ? draftData.projectForm : {
-    projectName: `District Survey Report - ${parsedResults.detectedDistrict || "Jalandhar"}`,
-    district: parsedResults.detectedDistrict || "Jalandhar",
+    projectName: `District Survey Report - ${parsedResults.detectedDistrict || "Rupnagar"}`,
+    district: parsedResults.detectedDistrict || "Rupnagar",
     year: "2025-26",
     mineral: "Sand",
     rivers: "",
-    preparedBy: `Sub-Divisional Committee, ${parsedResults.detectedDistrict || "Jalandhar"}`,
+    preparedBy: `Sub-Divisional Committee, ${parsedResults.detectedDistrict || "Rupnagar"}`,
   });
 
   // Page Ranges State

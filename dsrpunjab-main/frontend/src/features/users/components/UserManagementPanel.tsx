@@ -17,11 +17,7 @@ export interface PortalUser extends BackendUserDto {}
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PUNJAB_DISTRICTS = [
-  'All', 'Amritsar', 'Barnala', 'Bathinda', 'Faridkot', 'Fatehgarh Sahib',
-  'Fazilka', 'Ferozepur', 'Gurdaspur', 'Hoshiarpur', 'Jalandhar',
-  'Kapurthala', 'Ludhiana', 'Malerkotla', 'Mansa', 'Moga', 'Pathankot',
-  'Patiala', 'Rupnagar', 'Sahibzada Ajit Singh Nagar', 'Sangrur',
-  'Shaheed Bhagat Singh Nagar', 'Sri Muktsar Sahib', 'Tarn Taran',
+  'All', 'Rupnagar',
 ];
 
 const ALL_ROLES: UserRole[] = [

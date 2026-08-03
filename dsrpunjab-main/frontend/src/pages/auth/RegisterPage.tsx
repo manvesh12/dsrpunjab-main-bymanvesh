@@ -9,13 +9,7 @@ import { toast } from "sonner";
 import { authApi } from "../../api/auth.api";
 import { useAuth } from "../../security/auth.context";
 
-const PUNJAB_DISTRICTS = [
-  "Amritsar", "Barnala", "Bathinda", "Faridkot", "Fatehgarh Sahib",
-  "Fazilka", "Ferozepur", "Gurdaspur", "Hoshiarpur", "Jalandhar",
-  "Kapurthala", "Ludhiana", "Malerkotla", "Mansa", "Moga", "Pathankot",
-  "Patiala", "Rupnagar", "Sahibzada Ajit Singh Nagar", "Sangrur",
-  "Shaheed Bhagat Singh Nagar", "Sri Muktsar Sahib", "Tarn Taran",
-];
+const PUNJAB_DISTRICTS = ["Rupnagar"];
 
 const ROLES = [
   { value: "STATE_ADMIN", label: "State Admin" },

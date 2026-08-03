@@ -82,7 +82,7 @@ export async function getWorkflowSummary(
   const fresh: WorkflowSummary = {
     projectId,
     projectName: `Project ${projectId}`,
-    district: "Jalandhar",
+    district: "Rupnagar",
     status: "draft",
     currentStep: 1,
     totalSteps: 8,

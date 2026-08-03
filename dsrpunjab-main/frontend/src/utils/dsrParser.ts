@@ -32,13 +32,7 @@ export function loadPdfJS(): Promise<any> {
   });
 }
 
-const DISTRICTS = [
-  "Amritsar", "Barnala", "Bathinda", "Faridkot", "Fatehgarh Sahib",
-  "Fazilka", "Ferozepur", "Gurdaspur", "Hoshiarpur", "Jalandhar",
-  "Kapurthala", "Ludhiana", "Malerkotla", "Mansa", "Moga",
-  "Pathankot", "Patiala", "Rupnagar", "Sahibzada Ajit Singh Nagar",
-  "Sangrur", "Shaheed Bhagat Singh Nagar", "Sri Muktsar Sahib", "Tarn Taran"
-];
+const DISTRICTS = ["Rupnagar"];
 
 const chapterDefinitions = [
   { index: 0, label: "CHAPTER 1 - INTRODUCTION", regex: /chapter\s*(?:1|i\b)/i },
