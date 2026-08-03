@@ -1,39 +1,95 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { Bot, ChevronDown, MessageCircleQuestion, Send, Trash2, X } from "lucide-react";
+import { Bot, ChevronDown, LoaderCircle, MessageCircleQuestion, Send, Sparkles, Trash2, X } from "lucide-react";
 import { findAnswer, quickQuestions } from "./knowledgeBase";
+import type { Language } from "./knowledgeBase";
 
 type Message = { id: number; role: "assistant" | "user"; text: string };
 
-const welcomeMessage: Message = {
-  id: 1,
-  role: "assistant",
-  text: "Namaste! Main DSR Help Assistant hoon. Portal, project, report, upload, workflow ya password se related sawal poochhiye.",
+const copy = {
+  en: {
+    title: "DSR Guide Assistant",
+    subtitle: "English • Step-by-step portal help",
+    welcome: "Hello! I’m your DSR Punjab guide. Ask me about projects, reports, uploads, workflow, passwords or portal roles. I’ll guide you step by step.",
+    prompt: "Ask about the DSR Punjab portal…",
+    ask: "Ask a portal question",
+    thinking: "Finding the right steps…",
+    guidance: "Guidance based on portal help",
+    clear: "Clear chat",
+    minimize: "Minimize",
+    open: "Ask DSR Guide",
+    fallback: "I could not find a verified answer for that question. Try asking about creating a project, uploading a report, the DSR workflow, portal roles, password reset or technical support.\n\nFor a technical issue, contact coe@sensrs.com and include the project name, page and a screenshot. Never share your password or OTP.",
+  },
+  pa: {
+    title: "DSR ਮਾਰਗਦਰਸ਼ਕ ਸਹਾਇਕ",
+    subtitle: "ਪੰਜਾਬੀ • ਕਦਮ-ਦਰ-ਕਦਮ ਪੋਰਟਲ ਸਹਾਇਤਾ",
+    welcome: "ਸਤ ਸ੍ਰੀ ਅਕਾਲ! ਮੈਂ ਤੁਹਾਡਾ DSR ਪੰਜਾਬ ਮਾਰਗਦਰਸ਼ਕ ਹਾਂ। ਪ੍ਰੋਜੈਕਟ, ਰਿਪੋਰਟ, ਅੱਪਲੋਡ, ਵਰਕਫਲੋ, ਪਾਸਵਰਡ ਜਾਂ ਪੋਰਟਲ ਭੂਮਿਕਾਵਾਂ ਬਾਰੇ ਪੁੱਛੋ। ਮੈਂ ਤੁਹਾਨੂੰ ਕਦਮ-ਦਰ-ਕਦਮ ਮਦਦ ਕਰਾਂਗਾ।",
+    prompt: "DSR ਪੰਜਾਬ ਪੋਰਟਲ ਬਾਰੇ ਪੁੱਛੋ…",
+    ask: "ਪੋਰਟਲ ਬਾਰੇ ਸਵਾਲ ਪੁੱਛੋ",
+    thinking: "ਸਹੀ ਕਦਮ ਲੱਭੇ ਜਾ ਰਹੇ ਹਨ…",
+    guidance: "ਪੋਰਟਲ ਸਹਾਇਤਾ ਅਧਾਰਿਤ ਮਾਰਗਦਰਸ਼ਨ",
+    clear: "ਚੈਟ ਸਾਫ਼ ਕਰੋ",
+    minimize: "ਛੋਟਾ ਕਰੋ",
+    open: "DSR ਮਦਦ ਪੁੱਛੋ",
+    fallback: "ਇਸ ਸਵਾਲ ਦਾ ਪੱਕਾ ਜਵਾਬ ਪੋਰਟਲ ਸਹਾਇਤਾ ਵਿੱਚ ਨਹੀਂ ਮਿਲਿਆ। ਨਵਾਂ ਪ੍ਰੋਜੈਕਟ ਬਣਾਉਣ, ਰਿਪੋਰਟ ਅੱਪਲੋਡ ਕਰਨ, DSR ਵਰਕਫਲੋ, ਪੋਰਟਲ ਭੂਮਿਕਾਵਾਂ, ਪਾਸਵਰਡ ਰੀਸੈੱਟ ਜਾਂ ਤਕਨੀਕੀ ਸਹਾਇਤਾ ਬਾਰੇ ਪੁੱਛੋ।\n\nਤਕਨੀਕੀ ਸਮੱਸਿਆ ਲਈ coe@sensrs.com ਉੱਤੇ ਪ੍ਰੋਜੈਕਟ ਦਾ ਨਾਮ, ਪੰਨਾ ਅਤੇ ਸਕ੍ਰੀਨਸ਼ਾਟ ਭੇਜੋ। ਆਪਣਾ ਪਾਸਵਰਡ ਜਾਂ OTP ਕਦੇ ਸਾਂਝਾ ਨਾ ਕਰੋ।",
+  },
 };
+
+function welcomeMessage(language: Language): Message {
+  return { id: 1, role: "assistant", text: copy[language].welcome };
+}
 
 export default function SiteAssistant() {
   const [open, setOpen] = useState(false);
+  const [language, setLanguage] = useState<Language>(() => (localStorage.getItem("dsr-assistant-language") === "pa" ? "pa" : "en"));
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Message[]>([welcomeMessage]);
+  const [messages, setMessages] = useState<Message[]>(() => {
+    try {
+      const saved = localStorage.getItem("dsr-assistant-messages");
+      return saved ? JSON.parse(saved) : [welcomeMessage(localStorage.getItem("dsr-assistant-language") === "pa" ? "pa" : "en")];
+    } catch {
+      return [welcomeMessage("en")];
+    }
+  });
+  const [thinking, setThinking] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
-  const nextMessageId = useRef(2);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const nextMessageId = useRef(Math.max(2, ...messages.map((message) => message.id + 1)));
+  const replyTimer = useRef<number | null>(null);
 
   useEffect(() => {
+    localStorage.setItem("dsr-assistant-language", language);
+  }, [language]);
+
+  useEffect(() => {
+    localStorage.setItem("dsr-assistant-messages", JSON.stringify(messages.slice(-30)));
     if (open) endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, open]);
+  }, [messages, open, thinking]);
+
+  useEffect(() => () => {
+    if (replyTimer.current) window.clearTimeout(replyTimer.current);
+  }, []);
+
+  function switchLanguage(nextLanguage: Language) {
+    setLanguage(nextLanguage);
+    setMessages([welcomeMessage(nextLanguage)]);
+    setInput("");
+    setThinking(false);
+    window.setTimeout(() => inputRef.current?.focus(), 0);
+  }
 
   function ask(question: string) {
     const cleanQuestion = question.trim();
-    if (!cleanQuestion) return;
-    const match = findAnswer(cleanQuestion);
-    const reply = match?.answer ?? "Mujhe is sawal ka verified jawab website help mein nahi mila. Aap project, report, upload, workflow, role, password ya support se related sawal pooch sakte hain. Technical issue ke liye coe@sensrs.com par contact karein.";
+    if (!cleanQuestion || thinking) return;
+    const match = findAnswer(cleanQuestion, language);
     const userMessageId = nextMessageId.current++;
-    const assistantMessageId = nextMessageId.current++;
-    setMessages((current) => [
-      ...current,
-      { id: userMessageId, role: "user", text: cleanQuestion },
-      { id: assistantMessageId, role: "assistant", text: reply },
-    ]);
+    setMessages((current) => [...current, { id: userMessageId, role: "user", text: cleanQuestion }]);
     setInput("");
+    setThinking(true);
+    replyTimer.current = window.setTimeout(() => {
+      setMessages((current) => [...current, { id: nextMessageId.current++, role: "assistant", text: match?.answer ?? copy[language].fallback }]);
+      setThinking(false);
+      window.setTimeout(() => inputRef.current?.focus(), 0);
+    }, 450);
   }
 
   function submit(event: FormEvent) {
@@ -41,63 +97,77 @@ export default function SiteAssistant() {
     ask(input);
   }
 
+  function clearChat() {
+    if (replyTimer.current) window.clearTimeout(replyTimer.current);
+    setThinking(false);
+    setMessages([welcomeMessage(language)]);
+    setInput("");
+  }
+
   return (
     <div className="fixed bottom-4 right-4 z-[90] sm:bottom-6 sm:right-6">
       {open && (
-        <section
-          aria-label="DSR Help Assistant"
-          className="mb-3 flex h-[min(610px,calc(100vh-7rem))] w-[min(390px,calc(100vw-2rem))] flex-col overflow-hidden border border-slate-300 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
-        >
-          <header className="flex items-center justify-between bg-[#12396b] px-4 py-3 text-white">
-            <div className="flex items-center gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15"><Bot size={20} /></span>
-              <div><h2 className="text-sm font-extrabold">DSR Help Assistant</h2><p className="text-[11px] text-blue-100">Website help · Free · No AI API</p></div>
+        <section aria-label={copy[language].title} className="mb-3 flex h-[min(650px,calc(100vh-7rem))] w-[min(410px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+          <header className="bg-[#12396b] px-4 pb-3 pt-4 text-white">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15"><Bot size={21} /></span>
+                <div><h2 className="text-sm font-extrabold">{copy[language].title}</h2><p className="mt-0.5 text-[11px] text-blue-100">{copy[language].subtitle}</p></div>
+              </div>
+              <button type="button" onClick={() => setOpen(false)} aria-label="Close chat" className="rounded-lg p-1.5 hover:bg-white/15"><X size={19} /></button>
             </div>
-            <button onClick={() => setOpen(false)} aria-label="Close chat" className="rounded p-1.5 hover:bg-white/15"><X size={19} /></button>
+            <div className="mt-3 flex w-fit rounded-lg bg-[#0b2f59] p-1" role="group" aria-label="Chat language">
+              {(["en", "pa"] as Language[]).map((item) => (
+                <button key={item} type="button" onClick={() => switchLanguage(item)} aria-pressed={language === item} className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${language === item ? "bg-white text-[#12396b] shadow" : "text-blue-100 hover:bg-white/10"}`}>
+                  {item === "en" ? "English" : "ਪੰਜਾਬੀ"}
+                </button>
+              ))}
+            </div>
           </header>
 
           <div aria-live="polite" className="flex-1 space-y-3 overflow-y-auto bg-slate-50 p-4 dark:bg-slate-950">
             {messages.map((message) => (
               <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[88%] px-3 py-2.5 text-sm leading-5 shadow-sm ${message.role === "user" ? "rounded-l-xl rounded-tr-xl bg-[#12396b] text-white" : "rounded-r-xl rounded-tl-xl border border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"}`}>
+                <div className={`max-w-[90%] whitespace-pre-line px-3.5 py-3 text-sm leading-6 shadow-sm ${message.role === "user" ? "rounded-2xl rounded-br-sm bg-[#12396b] text-white" : "rounded-2xl rounded-bl-sm border border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"}`}>
                   {message.text}
                 </div>
               </div>
             ))}
-            {messages.length === 1 && (
-              <div className="grid gap-2 pt-1">
-                {quickQuestions.map((question) => (
-                  <button key={question} onClick={() => ask(question)} className="border border-blue-200 bg-blue-50 px-3 py-2 text-left text-xs font-semibold text-[#12396b] hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/50 dark:text-blue-200">
-                    {question}
-                  </button>
-                ))}
+            {thinking && (
+              <div className="flex justify-start"><div className="flex items-center gap-2 rounded-2xl rounded-bl-sm border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-500 shadow-sm dark:border-slate-700 dark:bg-slate-800"><LoaderCircle size={15} className="animate-spin" />{copy[language].thinking}</div></div>
+            )}
+            {messages.length === 1 && !thinking && (
+              <div className="pt-1">
+                <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500"><Sparkles size={13} />{language === "en" ? "Try a guided question" : "ਮਾਰਗਦਰਸ਼ਿਤ ਸਵਾਲ ਚੁਣੋ"}</div>
+                <div className="grid gap-2">
+                  {quickQuestions[language].map((question) => (
+                    <button key={question} type="button" onClick={() => ask(question)} className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-left text-xs font-semibold leading-5 text-[#12396b] transition hover:border-blue-300 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/50 dark:text-blue-200">
+                      {question}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
             <div ref={endRef} />
           </div>
 
           <div className="border-t border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
-            <form onSubmit={submit} className="flex gap-2">
-              <label className="sr-only" htmlFor="dsr-assistant-input">Ask a website question</label>
-              <input id="dsr-assistant-input" value={input} onChange={(event) => setInput(event.target.value)} maxLength={300} placeholder="Website ke baare mein poochhiye..." className="min-w-0 flex-1 border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#12396b] focus:ring-2 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-950 dark:text-white" />
-              <button type="submit" disabled={!input.trim()} aria-label="Send question" className="flex w-11 items-center justify-center bg-[#12396b] text-white hover:bg-[#0b315d] disabled:cursor-not-allowed disabled:opacity-40"><Send size={18} /></button>
+            <form onSubmit={submit} className="flex items-end gap-2 rounded-xl border border-slate-300 bg-white p-1.5 focus-within:border-[#12396b] focus-within:ring-2 focus-within:ring-blue-100 dark:border-slate-600 dark:bg-slate-950">
+              <label className="sr-only" htmlFor="dsr-assistant-input">{copy[language].ask}</label>
+              <input ref={inputRef} id="dsr-assistant-input" value={input} onChange={(event) => setInput(event.target.value)} maxLength={500} autoComplete="off" placeholder={copy[language].prompt} className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm outline-none dark:text-white" />
+              <button type="submit" disabled={!input.trim() || thinking} aria-label="Send question" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#12396b] text-white hover:bg-[#0b315d] disabled:cursor-not-allowed disabled:opacity-40"><Send size={18} /></button>
             </form>
-            <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400">
-              <span>Website guidance only</span>
-              <button onClick={() => setMessages([welcomeMessage])} className="flex items-center gap-1 hover:text-red-600"><Trash2 size={11} /> Clear chat</button>
+            <div className="mt-2 flex items-center justify-between gap-3 text-[10px] text-slate-400">
+              <span>{copy[language].guidance}</span>
+              <button type="button" onClick={clearChat} className="flex shrink-0 items-center gap-1 hover:text-red-600"><Trash2 size={11} /> {copy[language].clear}</button>
             </div>
           </div>
         </section>
       )}
 
-      <button
-        onClick={() => setOpen((value) => !value)}
-        aria-expanded={open}
-        aria-label={open ? "Minimize DSR Help Assistant" : "Open DSR Help Assistant"}
-        className="ml-auto flex items-center gap-2 rounded-full border-2 border-white bg-[#12396b] px-4 py-3 text-sm font-extrabold text-white shadow-xl transition hover:bg-[#0b315d] focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-amber-400"
-      >
+      <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-label={open ? copy[language].minimize : copy[language].open} className="ml-auto flex items-center gap-2 rounded-full border-2 border-white bg-[#12396b] px-4 py-3 text-sm font-extrabold text-white shadow-xl transition hover:-translate-y-0.5 hover:bg-[#0b315d] focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-amber-400">
         {open ? <ChevronDown size={20} /> : <MessageCircleQuestion size={21} />}
-        <span>{open ? "Minimize" : "DSR Help"}</span>
+        <span>{open ? copy[language].minimize : copy[language].open}</span>
       </button>
     </div>
   );
