@@ -12,6 +12,7 @@ import {
   FolderKanban,
   Landmark,
   MapPinned,
+  RefreshCw,
   ScrollText,
   Settings,
   ShieldCheck,
@@ -83,6 +84,15 @@ function dashboardRole(role: string, canReview: boolean, canGenerate: boolean) {
 }
 
 function projectStatus(project: ProjectListItem) {
+  const stageLabels: Record<string, string> = {
+    DMO: "In preparation",
+    COE_SENSRS: "Replenishment",
+    REVIEWER: "Under review",
+    HEAD_OFFICE: "Final approval",
+    COMPLETED: "Completed",
+  };
+  const workflowStage = project.workflow?.stage;
+  if (workflowStage && stageLabels[workflowStage]) return stageLabels[workflowStage];
   return String(project.status || "Draft").replace(/_/g, " ");
 }
 
@@ -103,24 +113,31 @@ export default function DashboardPage() {
   const profile = dashboardRole(role, canReview, canGenerate);
   const details = roleDetails[profile];
 
-  const { data: projectResponse, isLoading: projectsLoading, isError: projectsError } = useQuery({
+  const { data: projectResponse, isLoading: projectsLoading, isError: projectsError, isFetching: projectsRefreshing, dataUpdatedAt, refetch: refreshProjects } = useQuery({
     queryKey: ["projects", "dashboard", profile],
     queryFn: () => projectsApi.list({ limit: 100 }),
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: true,
   });
   const { data: noticeSetting } = useQuery({
     queryKey: ["settings", "notice_text"],
     queryFn: () => settingsApi.get("notice_text"),
+    refetchInterval: 30_000,
   });
 
   const projects = projectResponse?.data || [];
-  const workProjects = projects.filter((project) => !project.phaseLocked && !["COMPLETED", "APPROVED", "ARCHIVED"].includes(String(project.status).toUpperCase()));
-  const completedProjects = projects.filter((project) => ["COMPLETED", "APPROVED"].includes(String(project.status).toUpperCase()));
-  const reviewProjects = projects.filter((project) => String(project.status).toUpperCase().includes("REVIEW"));
+  const isWorkflowComplete = (project: ProjectListItem) => project.workflow?.stage === "COMPLETED" || ["COMPLETED", "APPROVED"].includes(String(project.status).toUpperCase());
+  const workProjects = projects.filter((project) => !project.phaseLocked && !isWorkflowComplete(project) && String(project.status).toUpperCase() !== "ARCHIVED");
+  const completedProjects = projects.filter(isWorkflowComplete);
+  const reviewProjects = projects.filter((project) => ["REVIEWER", "HEAD_OFFICE"].includes(String(project.workflow?.stage || "")));
   const readyToGenerate = projects.filter((project) => overallProjectProgress(project) >= 85 || ["APPROVED", "COMPLETED"].includes(String(project.status).toUpperCase()));
+  const activeDistricts = new Set(workProjects.map((project) => String(project.districtId || project.district || "")).filter(Boolean)).size;
   const queue = [...(profile === "review" ? reviewProjects : workProjects)].sort((a, b) => overallProjectProgress(b) - overallProjectProgress(a)).slice(0, 5);
   const notices = noticeSetting?.value || "Use the portal only for official District Survey Report preparation, review and approval activities.";
   const actions = roleActions(profile, canCreate, canReview, canGenerate);
-  const metrics = roleMetrics(profile, projects.length, workProjects.length, reviewProjects.length, completedProjects.length, readyToGenerate.length);
+  const metrics = roleMetrics(profile, projects.length, workProjects.length, reviewProjects.length, completedProjects.length, readyToGenerate.length, activeDistricts);
 
   if (role === "COE_SENSRS") {
     return (
@@ -161,6 +178,10 @@ export default function DashboardPage() {
               <p className="text-[10px] font-extrabold uppercase tracking-[.1em] text-[#9a5a08]">Signed in as</p>
               <p className="mt-1 text-sm font-extrabold text-[#102f55] dark:text-white">{user?.fullName || "Authorised user"}</p>
               <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">{user?.uiRole || "Department user"}</p>
+              <div className="mt-3 flex items-center justify-between gap-3 border-t border-amber-200 pt-2 dark:border-amber-900/60">
+                <span className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wide text-emerald-700 dark:text-emerald-400"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Live</span>
+                <button type="button" onClick={() => void refreshProjects()} disabled={projectsRefreshing} className="flex items-center gap-1 text-[10px] font-bold text-[#123c6e] hover:underline disabled:opacity-60 dark:text-blue-300" title={dataUpdatedAt ? `Updated ${new Date(dataUpdatedAt).toLocaleTimeString("en-IN")}` : "Refresh dashboard"}><RefreshCw size={11} className={projectsRefreshing ? "animate-spin" : ""} /> Refresh</button>
+              </div>
             </div>
           </div>
         </div>
@@ -219,10 +240,10 @@ export default function DashboardPage() {
   );
 }
 
-function roleMetrics(role: DashboardRole, total: number, active: number, review: number, completed: number, ready: number) {
-  const common = { total, active, review, completed, ready };
+function roleMetrics(role: DashboardRole, total: number, active: number, review: number, completed: number, ready: number, activeDistricts: number) {
+  const common = { total, active, review, completed, ready, activeDistricts };
   const byRole: Record<DashboardRole, Array<{ label: string; value: number; detail: string; icon: LucideIcon; tone: string }>> = {
-    state: [{ label: "Registered DSRs", value: common.total, detail: "Statewide project register", icon: FolderKanban, tone: "blue" }, { label: "Active districts", value: common.active, detail: "Reports under preparation", icon: MapPinned, tone: "teal" }, { label: "Pending review", value: common.review, detail: "Awaiting authority action", icon: ShieldCheck, tone: "amber" }, { label: "Completed reports", value: common.completed, detail: "Approved or finalised", icon: CheckCircle2, tone: "green" }],
+    state: [{ label: "Registered DSRs", value: common.total, detail: "Statewide project register", icon: FolderKanban, tone: "blue" }, { label: "Active districts", value: common.activeDistricts, detail: "Districts with active reports", icon: MapPinned, tone: "teal" }, { label: "Pending review", value: common.review, detail: "Reviewer or Head Office stage", icon: ShieldCheck, tone: "amber" }, { label: "Completed reports", value: common.completed, detail: "Approved or finalised", icon: CheckCircle2, tone: "green" }],
     district: [{ label: "District projects", value: common.total, detail: "Available in your register", icon: FolderKanban, tone: "blue" }, { label: "In preparation", value: common.active, detail: "Current district workload", icon: Activity, tone: "teal" }, { label: "For review", value: common.review, detail: "Ready for scrutiny", icon: ClipboardCheck, tone: "amber" }, { label: "Finalised", value: common.completed, detail: "Completed DSRs", icon: CheckCircle2, tone: "green" }],
     review: [{ label: "Review queue", value: common.review, detail: "Reports under review", icon: ClipboardCheck, tone: "amber" }, { label: "Active reports", value: common.active, detail: "Preparing for submission", icon: FolderKanban, tone: "blue" }, { label: "Approved", value: common.completed, detail: "Completed decisions", icon: ShieldCheck, tone: "green" }, { label: "Register coverage", value: common.total, detail: "Available report records", icon: MapPinned, tone: "teal" }],
     publishing: [{ label: "Ready for publication", value: common.ready, detail: "High-completion reports", icon: FileCheck2, tone: "green" }, { label: "Approved / final", value: common.completed, detail: "Controlled final reports", icon: CheckCircle2, tone: "blue" }, { label: "In preparation", value: common.active, detail: "Awaiting source completion", icon: FolderKanban, tone: "teal" }, { label: "Total register", value: common.total, detail: "Available reports", icon: ScrollText, tone: "amber" }],
@@ -275,6 +296,9 @@ function WorkflowOverview({ projects, canReview }: { projects: ProjectListItem[]
     queryKey: ["project", selectedProjectId],
     queryFn: () => projectsApi.get(selectedProjectId),
     enabled: Boolean(selectedProjectId),
+    staleTime: 0,
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: true,
   });
 
   const project = selectedProject || selectedListProject;
