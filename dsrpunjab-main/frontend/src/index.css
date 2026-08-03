@@ -10,6 +10,45 @@
 body { @apply m-0 bg-[#f3f4f6] dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased min-h-screen transition-colors duration-300; font-family: "Noto Sans", "Segoe UI", Arial, sans-serif; }
 button, input, select, textarea { font: inherit; }
 
+/* Whole-site English/Punjabi translation control. */
+.website-language-selector {
+  position: fixed;
+  top: 4px;
+  right: 12px;
+  z-index: 1000;
+  display: flex;
+  min-height: 28px;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgb(255 255 255 / .35);
+  border-radius: 4px;
+  background: #0b315d;
+  padding: 2px 7px;
+  color: #fff;
+  box-shadow: 0 2px 8px rgb(15 23 42 / .18);
+}
+.website-language-selector select {
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  padding: 2px 20px 2px 2px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  outline: none;
+}
+.website-language-selector option { background: #fff; color: #0f172a; }
+.website-language-selector #google_translate_element { display: none !important; }
+.goog-te-banner-frame.skiptranslate,
+.goog-te-gadget,
+body > .skiptranslate { display: none !important; }
+body { top: 0 !important; }
+html[lang="pa"] body { font-family: "Noto Sans Gurmukhi", "Nirmala UI", "Noto Sans", "Segoe UI", sans-serif; }
+@media (max-width: 640px) {
+  .website-language-selector { right: 6px; }
+  .website-language-selector select { max-width: 88px; }
+}
+
 :root { color-scheme: light; }
 .dark { color-scheme: dark; }
 
