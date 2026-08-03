@@ -84,21 +84,13 @@ export default function WebsiteLanguageSelector() {
   }
 
   return (
-    <div className="website-language-selector notranslate" translate="no">
-      <Languages size={16} aria-hidden="true" />
-      <label className="sr-only" htmlFor="website-language">Website language</label>
-      <select
-        id="website-language"
-        value={language}
-        onChange={(event) => changeLanguage(event.target.value as WebsiteLanguage)}
-        aria-label="Website language"
-        title="Translate the complete website"
-      >
-        <option value="en">English</option>
-        <option value="pa">ਪੰਜਾਬੀ</option>
-      </select>
+    <div className="website-language-selector notranslate" translate="no" role="group" aria-label="Website language">
+      <span className="website-language-label"><Languages size={16} aria-hidden="true" /> Language</span>
+      <div className="website-language-options">
+        <button type="button" onClick={() => changeLanguage("en")} aria-pressed={language === "en"} className={language === "en" ? "is-active" : ""}>EN</button>
+        <button type="button" onClick={() => changeLanguage("pa")} aria-pressed={language === "pa"} className={language === "pa" ? "is-active" : ""}>ਪੰਜਾਬੀ</button>
+      </div>
       <div id="google_translate_element" aria-hidden="true" />
     </div>
   );
 }
-
