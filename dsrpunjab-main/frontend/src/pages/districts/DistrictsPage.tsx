@@ -2,13 +2,7 @@ import { MapPin, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import PageHeader from "../../components/layout/PageHeader";
 
-const PUNJAB_DISTRICTS = [
-  "Amritsar", "Barnala", "Bathinda", "Faridkot", "Fatehgarh Sahib", "Fazilka",
-  "Ferozepur", "Gurdaspur", "Hoshiarpur", "Jalandhar", "Kapurthala", "Ludhiana",
-  "Malerkotla", "Mansa", "Moga", "Pathankot", "Patiala", "Rupnagar",
-  "Sahibzada Ajit Singh Nagar", "Sangrur", "Shaheed Bhagat Singh Nagar",
-  "Sri Muktsar Sahib", "Tarn Taran",
-];
+const PUNJAB_DISTRICTS = ["Rupnagar"];
 
 export default function DistrictsPage() {
   const [search, setSearch] = useState("");
@@ -16,10 +10,10 @@ export default function DistrictsPage() {
     district.toLowerCase().includes(search.trim().toLowerCase())), [search]);
 
   return <>
-    <PageHeader title="Punjab Districts" description="District directory for District Survey Reports" />
+    <PageHeader title="Rupnagar District" description="District directory for Rupnagar Survey Reports" />
     <section className="mx-auto max-w-6xl">
       <div className="mb-6 flex flex-col gap-4 rounded-3xl border border-slate-200 bg-gradient-to-r from-blue-700 to-indigo-700 p-6 text-white shadow-lg sm:flex-row sm:items-center sm:justify-between">
-        <div><p className="text-sm font-semibold text-blue-100">District Survey Report Portal</p><h2 className="mt-1 text-2xl font-black">{PUNJAB_DISTRICTS.length} Districts of Punjab</h2></div>
+        <div><p className="text-sm font-semibold text-blue-100">District Survey Report Portal</p><h2 className="mt-1 text-2xl font-black">Rupnagar District</h2></div>
         <div className="relative w-full sm:w-80"><Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search district..." className="w-full rounded-xl border-0 bg-white py-3 pl-11 pr-4 text-sm font-semibold text-slate-800 outline-none ring-2 ring-white/20 placeholder:text-slate-400 focus:ring-white/70" /></div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

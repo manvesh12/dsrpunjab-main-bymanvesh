@@ -72,7 +72,10 @@ export default function UploadedFilePreview({
           const pdfjs = await loadPdfJS();
           const pdf = await pdfjs.getDocument({ data: await blob.arrayBuffer() }).promise;
           const sourcePage = await pdf.getPage(Math.min(Math.max(pdfPage, 1), pdf.numPages));
-          const viewport = sourcePage.getViewport({ scale: 1.65 });
+          // Render at print-friendly density so fine text remains readable on
+          // high-DPI screens while keeping memory usage bounded.
+          const previewScale = Math.min(3, Math.max(2.25, window.devicePixelRatio || 1));
+          const viewport = sourcePage.getViewport({ scale: previewScale });
           const canvas = document.createElement("canvas");
           const context = canvas.getContext("2d");
           if (!context) throw new Error("PDF preview canvas is unavailable");

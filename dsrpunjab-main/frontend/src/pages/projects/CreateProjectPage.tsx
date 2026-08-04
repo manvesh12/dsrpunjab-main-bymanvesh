@@ -11,31 +11,7 @@ import {
   type ProjectFormData,
 } from "../../schemas/project.schema";
 
-const districts = [
-  "Amritsar",
-  "Barnala",
-  "Bathinda",
-  "Faridkot",
-  "Fatehgarh Sahib",
-  "Fazilka",
-  "Ferozepur",
-  "Gurdaspur",
-  "Hoshiarpur",
-  "Jalandhar",
-  "Kapurthala",
-  "Ludhiana",
-  "Malerkotla",
-  "Mansa",
-  "Moga",
-  "Pathankot",
-  "Patiala",
-  "Rupnagar",
-  "Sahibzada Ajit Singh Nagar",
-  "Sangrur",
-  "Shaheed Bhagat Singh Nagar",
-  "Sri Muktsar Sahib",
-  "Tarn Taran",
-];
+const districts = ["Rupnagar"];
 
 export default function CreateProjectPage() {
   const navigate = useNavigate();
@@ -49,7 +25,7 @@ export default function CreateProjectPage() {
 
     defaultValues: {
       projectName: "",
-      district: "Jalandhar",
+      district: "Rupnagar",
       year: "2025-26",
       mineral: "Sand",
       rivers: "",

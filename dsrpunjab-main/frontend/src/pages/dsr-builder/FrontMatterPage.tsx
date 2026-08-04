@@ -20,7 +20,7 @@ import {
   type ContentEntry,
 } from "../../utils/contentPage";
 
-const defaults = { title:"District Survey Report for Sand Mining", district:"Jalandhar", state:"Punjab", year:"2025-26", version:"Final Draft", preparedBy:"Sub-Divisional Committee, Jalandhar District", assistedBy:"RSP Green Development and Laboratories Pvt. Ltd.", preface:"This District Survey Report has been prepared in compliance with EMGSM 2020 and records sand mining activity, river morphology, mineral deposits and replenishment studies.", acknowledgement:"The Sub-Divisional Committee acknowledges the support of the Government of Punjab, Department of Geology and Mining, and field surveyors." };
+const defaults = { title:"District Survey Report for Sand Mining", district:"Rupnagar", state:"Punjab", year:"2025-26", version:"Final Draft", preparedBy:"Sub-Divisional Committee, Rupnagar District", assistedBy:"RSP Green Development and Laboratories Pvt. Ltd.", preface:"This District Survey Report has been prepared in compliance with EMGSM 2020 and records sand mining activity, river morphology, mineral deposits and replenishment studies.", acknowledgement:"The Sub-Divisional Committee acknowledges the support of the Government of Punjab, Department of Geology and Mining, and field surveyors." };
 type UploadRecord={name:string;url?:string};
 
 function pdfSafeText(value: string) {

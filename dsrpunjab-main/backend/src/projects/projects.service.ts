@@ -18,7 +18,11 @@ export class ProjectsService {
 
   list(user: AuthUser) {
     const districtId = assignedDistrictFor(user);
-    return this.repository.listAccessible(user.id, districtId, canAdmin(user.role));
+    // Head Office has district-wide oversight just like the direct-access policy
+    // below.  Do not make visibility depend on ProjectMember rows: older
+    // Rupnagar projects may predate those assignments.
+    const hasGlobalProjectVisibility = canAdmin(user.role) || user.role === "HEAD_OFFICE";
+    return this.repository.listAccessible(user.id, districtId, hasGlobalProjectVisibility);
   }
 
   async create(body: any, user: AuthUser) {
@@ -268,12 +272,16 @@ export class ProjectsService {
   }
 
   private async requestedDistrictId(body: any) {
-    if (body?.districtId) return BigInt(body.districtId);
     const districtName = String(body?.district || "").trim();
-    if (!districtName || districtName.toUpperCase() === "ALL") return null;
-    const district = await this.repository.findDistrictByName(districtName);
-    if (!district) throw new ApiError(400, "INVALID_DISTRICT", `District '${districtName}' not found`);
-    return district.id;
+    if (districtName && districtName.toLowerCase() !== "rupnagar") {
+      throw new ApiError(400, "RUPNAGAR_ONLY", "This portal accepts projects for Rupnagar district only.");
+    }
+    const rupnagar = await this.repository.findDistrictByName("Rupnagar");
+    if (!rupnagar) throw new ApiError(500, "RUPNAGAR_NOT_CONFIGURED", "Rupnagar district is not configured.");
+    if (body?.districtId && BigInt(body.districtId) !== rupnagar.id) {
+      throw new ApiError(400, "RUPNAGAR_ONLY", "This portal accepts projects for Rupnagar district only.");
+    }
+    return rupnagar.id;
   }
 
   private requireAdmin(role: string, message: string) {

@@ -4,29 +4,7 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 const PUNJAB_DISTRICTS = [
-  ["Amritsar", "AMR"],
-  ["Barnala", "BNL"],
-  ["Bathinda", "BTI"],
-  ["Faridkot", "FDK"],
-  ["Fatehgarh Sahib", "FGS"],
-  ["Fazilka", "FZK"],
-  ["Ferozepur", "FZR"],
-  ["Gurdaspur", "GDP"],
-  ["Hoshiarpur", "HSP"],
-  ["Jalandhar", "JAL"],
-  ["Kapurthala", "KPT"],
-  ["Ludhiana", "LDH"],
-  ["Malerkotla", "MLK"],
-  ["Mansa", "MNS"],
-  ["Moga", "MOG"],
-  ["Pathankot", "PTK"],
-  ["Patiala", "PTA"],
   ["Rupnagar", "RPN"],
-  ["Sahibzada Ajit Singh Nagar", "SAS"],
-  ["Sangrur", "SGR"],
-  ["Shaheed Bhagat Singh Nagar", "SBS"],
-  ["Sri Muktsar Sahib", "SMS"],
-  ["Tarn Taran", "TNT"],
 ] as const;
 
 const modulePermissions = {
@@ -167,19 +145,19 @@ async function main() {
     },
   });
 
-  const jalandhar = districts.find((district) => district.code === "JAL");
-  if (!jalandhar) throw new Error("Jalandhar district was not created.");
+  const rupnagar = districts.find((district) => district.code === "RPN");
+  if (!rupnagar) throw new Error("Rupnagar district was not created.");
 
   await prisma.user.createMany({
     data: [
       {
-        username: "dmo.jalandhar",
-        email: "dmo.jalandhar@punjab.gov.in",
+        username: "dmo.rupnagar",
+        email: "dmo.rupnagar@punjab.gov.in",
         password,
-        fullName: "DMO Jalandhar",
+        fullName: "DMO Rupnagar",
         role: "DMO",
         stateId: state.id,
-        districtId: jalandhar.id,
+        districtId: rupnagar.id,
         active: true,
       },
       {
@@ -189,7 +167,7 @@ async function main() {
         fullName: "COE SENSRS",
         role: "COE_SENSRS",
         stateId: state.id,
-        districtId: jalandhar.id,
+        districtId: rupnagar.id,
         active: true,
       },
       {
@@ -199,7 +177,7 @@ async function main() {
         fullName: "DSR Reviewer",
         role: "REVIEWER",
         stateId: state.id,
-        districtId: jalandhar.id,
+        districtId: rupnagar.id,
         active: true,
       },
       {

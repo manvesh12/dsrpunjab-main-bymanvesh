@@ -1,13 +1,12 @@
 import type { AuditEvent, AuditFilter } from "../features/audit/types/audit.types";
 
 const MOCK_LOGS: AuditEvent[] = [
-  { id: '1', performedAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(), projectName: 'Jalandhar DSR 2026', performedBy: 'Admin User', action: 'APPROVE', remarks: 'Approved the initial draft.' },
-  { id: '2', performedAt: new Date(Date.now() - 1000 * 60 * 60).toISOString(), projectName: 'Ludhiana Sand Mining', performedBy: 'John Doe', action: 'PROJECT_CREATED', remarks: 'Created new project for Ludhiana.' },
-  { id: '3', performedAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(), projectName: 'Amritsar Quarry', performedBy: 'Jane Smith', action: 'REJECT', remarks: 'Rejected due to incomplete documentation.' },
+  { id: '1', performedAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(), projectName: 'Rupnagar DSR 2026', performedBy: 'Admin User', action: 'APPROVE', remarks: 'Approved the initial draft.' },
+  { id: '2', performedAt: new Date(Date.now() - 1000 * 60 * 60).toISOString(), projectName: 'Rupnagar Sand Mining', performedBy: 'District Officer', action: 'PROJECT_CREATED', remarks: 'Created new project for Rupnagar.' },
   { id: '4', performedAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), projectName: null, performedBy: 'System', action: 'LOGIN', remarks: 'Admin user logged in.' },
-  { id: '5', performedAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(), projectName: 'Patiala Mining', performedBy: 'District Officer', action: 'DOCUMENT_UPLOADED', remarks: 'Uploaded site survey report.' },
-  { id: '6', performedAt: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(), projectName: 'Pathankot Quarry', performedBy: 'Reviewer', action: 'SECTION_REVIEW_REPLY', remarks: 'Added comment on section 3.' },
-  { id: '7', performedAt: new Date(Date.now() - 1000 * 60 * 60 * 96).toISOString(), projectName: 'Jalandhar DSR 2026', performedBy: 'Admin User', action: 'FORWARD', remarks: 'Forwarded to higher authority for review.' },
+  { id: '5', performedAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(), projectName: 'Rupnagar DSR 2026', performedBy: 'District Officer', action: 'DOCUMENT_UPLOADED', remarks: 'Uploaded site survey report.' },
+  { id: '6', performedAt: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(), projectName: 'Rupnagar DSR 2026', performedBy: 'Reviewer', action: 'SECTION_REVIEW_REPLY', remarks: 'Added comment on section 3.' },
+  { id: '7', performedAt: new Date(Date.now() - 1000 * 60 * 60 * 96).toISOString(), projectName: 'Rupnagar DSR 2026', performedBy: 'Admin User', action: 'FORWARD', remarks: 'Forwarded to higher authority for review.' },
 ];
 
 export const auditApi = {

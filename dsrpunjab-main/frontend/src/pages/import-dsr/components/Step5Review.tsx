@@ -39,7 +39,7 @@ export default function Step5Review({ onImportComplete }: Step5ReviewProps) {
           <div className="space-y-4 rounded-xl border border-blue-100 bg-white p-4 shadow-sm dark:border-blue-900/30 dark:bg-slate-800">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">District</p>
-              <p className="font-medium text-slate-900 dark:text-white">Ludhiana</p>
+              <p className="font-medium text-slate-900 dark:text-white">Rupnagar</p>
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Area</p>
@@ -93,7 +93,7 @@ export default function Step5Review({ onImportComplete }: Step5ReviewProps) {
           <div className="space-y-4">
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">District Name</label>
-              <input type="text" defaultValue="Ludhiana" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
+              <input type="text" defaultValue="Rupnagar" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Area (Sq. Km)</label>
@@ -207,5 +207,4 @@ export default function Step5Review({ onImportComplete }: Step5ReviewProps) {
     </div>
   );
 }
-
 
