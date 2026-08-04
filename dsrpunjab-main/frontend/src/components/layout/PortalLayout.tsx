@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Outlet, useParams, useLocation, useNavigate } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
 import SectionReviewWidget from "../ui/SectionReviewWidget";
@@ -10,12 +10,14 @@ import { Permission } from "../../security/access";
 export default function PortalLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const params = useParams();
   const location = useLocation();
   const { hasPermission } = useAuth();
 
-  // Show floating panels only when inside a project
-  const hasProject = !!params.projectId;
+  // PortalLayout is the parent of the project routes, so useParams() here does
+  // not receive params declared by its children. Resolve the project from the
+  // current URL instead, otherwise reviewer controls never render.
+  const projectId = location.pathname.match(/^\/projects\/([^/]+)/)?.[1];
+  const hasProject = Boolean(projectId);
 
   // Show the section review widget only on actual DSR section pages
   // (not on project overview, not on reviewer page)
@@ -43,11 +45,13 @@ export default function PortalLayout() {
         </main>
       </div>
 
-      {/* Bottom-right: Context-aware section review widget (on DSR section pages only) */}
-      {isOnSectionPage && (hasPermission(Permission.SectionReviewOnly) || hasPermission(Permission.ReportApprove)) && <SectionReviewWidget />}
+      {/* Reviewers can annotate from the project overview or any accessible section. */}
+      {hasProject && !location.pathname.includes("/reviewer") &&
+        (hasPermission(Permission.SectionReviewOnly) || hasPermission(Permission.ReportApprove)) &&
+        <SectionReviewWidget />}
 
       {/* Left-edge: Floating Back to Project arrow tab (visible on section pages only) */}
-      {isOnSectionPage && <BackToProjectTab projectId={params.projectId!} />}
+      {isOnSectionPage && projectId && <BackToProjectTab projectId={projectId} />}
     </div>
   );
 }

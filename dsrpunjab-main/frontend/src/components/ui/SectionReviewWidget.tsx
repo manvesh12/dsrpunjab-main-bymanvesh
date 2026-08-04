@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation, useParams } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import {
   Check,
   CheckCheck,
@@ -370,9 +370,9 @@ function SectionReviewForm({ pathname, projectId }: ReviewFormProps) {
 }
 
 export default function SectionReviewWidget() {
-  const { projectId = "1" } = useParams();
   const { pathname } = useLocation();
+  const projectId = pathname.match(/^\/projects\/([^/]+)/)?.[1];
 
-  if (pathname.includes("/reviewer")) return null;
+  if (!projectId || pathname.includes("/reviewer")) return null;
   return <SectionReviewForm key={`${projectId}:${pathname}`} pathname={pathname} projectId={projectId} />;
 }

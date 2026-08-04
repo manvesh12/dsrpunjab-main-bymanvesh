@@ -18,7 +18,11 @@ export class ProjectsService {
 
   list(user: AuthUser) {
     const districtId = assignedDistrictFor(user);
-    return this.repository.listAccessible(user.id, districtId, canAdmin(user.role));
+    // Head Office has district-wide oversight just like the direct-access policy
+    // below.  Do not make visibility depend on ProjectMember rows: older
+    // Rupnagar projects may predate those assignments.
+    const hasGlobalProjectVisibility = canAdmin(user.role) || user.role === "HEAD_OFFICE";
+    return this.repository.listAccessible(user.id, districtId, hasGlobalProjectVisibility);
   }
 
   async create(body: any, user: AuthUser) {
