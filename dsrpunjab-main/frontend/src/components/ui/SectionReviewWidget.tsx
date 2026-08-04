@@ -158,7 +158,7 @@ function SectionReviewForm({ pathname, projectId }: ReviewFormProps) {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <div className="fixed bottom-4 left-4 z-50 sm:bottom-6 sm:left-6 lg:left-[19.5rem]">
       {expanded && (
         <div
           className="mb-3 w-[min(360px,calc(100vw-3rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
