@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { notificationHref, notificationsApi, type PortalNotification } from "../../api/notifications.api";
 import { useAuth } from "../../security/auth.context";
 import ThemeToggle from "../ui/ThemeToggle";
+import WebsiteLanguageSelector from "../ui/WebsiteLanguageSelector";
 
 type HeaderProps = {
   onMenuClick: () => void;
@@ -65,7 +66,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
     <header className="gov-header sticky top-0 z-20 border-b-[3px] border-[#e49b17] bg-white shadow-sm dark:bg-[#0b1c2e]">
       <div className="gov-utility-bar">
         <div className="flex items-center gap-2"><Landmark size={13} /><span>Government of Punjab</span><span className="opacity-50">|</span><span>Department of Mines &amp; Geology</span></div>
-        <div className="hidden items-center gap-3 sm:flex"><span>ਪੰਜਾਬ ਸਰਕਾਰ</span><span className="opacity-50">|</span><span>English</span></div>
+        <WebsiteLanguageSelector />
       </div>
       <div className="flex min-h-[82px] items-center gap-3 px-4 md:px-6">
       <button

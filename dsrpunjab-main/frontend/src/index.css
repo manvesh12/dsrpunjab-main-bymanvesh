@@ -13,26 +13,20 @@ button, input, select, textarea { font: inherit; }
 
 /* Whole-site English/Punjabi translation control. */
 .website-language-selector {
-  position: fixed;
-  bottom: 16px;
-  left: 16px;
-  z-index: 1000;
   display: flex;
-  min-height: 42px;
+  min-height: 28px;
   align-items: center;
-  gap: 10px;
-  border: 1px solid #cbd5e1;
+  gap: 7px;
+  border: 1px solid rgb(255 255 255 / .35);
   border-radius: 999px;
-  background: rgb(255 255 255 / .97);
-  padding: 5px 6px 5px 12px;
-  color: #12396b;
-  box-shadow: 0 8px 24px rgb(15 23 42 / .18);
-  backdrop-filter: blur(10px);
+  background: rgb(255 255 255 / .1);
+  padding: 2px 3px 2px 8px;
+  color: #fff;
 }
 .website-language-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; }
 .website-language-options { display: flex; align-items: center; gap: 2px; border-radius: 999px; background: #e8eef5; padding: 2px; }
 .website-language-options button {
-  min-height: 30px;
+  min-height: 23px;
   border-radius: 999px;
   padding: 4px 10px;
   color: #475569;
@@ -42,7 +36,7 @@ button, input, select, textarea { font: inherit; }
 }
 .website-language-options button:hover { color: #12396b; }
 .website-language-options button.is-active { background: #12396b; color: #fff; box-shadow: 0 1px 4px rgb(15 23 42 / .2); }
-.dark .website-language-selector { border-color: #475569; background: rgb(15 23 42 / .96); color: #bfdbfe; }
+.dark .website-language-selector { border-color: rgb(255 255 255 / .35); background: rgb(255 255 255 / .1); color: #fff; }
 .dark .website-language-options { background: #1e293b; }
 .dark .website-language-options button { color: #cbd5e1; }
 .dark .website-language-options button.is-active { background: #2563eb; color: #fff; }
@@ -53,7 +47,7 @@ body > .skiptranslate { display: none !important; }
 body { top: 0 !important; }
 html[lang="pa"] body { font-family: "Noto Sans Gurmukhi", "Nirmala UI", "Noto Sans", "Segoe UI", sans-serif; }
 @media (max-width: 640px) {
-  .website-language-selector { bottom: 8px; left: 8px; gap: 6px; padding-left: 9px; }
+  .website-language-selector { gap: 5px; padding-left: 7px; }
   .website-language-label { font-size: 0; gap: 0; }
   .website-language-label svg { width: 17px; height: 17px; }
 }
