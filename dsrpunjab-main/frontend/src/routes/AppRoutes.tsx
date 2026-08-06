@@ -33,6 +33,7 @@ import ImportDsrPage from "../pages/import-dsr/ImportDsrPage";
 import NotificationsPage from "../pages/notifications/NotificationsPage";
 import { Permission } from "../security/access";
 import DelegatedSessionLoginPage from "../pages/auth/DelegatedSessionLoginPage";
+import ForgotPasswordPage from "../pages/auth/ForgotPasswordPage";
 export default function AppRoutes() {
   return (
     <Routes>
@@ -44,6 +45,7 @@ export default function AppRoutes() {
 
       {/* Public routes */}
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/register/complete" element={<RegisterPage />} />
       <Route path="/session-login" element={<DelegatedSessionLoginPage />} />

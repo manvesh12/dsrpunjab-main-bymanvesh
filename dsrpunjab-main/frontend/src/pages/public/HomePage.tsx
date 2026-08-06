@@ -1,113 +1,255 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
+  ArrowRight,
   Bell,
+  Building2,
   ChevronRight,
   CircleHelp,
   ExternalLink,
+  FileCheck2,
   FileText,
+  FolderOpen,
   Landmark,
   LockKeyhole,
   Mail,
   MapPinned,
-  Menu,
   ShieldCheck,
+  UsersRound,
   Workflow,
 } from "lucide-react";
-import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import { settingsApi } from "../../api/settings.api";
-import ThemeToggle from "../../components/ui/ThemeToggle";
+import PublicSiteFooter from "../../components/public/PublicSiteFooter";
+import PublicSiteHeader from "../../components/public/PublicSiteHeader";
 
-type Announcement = { title: string; date?: string; category?: string; active?: boolean };
+type Announcement = {
+  title: string;
+  date?: string;
+  category?: string;
+  active?: boolean;
+};
 
-const services = [
-  { icon: FileText, title: "District Survey Report Workspace", text: "Prepare, update and maintain chapter-wise DSR content.", to: "/login" },
-  { icon: Workflow, title: "Review and Approval Workflow", text: "Track submissions, observations and authority-level approvals.", to: "/login" },
-  { icon: MapPinned, title: "District Directory", text: "Access district-wise DSR projects and reporting coverage.", to: "/districts" },
-  { icon: CircleHelp, title: "Portal Helpdesk", text: "Find assistance for portal access and report preparation.", to: "#contact" },
+const fallbackNotices: Announcement[] = [
+  { title: "District Survey Report portal is available for authorised departmental users.", category: "Portal update", date: "Current" },
+  { title: "Rupnagar district workspace is enabled for structured DSR preparation and review.", category: "District update", date: "Current" },
+  { title: "Users should keep their assigned login credentials confidential.", category: "Security advisory", date: "Advisory" },
+  { title: "For access or workflow assistance, contact the portal helpdesk.", category: "Helpdesk", date: "Support" },
 ];
 
-const districts = ["Amritsar", "Barnala", "Bathinda", "Faridkot", "Fatehgarh Sahib", "Fazilka", "Ferozepur", "Gurdaspur", "Hoshiarpur", "Jalandhar", "Kapurthala", "Ludhiana", "Malerkotla", "Mansa", "Moga", "Pathankot", "Patiala", "Rupnagar", "S.A.S. Nagar", "Sangrur", "S.B.S. Nagar", "Sri Muktsar Sahib", "Tarn Taran"];
+const services = [
+  { icon: FileText, title: "DSR Project Workspace", text: "Create and maintain chapter-wise District Survey Report content.", href: "/login", action: "Open workspace" },
+  { icon: Workflow, title: "Review & Approval", text: "Submit reports, record observations and complete authority-level review.", href: "/login", action: "Continue to login" },
+  { icon: FolderOpen, title: "Report Library", text: "Access approved reports and role-specific project records.", href: "/login", action: "View reports" },
+  { icon: MapPinned, title: "District Directory", text: "View district coverage and the active DSR reporting workspace.", href: "#districts", action: "View district" },
+  { icon: ShieldCheck, title: "Audit & Accountability", text: "Maintain traceable actions across preparation, review and approval.", href: "/login", action: "Access records" },
+  { icon: CircleHelp, title: "Portal Helpdesk", text: "Get assistance with portal access, projects and report preparation.", href: "mailto:coe@sensrs.com", action: "Email support" },
+];
+
+const workflowSteps = [
+  { number: "1", title: "Initiate", label: "Create District\nProject", image: "/assets/sand_mining_scenery.png", position: "56% center" },
+  { number: "2", title: "Prepare", label: "Prepare Report\nContent", image: "/assets/punjab-reference-map.png", position: "58% center" },
+  { number: "3", title: "Review", label: "Review and\nResolve", image: "/assets/esa-trees.png", position: "center" },
+  { number: "4", title: "Approve", label: "Approve\nFinal DSR", image: "/assets/dsr-logo.png", position: "center" },
+];
 
 export default function HomePage() {
-  const { data: announcementsSetting } = useQuery({ queryKey: ["settings", "announcements"], queryFn: () => settingsApi.get("announcements") });
+  const [showAllNotices, setShowAllNotices] = useState(false);
+  const { data: announcementsSetting } = useQuery({
+    queryKey: ["settings", "announcements"],
+    queryFn: () => settingsApi.get("announcements"),
+  });
+
   let announcements: Announcement[] = [];
   if (announcementsSetting?.value) {
-    try { announcements = JSON.parse(announcementsSetting.value); } catch { announcements = []; }
+    try {
+      announcements = JSON.parse(announcementsSetting.value);
+    } catch {
+      announcements = [];
+    }
   }
-  const activeAnnouncements = announcements.filter((item) => item.active);
-  const notices = activeAnnouncements.length ? activeAnnouncements.slice(0, 5) : [{ title: "District Survey Report portal is available for authorised departmental users.", category: "Information", date: "Current" }];
+
+  const configuredNotices = announcements.filter((item) => item.active && item.title?.trim());
+  const notices = configuredNotices.length ? configuredNotices : fallbackNotices;
+  const visibleNotices = showAllNotices ? notices : notices.slice(0, 4);
 
   return (
-    <div className="public-portal min-h-screen bg-[#f5f5f5] text-slate-800 dark:bg-slate-950 dark:text-slate-100">
-      <a href="#main-content" className="skip-link">Skip to main content</a>
-
-      <div className="govt-topbar">
-        <div className="govt-container flex min-h-9 items-center justify-between gap-4 text-[11px]">
-          <span className="flex items-center gap-2 font-semibold"><Landmark size={13} /> Government of Punjab <span className="opacity-40">|</span> Department of Mines &amp; Geology</span>
-          <div className="flex items-center gap-3"><a href="#main-content" className="hidden hover:underline sm:inline">Skip to main content</a><span className="hidden opacity-40 sm:inline">|</span><span className="hidden font-bold md:inline">A- &nbsp; A &nbsp; A+</span><ThemeToggle /></div>
-        </div>
-      </div>
-
-      <header className="border-b border-slate-300 bg-white dark:border-slate-800 dark:bg-slate-900">
-        <div className="govt-container flex items-center justify-between gap-5 py-4">
-          <Link to="/" className="flex min-w-0 items-center gap-4">
-            <img src="/assets/Emblem_of_India.svg.png" alt="State Emblem of India" className="h-[66px] w-auto object-contain" />
-            <div className="hidden h-14 w-px bg-slate-300 sm:block dark:bg-slate-700" />
-            <div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[.14em] text-[#8a4b08]">Government of Punjab</p><h1 className="mt-1 text-xl font-extrabold text-[#123c6e] sm:text-2xl dark:text-white">District Survey Report Portal</h1><p className="mt-0.5 text-xs text-slate-500">Department of Mines &amp; Geology</p></div>
-          </Link>
-          <div className="hidden items-center gap-4 lg:flex"><div className="border-r border-slate-200 pr-4 text-right dark:border-slate-700"><p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Technical Support</p><p className="mt-1 text-xs font-bold text-slate-700 dark:text-slate-200">IIT Ropar · SEnSRS</p></div><img src="/assets/sensrs-final-logo.webp" alt="SEnSRS" className="h-11 w-auto object-contain" /></div>
-        </div>
-      </header>
-
-      <nav aria-label="Primary navigation" className="sticky top-0 z-30 border-b-[3px] border-[#e49b17] bg-[#123c6e] text-white shadow-sm">
-        <div className="govt-container flex h-12 items-center justify-between">
-          <button type="button" aria-label="Open menu" className="border-r border-white/20 px-3 py-2 md:hidden"><Menu size={20} /></button>
-          <div className="hidden h-full items-stretch md:flex"><a href="#home" className="govt-nav is-active">Home</a><a href="#services" className="govt-nav">Services</a><a href="#notices" className="govt-nav">Notices</a><a href="#districts" className="govt-nav">Districts</a><a href="#contact" className="govt-nav">Contact Us</a></div>
-          <Link to="/login" className="inline-flex items-center gap-2 bg-[#e9a319] px-4 py-2 text-xs font-extrabold text-[#102f55] transition hover:bg-[#f5b832]"><LockKeyhole size={15} /> Official Login</Link>
-        </div>
-      </nav>
+    <div className="public-portal min-h-screen bg-[#f4f6f8] text-slate-800 dark:bg-slate-950 dark:text-slate-100">
+      <PublicSiteHeader />
 
       <main id="main-content">
-        <section id="home" className="relative overflow-hidden border-b border-slate-300 bg-[#e8eef3] dark:border-slate-800 dark:bg-slate-900">
-          <img src="/assets/sand_mining_scenery.png" alt="Survey landscape" className="absolute inset-y-0 right-0 hidden h-full w-[53%] object-cover lg:block" />
-          <div className="absolute inset-y-0 right-0 hidden w-[60%] bg-gradient-to-r from-[#e8eef3] via-[#e8eef3]/74 to-transparent lg:block dark:from-slate-900" />
-          <div className="govt-container relative grid min-h-[330px] items-center py-10 lg:grid-cols-[1.05fr_.95fr]">
-            <div className="max-w-2xl border-l-4 border-[#e49b17] pl-5"><p className="text-xs font-bold uppercase tracking-[.12em] text-[#8a4b08]">Departmental digital service</p><h2 className="mt-3 text-3xl font-extrabold leading-tight text-[#123c6e] md:text-4xl dark:text-white">District Survey Reports for informed and responsible mineral governance</h2><p className="mt-4 max-w-xl text-sm leading-6 text-slate-600 dark:text-slate-300">A secure system for preparing, reviewing and approving District Survey Reports across Punjab through defined workflows and departmental controls.</p><div className="mt-6 flex flex-wrap gap-3"><Link to="/login" className="govt-button-primary">Access the portal <ChevronRight size={16} /></Link><a href="#services" className="govt-button-secondary">View services</a></div></div>
-          </div>
-        </section>
-
-        <section className="border-b border-slate-300 bg-white dark:border-slate-800 dark:bg-slate-950">
-          <div className="govt-container grid gap-0 lg:grid-cols-[1.45fr_.8fr]">
-            <div id="notices" className="border-r border-slate-200 py-8 pr-0 lg:pr-8 dark:border-slate-800">
-              <SectionBar title="What's New" icon={<Bell size={17} />} />
-              <ul className="mt-2 divide-y divide-slate-200 border-y border-slate-200 dark:divide-slate-800 dark:border-slate-800">
-                {notices.map((notice, index) => <li key={`${notice.title}-${index}`}><a href="#notices" className="govt-notice-row"><span className="notice-date">{notice.date || "New"}</span><span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-slate-700 dark:text-slate-200">{notice.title}</span><span className="mt-1 block text-[11px] text-slate-500">{notice.category || "General information"}</span></span><ChevronRight size={17} className="shrink-0 text-[#123c6e] dark:text-blue-300" /></a></li>)}
-              </ul>
-              <a href="#notices" className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-[#123c6e] hover:underline dark:text-blue-300">View all notices <ChevronRight size={14} /></a>
+        <section id="home" className="relative isolate overflow-hidden bg-[#e7edf2] dark:bg-slate-900">
+          <img src="/assets/sand_mining_scenery.png" alt="Riverbed survey and mineral management landscape" className="absolute inset-0 h-full w-full object-cover object-center" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#eaf0f4] via-[#eaf0f4]/95 to-[#eaf0f4]/30 dark:from-slate-950 dark:via-slate-950/92 dark:to-slate-950/40" />
+          <div className="govt-container relative grid min-h-[470px] items-center py-12 lg:grid-cols-[1.08fr_.92fr]">
+            <div className="max-w-2xl border-l-4 border-[#e49b17] bg-white/88 p-6 shadow-[0_14px_40px_rgba(9,40,67,.13)] backdrop-blur-sm sm:p-8 dark:bg-slate-950/85">
+              <p className="text-xs font-extrabold uppercase tracking-[.15em] text-[#995808]">Official digital service · Government of Punjab</p>
+              <h2 className="mt-4 text-3xl font-extrabold leading-tight tracking-tight text-[#103b67] sm:text-4xl lg:text-[2.8rem] dark:text-white">District Survey Reports for responsible mineral governance</h2>
+              <p className="mt-5 max-w-xl text-sm leading-7 text-slate-600 sm:text-base dark:text-slate-300">A secure, role-based platform for preparing, reviewing and approving District Survey Reports through a clear and accountable departmental workflow.</p>
+              <div className="mt-7 flex flex-wrap gap-3">
+                <Link to="/login" className="govt-button-primary">Access the portal <ArrowRight size={16} /></Link>
+                <a href="#services" className="govt-button-secondary">Explore online services <ChevronRight size={16} /></a>
+              </div>
+              <div className="mt-7 flex flex-wrap gap-x-6 gap-y-2 border-t border-slate-200 pt-5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">
+                <span className="inline-flex items-center gap-2"><ShieldCheck size={16} className="text-[#0b6685]" /> Role-based access</span>
+                <span className="inline-flex items-center gap-2"><Workflow size={16} className="text-[#0b6685]" /> Traceable workflow</span>
+                <span className="inline-flex items-center gap-2"><FileCheck2 size={16} className="text-[#0b6685]" /> Standardised reports</span>
+              </div>
             </div>
-            <aside className="py-8 lg:pl-8"><SectionBar title="Important Links" /><div className="mt-2 border border-slate-200 dark:border-slate-700"><Link to="/login" className="important-link">Portal login <ChevronRight size={15} /></Link><a href="#services" className="important-link">DSR services <ChevronRight size={15} /></a><a href="#districts" className="important-link">District directory <ChevronRight size={15} /></a><a href="#contact" className="important-link">Helpdesk &amp; contact <ChevronRight size={15} /></a></div><div className="mt-5 border-l-4 border-[#e49b17] bg-[#fff9ed] px-4 py-3 text-xs leading-5 text-slate-600 dark:bg-amber-950/20 dark:text-slate-300"><strong className="text-[#123c6e] dark:text-amber-300">Notice:</strong> This portal is intended for authorised departmental users and designated stakeholders.</div></aside>
           </div>
         </section>
 
-        <section id="services" className="bg-[#f5f5f5] py-10 dark:bg-slate-900">
-          <div className="govt-container"><SectionBar title="Online Services" subtitle="Access services available through the District Survey Report Portal." /><div className="mt-4 grid border-l border-t border-slate-300 bg-white sm:grid-cols-2 dark:border-slate-700 dark:bg-slate-950">
-            {services.map((service) => <Link key={service.title} to={service.to} className="govt-service-row"><span className="govt-service-icon"><service.icon size={22} /></span><span className="min-w-0 flex-1"><span className="block text-sm font-extrabold text-[#123c6e] dark:text-white">{service.title}</span><span className="mt-1 block text-xs leading-5 text-slate-500 dark:text-slate-400">{service.text}</span></span><ChevronRight size={17} className="shrink-0 text-slate-400" /></Link>)}
-          </div></div>
+        <section aria-label="Important portal links" className="bg-[#082f4c] text-white">
+          <div className="govt-container grid sm:grid-cols-2 lg:grid-cols-4">
+            <a href="#notices" className="portal-alert-link"><span className="portal-alert-badge">NEW</span><span>Portal Notices</span><ChevronRight size={15} /></a>
+            <a href="#workflow" className="portal-alert-link"><span className="portal-alert-badge">4</span><span>Workflow Stages</span><ChevronRight size={15} /></a>
+            <a href="#districts" className="portal-alert-link"><MapPinned size={16} /><span>Rupnagar District</span><ChevronRight size={15} /></a>
+            <a href="mailto:coe@sensrs.com" className="portal-alert-link"><Mail size={16} /><span>Portal Helpdesk</span><ChevronRight size={15} /></a>
+          </div>
         </section>
 
-        <section className="border-y border-slate-300 bg-white py-10 dark:border-slate-800 dark:bg-slate-950">
-          <div className="govt-container grid gap-8 lg:grid-cols-[.78fr_1.22fr]"><div><SectionBar title="DSR workflow" subtitle="A defined process for preparation, scrutiny and approval." /><p className="mt-4 text-sm leading-6 text-slate-600 dark:text-slate-300">The portal maintains a clear progression from project initiation to final approval, with responsibility assigned at each stage.</p><Link to="/login" className="mt-5 inline-flex items-center gap-1 text-xs font-bold text-[#123c6e] hover:underline dark:text-blue-300">Go to workspace <ChevronRight size={14} /></Link></div><ol className="grid overflow-hidden border border-slate-300 sm:grid-cols-4 dark:border-slate-700">{[["01", "Initiate"], ["02", "Prepare"], ["03", "Review"], ["04", "Approve"]].map(([number, label], index) => <li key={number} className={`border-b border-slate-300 p-5 last:border-b-0 sm:border-b-0 ${index !== 3 ? "sm:border-r" : ""} dark:border-slate-700`}><span className="text-xs font-bold text-[#b36a0d]">{number}</span><span className="mt-3 block text-sm font-extrabold text-[#123c6e] dark:text-white">{label}</span></li>)}</ol></div>
+        <section id="about" className="border-b border-slate-200 bg-white py-12 dark:border-slate-800 dark:bg-slate-950">
+          <div className="govt-container grid gap-10 lg:grid-cols-[1.25fr_.75fr]">
+            <article>
+              <SectionHeading eyebrow="About the portal" title="Welcome to the Punjab District Survey Report Portal" />
+              <p className="mt-5 text-sm leading-7 text-slate-600 dark:text-slate-300">The portal supports the Department of Mines &amp; Geology in the structured preparation and management of District Survey Reports. It brings project data, supporting documents and review actions into one controlled workspace.</p>
+              <div id="about-objectives" className="mt-6 grid gap-3 sm:grid-cols-3">
+                {[
+                  ["01", "Consistent district-wise report preparation"],
+                  ["02", "Defined responsibility at every stage"],
+                  ["03", "Transparent review and approval history"],
+                ].map(([number, text]) => (
+                  <div key={number} className="border border-slate-200 bg-[#f8fafb] p-4 dark:border-slate-700 dark:bg-slate-900">
+                    <span className="text-xs font-extrabold text-[#a25e09]">{number}</span>
+                    <p className="mt-2 text-xs font-bold leading-5 text-[#123c6e] dark:text-slate-100">{text}</p>
+                  </div>
+                ))}
+              </div>
+              <a href="#workflow" className="mt-6 inline-flex items-center gap-1.5 text-xs font-extrabold text-[#123c6e] hover:underline dark:text-blue-300">See how the process works <ChevronRight size={14} /></a>
+            </article>
+
+            <aside id="notices" aria-labelledby="notices-heading" className="border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,47,85,.1)] dark:border-slate-700 dark:bg-slate-900">
+              <div className="flex items-center gap-2 bg-[#5e849c] px-5 py-4 text-white">
+                <Bell size={18} />
+                <h2 id="notices-heading" className="text-lg font-extrabold">What&apos;s New</h2>
+              </div>
+              <ul className="divide-y divide-slate-200 dark:divide-slate-700">
+                {visibleNotices.map((notice, index) => (
+                  <li key={`${notice.title}-${index}`} className="flex gap-3 px-5 py-4">
+                    <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#e49b17]" />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold leading-5 text-slate-700 dark:text-slate-200">{notice.title}</span>
+                      <span className="mt-1.5 block text-[11px] font-semibold text-slate-400">{notice.date || "New"} · {notice.category || "Information"}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {notices.length > 4 && (
+                <button type="button" onClick={() => setShowAllNotices((show) => !show)} className="flex w-full items-center justify-center gap-1.5 border-t border-slate-200 px-4 py-3 text-xs font-extrabold text-[#123c6e] hover:bg-slate-50 dark:border-slate-700 dark:text-blue-300 dark:hover:bg-slate-800">
+                  {showAllNotices ? "Show latest notices" : "View all notices"} <ChevronRight size={14} className={showAllNotices ? "rotate-90" : ""} />
+                </button>
+              )}
+            </aside>
+          </div>
         </section>
 
-        <section id="districts" className="bg-[#f5f5f5] py-10 dark:bg-slate-900"><div className="govt-container"><div className="flex flex-wrap items-end justify-between gap-3"><SectionBar title="District Directory" subtitle="Districts covered under the Punjab DSR framework." /><span className="text-xs font-bold text-[#123c6e] dark:text-blue-300">23 Districts</span></div><div className="mt-4 grid border-l border-t border-slate-300 bg-white sm:grid-cols-3 lg:grid-cols-6 dark:border-slate-700 dark:bg-slate-950">{districts.map((district) => <div key={district} className="district-cell"><MapPinned size={13} className="text-[#b36a0d]" /> {district}</div>)}</div></div></section>
+        <section id="workflow" className="how-it-works-section bg-[#073b5b] py-16 text-white">
+          <div className="govt-container">
+            <div className="text-center">
+              <h2 className="text-4xl font-extrabold sm:text-5xl">How It Works</h2>
+              <p className="mx-auto mt-4 max-w-2xl text-base text-white/90 sm:text-xl">Prepare, review and approve District Survey Reports on this portal</p>
+              <span className="mx-auto mt-6 block h-1 w-[74px] bg-[#e78c25]" />
+            </div>
+            <ol className="mt-10 grid gap-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
+              {workflowSteps.map((step) => (
+                <li id={`workflow-${step.title.toLowerCase()}`} key={step.number} className="scroll-mt-20 text-center">
+                  <div className="how-step-image-wrap">
+                    <img src={step.image} alt={`${step.title} DSR workflow`} className="how-step-image" style={{ objectPosition: step.position }} />
+                    <span className="how-step-number">{step.number}</span>
+                  </div>
+                  <h3 className="mt-7 whitespace-pre-line text-2xl font-normal leading-tight">{step.label}</h3>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        <section id="services" className="bg-[#f4f6f8] py-12 dark:bg-slate-900">
+          <div className="govt-container">
+            <SectionHeading eyebrow="Digital services" title="Online Services" subtitle="Use the portal for authorised DSR preparation, review and reporting activities." />
+            <div className="mt-7 grid border-l border-t border-slate-300 bg-white sm:grid-cols-2 lg:grid-cols-3 dark:border-slate-700 dark:bg-slate-950">
+              {services.map((service) => {
+                const content = <><span className="govt-service-icon"><service.icon size={23} /></span><span className="min-w-0 flex-1"><span className="block text-sm font-extrabold text-[#123c6e] dark:text-white">{service.title}</span><span className="mt-1.5 block text-xs leading-5 text-slate-500 dark:text-slate-400">{service.text}</span><span className="mt-3 inline-flex items-center gap-1 text-[11px] font-extrabold text-[#9a5708] dark:text-amber-300">{service.action} <ChevronRight size={13} /></span></span></>;
+                return service.href.startsWith("/") ? <Link key={service.title} to={service.href} className="govt-service-row items-start">{content}</Link> : <a key={service.title} href={service.href} className="govt-service-row items-start">{content}</a>;
+              })}
+            </div>
+          </div>
+        </section>
+
+        <section id="districts" className="border-y border-slate-200 bg-white py-12 dark:border-slate-800 dark:bg-slate-950">
+          <div className="govt-container grid gap-9 lg:grid-cols-[.8fr_1.2fr]">
+            <div>
+              <SectionHeading eyebrow="Coverage" title="District Directory" subtitle="District currently covered by this DSR portal." />
+              <p className="mt-5 text-sm leading-7 text-slate-600 dark:text-slate-300">The system currently supports the Rupnagar district workspace, including controlled project preparation, technical review and final reporting.</p>
+              <Link to="/login" className="govt-button-primary mt-6">Access district workspace <ArrowRight size={16} /></Link>
+            </div>
+            <div className="grid gap-5 sm:grid-cols-[1.05fr_.95fr]">
+              <div className="relative overflow-hidden border border-slate-200 bg-[#edf3f7] p-6 dark:border-slate-700 dark:bg-slate-900">
+                <MapPinned size={30} className="text-[#0b6685]" />
+                <p className="mt-6 text-[11px] font-extrabold uppercase tracking-[.14em] text-[#a25e09]">Active district</p>
+                <h3 className="mt-2 text-2xl font-extrabold text-[#123c6e] dark:text-white">Rupnagar</h3>
+                <p className="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">District Survey Report project and departmental workflow coverage.</p>
+              </div>
+              <div className="grid grid-cols-2 border-l border-t border-slate-200 dark:border-slate-700">
+                {[["1", "District"], ["4", "Workflow stages"], ["24×7", "Portal access"], ["100%", "Role controlled"]].map(([value, label]) => (
+                  <div key={label} className="border-b border-r border-slate-200 p-5 dark:border-slate-700">
+                    <strong className="block text-xl text-[#123c6e] dark:text-white">{value}</strong>
+                    <span className="mt-1 block text-[11px] font-semibold text-slate-500 dark:text-slate-400">{label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-[#f4f6f8] py-12 dark:bg-slate-900">
+          <div className="govt-container">
+            <SectionHeading eyebrow="Trusted sources" title="Important Official Links" subtitle="Continue to verified government and institutional websites." />
+            <div className="mt-7 grid gap-4 md:grid-cols-3">
+              {[
+                { icon: Landmark, title: "Government of Punjab", text: "Official Punjab Government portal", href: "https://punjab.gov.in/" },
+                { icon: Building2, title: "Mines & Geology Department", text: "Mineral sale and monitoring portal", href: "https://minesandgeology.punjab.gov.in/" },
+                { icon: UsersRound, title: "Indian Institute of Technology Ropar", text: "Knowledge and technical partner", href: "https://www.iitrpr.ac.in/" },
+              ].map((item) => (
+                <a key={item.title} href={item.href} target="_blank" rel="noreferrer" className="group flex items-center gap-4 border border-slate-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-[#8aa8be] hover:shadow-md dark:border-slate-700 dark:bg-slate-950">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center bg-[#eaf0f5] text-[#123c6e] dark:bg-slate-800 dark:text-blue-300"><item.icon size={22} /></span>
+                  <span className="min-w-0 flex-1"><span className="block text-sm font-extrabold text-[#123c6e] dark:text-white">{item.title}</span><span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">{item.text}</span></span>
+                  <ExternalLink size={16} className="text-slate-400 group-hover:text-[#123c6e]" />
+                </a>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="border-t border-slate-200 bg-white py-10 dark:border-slate-800 dark:bg-slate-950">
+          <div className="govt-container flex flex-col items-start justify-between gap-6 border-l-4 border-[#e49b17] bg-[#eaf0f5] p-6 md:flex-row md:items-center dark:bg-slate-900">
+            <div><p className="text-xs font-extrabold uppercase tracking-[.13em] text-[#995808]">Authorised departmental users</p><h2 className="mt-2 text-xl font-extrabold text-[#123c6e] dark:text-white">Ready to continue your District Survey Report work?</h2><p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Sign in with your assigned portal credentials or contact support if you need access assistance.</p></div>
+            <div className="flex shrink-0 flex-wrap gap-3"><a href="mailto:coe@sensrs.com" className="govt-button-secondary">Contact support <Mail size={15} /></a><Link to="/login" className="govt-button-primary">Official login <LockKeyhole size={15} /></Link></div>
+          </div>
+        </section>
       </main>
 
-      <footer id="contact" className="bg-[#082746] text-white"><div className="govt-container grid gap-10 py-10 md:grid-cols-[1.5fr_1fr_1fr]"><div><div className="flex items-center gap-3"><img src="/assets/Emblem_of_India.svg.png" alt="Emblem" className="h-12 brightness-0 invert" /><div><p className="text-sm font-extrabold">District Survey Report Portal</p><p className="mt-1 text-xs text-white/60">Department of Mines &amp; Geology, Government of Punjab</p></div></div><p className="mt-5 max-w-md text-xs leading-6 text-white/55">An official platform to support the preparation, review and management of District Survey Reports in Punjab.</p></div><div><h3 className="footer-heading">Useful Links</h3><div className="mt-4 grid gap-3 text-xs text-white/65"><a href="#services">Online Services</a><a href="#notices">Notices</a><a href="#districts">District Directory</a></div></div><div><h3 className="footer-heading">Contact</h3><div className="mt-4 grid gap-3 text-xs text-white/65"><span className="flex gap-2"><Mail size={14} /> coe@sensrs.com</span><a className="flex gap-2" href="https://www.iitrpr.ac.in/" target="_blank" rel="noreferrer"><ExternalLink size={14} /> IIT Ropar</a></div></div></div><div className="border-t border-white/10 bg-[#061d33]"><div className="govt-container flex flex-col justify-between gap-2 py-4 text-[11px] text-white/50 md:flex-row"><span>© 2026 Department of Mines &amp; Geology, Government of Punjab.</span><span>Technical support: IIT Ropar · SEnSRS</span></div></div></footer>
+      <PublicSiteFooter />
     </div>
   );
 }
 
-function SectionBar({ title, subtitle, icon }: { title: string; subtitle?: string; icon?: ReactNode }) {
-  return <div className="border-b-2 border-[#123c6e] pb-2"><div className="flex items-center gap-2 text-[#123c6e] dark:text-blue-300">{icon}<h2 className="text-lg font-extrabold">{title}</h2></div>{subtitle && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>}</div>;
+function SectionHeading({ eyebrow, title, subtitle }: { eyebrow?: string; title: string; subtitle?: string }) {
+  return (
+    <div>
+      {eyebrow && <p className="text-[11px] font-extrabold uppercase tracking-[.15em] text-[#a25e09]">{eyebrow}</p>}
+      <div className="mt-2 flex items-center gap-3"><span className="h-7 w-1 bg-[#e49b17]" /><h2 className="text-2xl font-extrabold text-[#123c6e] dark:text-white">{title}</h2></div>
+      {subtitle && <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>}
+    </div>
+  );
 }
