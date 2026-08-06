@@ -38,12 +38,12 @@ const fallbackNotices: Announcement[] = [
 ];
 
 const services = [
-  { icon: FileText, title: "DSR Project Workspace", text: "Create and maintain chapter-wise District Survey Report content.", href: "/login", action: "Open workspace" },
-  { icon: Workflow, title: "Review & Approval", text: "Submit reports, record observations and complete authority-level review.", href: "/login", action: "Continue to login" },
-  { icon: FolderOpen, title: "Report Library", text: "Access approved reports and role-specific project records.", href: "/login", action: "View reports" },
-  { icon: MapPinned, title: "District Directory", text: "View district coverage and the active DSR reporting workspace.", href: "#districts", action: "View district" },
-  { icon: ShieldCheck, title: "Audit & Accountability", text: "Maintain traceable actions across preparation, review and approval.", href: "/login", action: "Access records" },
-  { icon: CircleHelp, title: "Portal Helpdesk", text: "Get assistance with portal access, projects and report preparation.", href: "mailto:coe@sensrs.com", action: "Email support" },
+  { icon: FileText, title: "DSR Project Workspace", text: "Prepare report content.", href: "/login", action: "Open workspace" },
+  { icon: Workflow, title: "Review & Approval", text: "Review and approve reports.", href: "/login", action: "Continue to login" },
+  { icon: FolderOpen, title: "Report Library", text: "Access approved reports.", href: "/login", action: "View reports" },
+  { icon: MapPinned, title: "District Directory", text: "View district coverage.", href: "#districts", action: "View district" },
+  { icon: ShieldCheck, title: "Audit & Accountability", text: "Track official actions.", href: "/login", action: "Access records" },
+  { icon: CircleHelp, title: "Portal Helpdesk", text: "Get portal assistance.", href: "mailto:coe@sensrs.com", action: "Email support" },
 ];
 
 const workflowSteps = [
@@ -71,7 +71,7 @@ export default function HomePage() {
 
   const configuredNotices = announcements.filter((item) => item.active && item.title?.trim());
   const notices = configuredNotices.length ? configuredNotices : fallbackNotices;
-  const visibleNotices = showAllNotices ? notices : notices.slice(0, 4);
+  const visibleNotices = showAllNotices ? notices : notices.slice(0, 3);
 
   return (
     <div className="public-portal min-h-screen bg-[#f4f6f8] text-slate-800 dark:bg-slate-950 dark:text-slate-100">
@@ -81,16 +81,16 @@ export default function HomePage() {
         <section id="home" className="relative isolate overflow-hidden bg-[#e7edf2] dark:bg-slate-900">
           <img src="/assets/sand_mining_scenery.png" alt="Riverbed survey and mineral management landscape" className="absolute inset-0 h-full w-full object-cover object-center" />
           <div className="absolute inset-0 bg-gradient-to-r from-[#eaf0f4] via-[#eaf0f4]/95 to-[#eaf0f4]/30 dark:from-slate-950 dark:via-slate-950/92 dark:to-slate-950/40" />
-          <div className="govt-container relative grid min-h-[470px] items-center py-12 lg:grid-cols-[1.08fr_.92fr]">
+          <div className="govt-container relative grid min-h-[420px] items-center py-10 lg:grid-cols-[1.08fr_.92fr]">
             <div className="max-w-2xl border-l-4 border-[#e49b17] bg-white/88 p-6 shadow-[0_14px_40px_rgba(9,40,67,.13)] backdrop-blur-sm sm:p-8 dark:bg-slate-950/85">
               <p className="text-xs font-extrabold uppercase tracking-[.15em] text-[#995808]">Official digital service · Government of Punjab</p>
-              <h2 className="mt-4 text-3xl font-extrabold leading-tight tracking-tight text-[#103b67] sm:text-4xl lg:text-[2.8rem] dark:text-white">District Survey Reports for responsible mineral governance</h2>
-              <p className="mt-5 max-w-xl text-sm leading-7 text-slate-600 sm:text-base dark:text-slate-300">A secure, role-based platform for preparing, reviewing and approving District Survey Reports through a clear and accountable departmental workflow.</p>
+              <h2 className="mt-4 text-3xl font-extrabold leading-tight tracking-tight text-[#103b67] sm:text-4xl lg:text-[2.8rem] dark:text-white">Punjab District Survey Report Portal</h2>
+              <p className="mt-4 max-w-xl text-sm leading-6 text-slate-600 sm:text-base dark:text-slate-300">Prepare, review and approve DSRs through one secure government workflow.</p>
               <div className="mt-7 flex flex-wrap gap-3">
                 <Link to="/login" className="govt-button-primary">Access the portal <ArrowRight size={16} /></Link>
                 <a href="#services" className="govt-button-secondary">Explore online services <ChevronRight size={16} /></a>
               </div>
-              <div className="mt-7 flex flex-wrap gap-x-6 gap-y-2 border-t border-slate-200 pt-5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">
+              <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 border-t border-slate-200 pt-4 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">
                 <span className="inline-flex items-center gap-2"><ShieldCheck size={16} className="text-[#0b6685]" /> Role-based access</span>
                 <span className="inline-flex items-center gap-2"><Workflow size={16} className="text-[#0b6685]" /> Traceable workflow</span>
                 <span className="inline-flex items-center gap-2"><FileCheck2 size={16} className="text-[#0b6685]" /> Standardised reports</span>
@@ -108,16 +108,16 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="about" className="border-b border-slate-200 bg-white py-12 dark:border-slate-800 dark:bg-slate-950">
+        <section id="about" className="border-b border-slate-200 bg-white py-10 dark:border-slate-800 dark:bg-slate-950">
           <div className="govt-container grid gap-10 lg:grid-cols-[1.25fr_.75fr]">
             <article>
-              <SectionHeading eyebrow="About the portal" title="Welcome to the Punjab District Survey Report Portal" />
-              <p className="mt-5 text-sm leading-7 text-slate-600 dark:text-slate-300">The portal supports the Department of Mines &amp; Geology in the structured preparation and management of District Survey Reports. It brings project data, supporting documents and review actions into one controlled workspace.</p>
+              <SectionHeading eyebrow="About the portal" title="Punjab DSR Portal" />
+              <p className="mt-4 text-sm leading-6 text-slate-600 dark:text-slate-300">One controlled workspace for DSR data, documents and approvals.</p>
               <div id="about-objectives" className="mt-6 grid gap-3 sm:grid-cols-3">
                 {[
-                  ["01", "Consistent district-wise report preparation"],
-                  ["02", "Defined responsibility at every stage"],
-                  ["03", "Transparent review and approval history"],
+                  ["01", "Consistent reports"],
+                  ["02", "Clear responsibility"],
+                  ["03", "Traceable approvals"],
                 ].map(([number, text]) => (
                   <div key={number} className="border border-slate-200 bg-[#f8fafb] p-4 dark:border-slate-700 dark:bg-slate-900">
                     <span className="text-xs font-extrabold text-[#a25e09]">{number}</span>
@@ -144,7 +144,7 @@ export default function HomePage() {
                   </li>
                 ))}
               </ul>
-              {notices.length > 4 && (
+              {notices.length > 3 && (
                 <button type="button" onClick={() => setShowAllNotices((show) => !show)} className="flex w-full items-center justify-center gap-1.5 border-t border-slate-200 px-4 py-3 text-xs font-extrabold text-[#123c6e] hover:bg-slate-50 dark:border-slate-700 dark:text-blue-300 dark:hover:bg-slate-800">
                   {showAllNotices ? "Show latest notices" : "View all notices"} <ChevronRight size={14} className={showAllNotices ? "rotate-90" : ""} />
                 </button>
@@ -153,11 +153,11 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="workflow" className="how-it-works-section bg-[#073b5b] py-16 text-white">
+        <section id="workflow" className="how-it-works-section bg-[#073b5b] py-14 text-white">
           <div className="govt-container">
             <div className="text-center">
               <h2 className="text-4xl font-extrabold sm:text-5xl">How It Works</h2>
-              <p className="mx-auto mt-4 max-w-2xl text-base text-white/90 sm:text-xl">Prepare, review and approve District Survey Reports on this portal</p>
+              <p className="mx-auto mt-3 max-w-2xl text-base text-white/90 sm:text-lg">Four steps from preparation to approval</p>
               <span className="mx-auto mt-6 block h-1 w-[74px] bg-[#e78c25]" />
             </div>
             <ol className="mt-10 grid gap-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
@@ -174,9 +174,9 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="services" className="bg-[#f4f6f8] py-12 dark:bg-slate-900">
+        <section id="services" className="bg-[#f4f6f8] py-10 dark:bg-slate-900">
           <div className="govt-container">
-            <SectionHeading eyebrow="Digital services" title="Online Services" subtitle="Use the portal for authorised DSR preparation, review and reporting activities." />
+            <SectionHeading eyebrow="Digital services" title="Online Services" />
             <div className="mt-7 grid border-l border-t border-slate-300 bg-white sm:grid-cols-2 lg:grid-cols-3 dark:border-slate-700 dark:bg-slate-950">
               {services.map((service) => {
                 const content = <><span className="govt-service-icon"><service.icon size={23} /></span><span className="min-w-0 flex-1"><span className="block text-sm font-extrabold text-[#123c6e] dark:text-white">{service.title}</span><span className="mt-1.5 block text-xs leading-5 text-slate-500 dark:text-slate-400">{service.text}</span><span className="mt-3 inline-flex items-center gap-1 text-[11px] font-extrabold text-[#9a5708] dark:text-amber-300">{service.action} <ChevronRight size={13} /></span></span></>;
@@ -186,11 +186,11 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="districts" className="border-y border-slate-200 bg-white py-12 dark:border-slate-800 dark:bg-slate-950">
+        <section id="districts" className="border-y border-slate-200 bg-white py-10 dark:border-slate-800 dark:bg-slate-950">
           <div className="govt-container grid gap-9 lg:grid-cols-[.8fr_1.2fr]">
             <div>
-              <SectionHeading eyebrow="Coverage" title="District Directory" subtitle="District currently covered by this DSR portal." />
-              <p className="mt-5 text-sm leading-7 text-slate-600 dark:text-slate-300">The system currently supports the Rupnagar district workspace, including controlled project preparation, technical review and final reporting.</p>
+              <SectionHeading eyebrow="Coverage" title="District Directory" />
+              <p className="mt-4 text-sm leading-6 text-slate-600 dark:text-slate-300">Rupnagar is currently active on the portal.</p>
               <Link to="/login" className="govt-button-primary mt-6">Access district workspace <ArrowRight size={16} /></Link>
             </div>
             <div className="grid gap-5 sm:grid-cols-[1.05fr_.95fr]">
@@ -198,7 +198,7 @@ export default function HomePage() {
                 <MapPinned size={30} className="text-[#0b6685]" />
                 <p className="mt-6 text-[11px] font-extrabold uppercase tracking-[.14em] text-[#a25e09]">Active district</p>
                 <h3 className="mt-2 text-2xl font-extrabold text-[#123c6e] dark:text-white">Rupnagar</h3>
-                <p className="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">District Survey Report project and departmental workflow coverage.</p>
+                <p className="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">Active DSR workspace.</p>
               </div>
               <div className="grid grid-cols-2 border-l border-t border-slate-200 dark:border-slate-700">
                 {[["1", "District"], ["4", "Workflow stages"], ["24×7", "Portal access"], ["100%", "Role controlled"]].map(([value, label]) => (
@@ -212,9 +212,9 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="bg-[#f4f6f8] py-12 dark:bg-slate-900">
+        <section className="bg-[#f4f6f8] py-10 dark:bg-slate-900">
           <div className="govt-container">
-            <SectionHeading eyebrow="Trusted sources" title="Important Official Links" subtitle="Continue to verified government and institutional websites." />
+            <SectionHeading eyebrow="Trusted sources" title="Important Official Links" />
             <div className="mt-7 grid gap-4 md:grid-cols-3">
               {[
                 { icon: Landmark, title: "Government of Punjab", text: "Official Punjab Government portal", href: "https://punjab.gov.in/" },
@@ -233,7 +233,7 @@ export default function HomePage() {
 
         <section className="border-t border-slate-200 bg-white py-10 dark:border-slate-800 dark:bg-slate-950">
           <div className="govt-container flex flex-col items-start justify-between gap-6 border-l-4 border-[#e49b17] bg-[#eaf0f5] p-6 md:flex-row md:items-center dark:bg-slate-900">
-            <div><p className="text-xs font-extrabold uppercase tracking-[.13em] text-[#995808]">Authorised departmental users</p><h2 className="mt-2 text-xl font-extrabold text-[#123c6e] dark:text-white">Ready to continue your District Survey Report work?</h2><p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Sign in with your assigned portal credentials or contact support if you need access assistance.</p></div>
+            <div><p className="text-xs font-extrabold uppercase tracking-[.13em] text-[#995808]">Authorised users</p><h2 className="mt-2 text-xl font-extrabold text-[#123c6e] dark:text-white">Continue your DSR work</h2><p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Sign in or contact support.</p></div>
             <div className="flex shrink-0 flex-wrap gap-3"><a href="mailto:coe@sensrs.com" className="govt-button-secondary">Contact support <Mail size={15} /></a><Link to="/login" className="govt-button-primary">Official login <LockKeyhole size={15} /></Link></div>
           </div>
         </section>
