@@ -28,7 +28,7 @@ export default function PortalLayout() {
     sectionPaths.some((p) => location.pathname.includes(`/${p}`));
 
   return (
-    <div className="gov-portal min-h-screen bg-[#f3f4f6] dark:bg-slate-950 transition-colors">
+    <div className="gov-portal min-h-screen bg-[#f4f6f8] text-[#202124] transition-colors dark:bg-[#07111f] dark:text-slate-100">
       <Sidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -38,7 +38,7 @@ export default function PortalLayout() {
 
       <div className={collapsed ? "lg:pl-20" : "lg:pl-72"}>
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <main id="main-content" className="p-4 md:p-6 lg:p-8 text-slate-900 dark:text-slate-100 transition-colors">
+        <main id="main-content" className="mx-auto w-full max-w-[1600px] p-4 text-slate-900 transition-colors dark:text-slate-100 md:p-6 lg:p-8">
           <Outlet />
         </main>
       </div>

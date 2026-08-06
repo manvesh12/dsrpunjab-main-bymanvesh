@@ -170,6 +170,84 @@ html[lang="pa"] body { font-family: "Noto Sans Gurmukhi", "Nirmala UI", "Noto Sa
 .gov-portal main tbody tr:hover { background-color: #f4f7fa; }
 .dark .gov-portal main tbody tr:hover { background-color: rgb(30 41 59 / .7); }
 
+/* Dashboard visual system — mirrors the public portal and login experience. */
+.portal-dashboard { --dashboard-navy: #0b315d; --dashboard-teal: #073b5b; --dashboard-amber: #e49b17; }
+.portal-dashboard .dashboard-welcome {
+  position: relative;
+  overflow: hidden;
+  border-color: #073b5b;
+  background: linear-gradient(118deg, #073b5b 0%, #0b315d 62%, #123c6e 100%);
+  color: #fff;
+  box-shadow: 0 5px 14px rgb(7 59 91 / .14);
+}
+.portal-dashboard .dashboard-welcome::after {
+  content: "";
+  position: absolute;
+  inset: auto -5rem -7rem auto;
+  width: 20rem;
+  height: 20rem;
+  border: 1px solid rgb(255 255 255 / .09);
+  border-radius: 999px;
+  box-shadow: 0 0 0 3rem rgb(255 255 255 / .025), 0 0 0 6rem rgb(255 255 255 / .018);
+  pointer-events: none;
+}
+.portal-dashboard .dashboard-welcome > * { position: relative; z-index: 1; }
+.portal-dashboard .dashboard-welcome h1 { color: #fff; }
+.portal-dashboard .dashboard-welcome p { color: rgb(255 255 255 / .76); }
+.portal-dashboard .dashboard-welcome p:first-child { color: #f5c75f; }
+.portal-dashboard .dashboard-user-card {
+  border-left-color: var(--dashboard-amber);
+  background: rgb(255 255 255 / .1);
+  backdrop-filter: blur(3px);
+}
+.portal-dashboard .dashboard-user-card p { color: rgb(255 255 255 / .76); }
+.portal-dashboard .dashboard-user-card p:nth-child(2) { color: #fff; }
+.portal-dashboard .dashboard-user-card button { color: #fff; }
+.portal-dashboard .dashboard-notice-strip { border-color: rgb(255 255 255 / .14); background: #082f4c; }
+.portal-dashboard .dashboard-notice-strip > p { color: rgb(255 255 255 / .9); }
+.portal-dashboard .dashboard-notice-label { border-color: #f1bd4a; background: var(--dashboard-amber); color: #102f55; }
+.portal-dashboard .dashboard-panel,
+.portal-dashboard .dashboard-metric-card {
+  border-color: #d2dce6;
+  box-shadow: 0 2px 7px rgb(15 47 85 / .07);
+}
+.portal-dashboard .dashboard-panel { border-top-color: #123c6e; }
+.portal-dashboard .dashboard-panel-title {
+  border-top-color: #073b5b;
+  background: linear-gradient(90deg, #f7fafc 0%, #fff 58%);
+}
+.portal-dashboard .dashboard-panel-title > div > svg { color: #b36b0c; }
+.portal-dashboard .dashboard-metric-card {
+  position: relative;
+  overflow: hidden;
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.portal-dashboard .dashboard-metric-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--dashboard-amber);
+}
+.portal-dashboard .dashboard-metric-card:hover {
+  transform: translateY(-2px);
+  border-color: #9fb2c6;
+  box-shadow: 0 8px 18px rgb(15 47 85 / .1);
+}
+.portal-dashboard tbody tr:hover { background: #f2f6f9; }
+.dark .portal-dashboard .dashboard-welcome { border-color: #175d7d; background: linear-gradient(118deg, #06283f 0%, #0b2440 60%, #102f55 100%); }
+.dark .portal-dashboard .dashboard-panel,
+.dark .portal-dashboard .dashboard-metric-card { border-color: #334155; background: #0f172a; }
+.dark .portal-dashboard .dashboard-panel-title { background: linear-gradient(90deg, #132033 0%, #0f172a 65%); }
+.dark .portal-dashboard .dashboard-user-card { background: rgb(255 255 255 / .08); }
+.dark .portal-dashboard .dashboard-notice-strip { background: #061f34; }
+
+@media (max-width: 640px) {
+  .portal-dashboard .dashboard-welcome::after { width: 13rem; height: 13rem; right: -6rem; bottom: -6rem; }
+  .portal-dashboard .dashboard-notice-strip { align-items: stretch; }
+  .portal-dashboard .dashboard-notice-label { padding-inline: .75rem; }
+}
+
 .notice-marquee {
   animation: notice-marquee 28s linear infinite;
   will-change: transform;

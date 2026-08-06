@@ -62,18 +62,36 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const unreadCount = notificationInbox?.unreadCount || 0;
 
   return (
-    <header className="gov-header sticky top-0 z-20 bg-white dark:bg-slate-900">
+    <header className="gov-header sticky top-0 z-20 border-b-[3px] border-[#e49b17] bg-white shadow-sm dark:bg-[#0b1c2e]">
       <div className="gov-utility-bar">
         <div className="flex items-center gap-2"><Landmark size={13} /><span>Government of Punjab</span><span className="opacity-50">|</span><span>Department of Mines &amp; Geology</span></div>
         <div className="hidden items-center gap-3 sm:flex"><span>ਪੰਜਾਬ ਸਰਕਾਰ</span><span className="opacity-50">|</span><span>English</span></div>
       </div>
-      <div className="flex h-[76px] items-center gap-4 border-b border-slate-300 px-4 md:px-6 dark:border-slate-700">
+      <div className="flex min-h-[82px] items-center gap-3 px-4 md:px-6">
       <button
         type="button"
         onClick={onMenuClick}
-          className="rounded-sm border border-slate-300 p-2 text-[#12396b] hover:bg-slate-100 lg:hidden dark:text-slate-300 dark:hover:bg-slate-800 transition-colors"
+          className="border border-[#b8c5d1] bg-white p-2.5 text-[#0b315d] transition-colors hover:bg-[#edf3f8] lg:hidden dark:border-white/20 dark:bg-white/10 dark:text-white"
       >
         <Menu size={22} />
+      </button>
+
+      <button
+        type="button"
+        onClick={() => navigate('/dashboard')}
+        className="hidden min-w-0 items-center gap-3 border-r border-[#d7dce2] pr-5 text-left xl:flex dark:border-white/15"
+        aria-label="Go to dashboard"
+      >
+        <img
+          src="/assets/Emblem_of_India.svg.png"
+          alt="State Emblem of India"
+          className="h-12 w-9 shrink-0 object-contain dark:brightness-0 dark:invert"
+        />
+        <span className="min-w-0 leading-tight">
+          <span className="block truncate text-[10px] font-bold uppercase tracking-[0.15em] text-[#9b6110] dark:text-amber-300">Government of Punjab</span>
+          <span className="mt-1 block truncate text-sm font-extrabold uppercase tracking-[0.04em] text-[#0b315d] dark:text-white">District Survey Report Portal</span>
+          <span className="mt-0.5 block truncate text-[11px] font-medium text-slate-500 dark:text-slate-300">Department of Mines &amp; Geology</span>
+        </span>
       </button>
 
       <div className="relative hidden max-w-md flex-1 md:block">
@@ -85,7 +103,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
         <input
           type="search"
           placeholder="Search projects, districts and reports..."
-          className="w-full rounded-sm border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-[#12396b] focus:ring-2 focus:ring-[#12396b]/15 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 transition-colors"
+          className="w-full border border-[#b8c0ca] bg-[#f8fafc] py-2.5 pl-10 pr-4 text-sm outline-none transition-colors focus:border-[#0b315d] focus:ring-2 focus:ring-[#0b315d]/15 dark:border-white/20 dark:bg-white/10 dark:text-slate-200"
         />
       </div>
 
@@ -98,7 +116,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             onClick={() => setNotificationOpen((open) => !open)}
             aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
             aria-expanded={notificationOpen}
-            className="relative rounded-sm border border-slate-300 p-2.5 text-[#12396b] transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="relative border border-[#c9d0d8] bg-white p-2.5 text-[#0b315d] transition-colors hover:bg-[#edf3f8] dark:border-white/20 dark:bg-white/10 dark:text-slate-200"
           >
             <Bell size={21} />
             {unreadCount > 0 && (
@@ -174,7 +192,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
         <button
           type="button"
           onClick={() => navigate('/profile')}
-          className="flex items-center gap-2 rounded-sm border border-slate-300 px-3 py-2 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 transition-colors"
+          className="flex items-center gap-2 border border-[#c9d0d8] bg-white px-3 py-2 transition-colors hover:bg-[#edf3f8] dark:border-white/20 dark:bg-white/10 dark:hover:bg-white/15"
         >
           <span className="flex size-8 items-center justify-center rounded-sm bg-[#12396b] text-white transition-colors overflow-hidden">
             {user?.profilePhoto ? (
@@ -199,7 +217,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
         <button
           type="button"
           onClick={handleLogout}
-          className="relative flex items-center gap-2 rounded-sm px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-red-50 hover:text-red-700 transition-colors dark:text-slate-400 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+          className="relative flex items-center gap-2 border border-transparent px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700 dark:text-slate-300 dark:hover:bg-red-500/10 dark:hover:text-red-300"
           title="Logout"
         >
           <LogOut size={19} />

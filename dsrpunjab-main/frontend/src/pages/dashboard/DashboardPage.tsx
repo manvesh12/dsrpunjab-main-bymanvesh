@@ -39,7 +39,7 @@ const roleDetails: Record<DashboardRole, { eyebrow: string; title: string; descr
     description: "Statewide monitoring of district submissions, approval movement, user access and report readiness.",
     queueTitle: "Statewide priority register",
     queueDescription: "Projects requiring administrative attention or inter-district coordination.",
-    accent: "border-[#a6580d]",
+    accent: "border-[#e49b17]",
   },
   district: {
     eyebrow: "District Administration",
@@ -47,7 +47,7 @@ const roleDetails: Record<DashboardRole, { eyebrow: string; title: string; descr
     description: "Coordinate district inputs, assign preparation work and keep the District Survey Report on schedule.",
     queueTitle: "District work register",
     queueDescription: "Current district reports, milestones and incomplete submissions.",
-    accent: "border-[#0f5f69]",
+    accent: "border-[#e49b17]",
   },
   review: {
     eyebrow: "Review and Approval",
@@ -55,7 +55,7 @@ const roleDetails: Record<DashboardRole, { eyebrow: string; title: string; descr
     description: "Review report readiness, record observations and move complete District Survey Reports through approval.",
     queueTitle: "Approval inbox",
     queueDescription: "Reports ready for technical examination, observation or approval action.",
-    accent: "border-[#7a3e84]",
+    accent: "border-[#e49b17]",
   },
   publishing: {
     eyebrow: "Report Generation",
@@ -63,7 +63,7 @@ const roleDetails: Record<DashboardRole, { eyebrow: string; title: string; descr
     description: "Prepare approved DSR records for controlled PDF generation, verification and release.",
     queueTitle: "Publication queue",
     queueDescription: "Reports that need generation, verification or final document handling.",
-    accent: "border-[#176a42]",
+    accent: "border-[#e49b17]",
   },
   preparation: {
     eyebrow: "District Survey Report Preparation",
@@ -71,7 +71,7 @@ const roleDetails: Record<DashboardRole, { eyebrow: string; title: string; descr
     description: "Complete assigned data, chapters, plates and annexures in a controlled department workflow.",
     queueTitle: "My preparation queue",
     queueDescription: "Continue active DSR work and resolve the next incomplete deliverable.",
-    accent: "border-[#154a82]",
+    accent: "border-[#e49b17]",
   },
 };
 
@@ -141,13 +141,13 @@ export default function DashboardPage() {
 
   if (role === "COE_SENSRS") {
     return (
-      <main className="space-y-5 pb-6">
-        <section className="border border-slate-300 bg-white p-6 dark:border-slate-700 dark:bg-slate-900">
+      <div className="portal-dashboard space-y-5 pb-6">
+        <section className="dashboard-welcome border border-slate-300 bg-white p-6 dark:border-slate-700 dark:bg-slate-900">
           <p className="text-[11px] font-extrabold uppercase tracking-[.12em] text-[#a6580d]">COE SENSRS</p>
           <h1 className="mt-2 text-2xl font-extrabold text-[#102f55] dark:text-white">Replenishment Workspace</h1>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Open an assigned project to prepare survey inputs, calculations, evidence and the replenishment report.</p>
         </section>
-        <section className="border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900">
+        <section className="dashboard-panel border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900">
           <PanelTitle icon={FolderKanban} title="Assigned projects" subtitle="Only the Replenishment section is available for this role" />
           {projectsLoading ? <EmptyState text="Loading assigned projects..." /> : projects.length === 0 ? <EmptyState text="No project is currently assigned." /> : (
             <div className="divide-y divide-slate-200 dark:divide-slate-700">
@@ -160,13 +160,13 @@ export default function DashboardPage() {
             </div>
           )}
         </section>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="space-y-5 pb-6">
-      <section className="border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900">
+    <div className="portal-dashboard space-y-5 pb-6">
+      <section className="dashboard-welcome border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900">
         <div className={`border-t-4 ${details.accent} px-5 py-5 sm:px-6`}>
           <div className="flex flex-col justify-between gap-5 xl:flex-row xl:items-start">
             <div className="max-w-3xl">
@@ -174,7 +174,7 @@ export default function DashboardPage() {
               <h1 className="mt-2 text-2xl font-extrabold text-[#102f55] dark:text-white sm:text-3xl">{details.title}</h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">{details.description}</p>
             </div>
-            <div className="min-w-[220px] border-l-4 border-[#e9a319] bg-[#fff9ed] px-4 py-3 dark:bg-amber-950/20">
+            <div className="dashboard-user-card min-w-[220px] border-l-4 border-[#e9a319] bg-[#fff9ed] px-4 py-3 dark:bg-amber-950/20">
               <p className="text-[10px] font-extrabold uppercase tracking-[.1em] text-[#9a5a08]">Signed in as</p>
               <p className="mt-1 text-sm font-extrabold text-[#102f55] dark:text-white">{user?.fullName || "Authorised user"}</p>
               <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">{user?.uiRole || "Department user"}</p>
@@ -185,8 +185,8 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
-        <div className="flex items-center border-t border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/60">
-          <div className="flex min-h-11 shrink-0 items-center gap-2 border-r border-amber-200 bg-[#e9a319] px-4 text-xs font-extrabold text-[#102f55]"><Bell size={15} /> Notice</div>
+        <div className="dashboard-notice-strip flex items-center border-t border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/60">
+          <div className="dashboard-notice-label flex min-h-11 shrink-0 items-center gap-2 border-r border-amber-200 bg-[#e9a319] px-4 text-xs font-extrabold text-[#102f55]"><Bell size={15} /> Notice</div>
           <p className="line-clamp-2 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200">{notices}</p>
         </div>
       </section>
@@ -196,7 +196,7 @@ export default function DashboardPage() {
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(330px,.75fr)]">
-        <article className="border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900">
+        <article className="dashboard-panel border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900">
           <PanelTitle icon={FolderKanban} title={details.queueTitle} subtitle={details.queueDescription} to="/projects" />
           {projectsLoading ? <EmptyState text="Loading project register..." /> : projectsError ? <EmptyState text="Project register could not be loaded. Please refresh the page." error /> : queue.length === 0 ? <EmptyState text="No project is waiting for action in this workspace." /> : (
             <div className="divide-y divide-slate-200 dark:divide-slate-700">
@@ -205,7 +205,7 @@ export default function DashboardPage() {
           )}
         </article>
 
-        <article className="border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900">
+        <article className="dashboard-panel border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900">
           <PanelTitle icon={ClipboardCheck} title="Priority actions" subtitle="Tasks available under your current access" />
           <div className="divide-y divide-slate-200 dark:divide-slate-700">
             {actions.map((action) => <ActionRow key={action.label} action={action} />)}
@@ -220,7 +220,7 @@ export default function DashboardPage() {
 
       <section className="grid gap-5 xl:grid-cols-[.8fr_1.2fr]">
         <RoleBriefing profile={profile} projects={projects} canReview={canReview} canGenerate={canGenerate} />
-        <article className="border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900">
+        <article className="dashboard-panel border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900">
           <PanelTitle icon={ScrollText} title="Current report register" subtitle="Most recently updated DSR records available in this workspace" to="/projects" />
           {projects.length === 0 && !projectsLoading ? <EmptyState text="No project records are available." /> : (
             <div className="overflow-x-auto">
@@ -236,7 +236,7 @@ export default function DashboardPage() {
           )}
         </article>
       </section>
-    </main>
+    </div>
   );
 }
 
@@ -265,11 +265,11 @@ function roleActions(role: DashboardRole, canCreate: boolean, canReview: boolean
 
 function MetricCard({ label, value, detail, icon: Icon, tone }: { label: string; value: number; detail: string; icon: LucideIcon; tone: string }) {
   const tones: Record<string, string> = { blue: "border-blue-200 bg-blue-50 text-blue-800", teal: "border-teal-200 bg-teal-50 text-teal-800", amber: "border-amber-200 bg-amber-50 text-amber-800", green: "border-emerald-200 bg-emerald-50 text-emerald-800" };
-  return <article className="border border-slate-300 bg-white p-5 dark:border-slate-700 dark:bg-slate-900"><div className="flex gap-4"><span className={`flex h-11 w-11 shrink-0 items-center justify-center border ${tones[tone]}`}><Icon size={20} /></span><div><p className="text-[10px] font-extrabold uppercase tracking-[.08em] text-slate-500 dark:text-slate-400">{label}</p><p className="mt-1 text-2xl font-extrabold text-[#102f55] dark:text-white">{value}</p><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{detail}</p></div></div></article>;
+  return <article className="dashboard-metric-card border border-slate-300 bg-white p-5 dark:border-slate-700 dark:bg-slate-900"><div className="flex gap-4"><span className={`flex h-11 w-11 shrink-0 items-center justify-center border ${tones[tone]}`}><Icon size={20} /></span><div><p className="text-[10px] font-extrabold uppercase tracking-[.08em] text-slate-500 dark:text-slate-400">{label}</p><p className="mt-1 text-2xl font-extrabold text-[#102f55] dark:text-white">{value}</p><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{detail}</p></div></div></article>;
 }
 
 function PanelTitle({ icon: Icon, title, subtitle, to }: { icon: LucideIcon; title: string; subtitle: string; to?: string }) {
-  return <div className="flex items-start justify-between gap-4 border-t-4 border-[#123c6e] px-5 py-4"><div className="flex gap-3"><Icon size={19} className="mt-0.5 text-[#a6580d]" /><div><h2 className="font-extrabold text-[#102f55] dark:text-white">{title}</h2><p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{subtitle}</p></div></div>{to && <Link to={to} className="shrink-0 text-xs font-extrabold text-[#123c6e] hover:underline dark:text-blue-300">View all</Link>}</div>;
+  return <div className="dashboard-panel-title flex items-start justify-between gap-4 border-t-4 border-[#123c6e] px-5 py-4"><div className="flex gap-3"><Icon size={19} className="mt-0.5 text-[#a6580d]" /><div><h2 className="font-extrabold text-[#102f55] dark:text-white">{title}</h2><p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{subtitle}</p></div></div>{to && <Link to={to} className="shrink-0 text-xs font-extrabold text-[#123c6e] hover:underline dark:text-blue-300">View all</Link>}</div>;
 }
 
 function ProjectRow({ project, profile, canReview, canGenerate, canDesignFormat }: { project: ProjectListItem; profile: DashboardRole; canReview: boolean; canGenerate: boolean; canDesignFormat: boolean }) {
@@ -313,8 +313,8 @@ function WorkflowOverview({ projects, canReview }: { projects: ProjectListItem[]
   };
 
   return (
-    <section className="border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900">
-      <div className="border-t-4 border-[#123c6e] px-5 py-4">
+    <section className="dashboard-panel border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900">
+      <div className="dashboard-panel-title border-t-4 border-[#123c6e] px-5 py-4">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="flex gap-3">
             <ClipboardCheck size={19} className="mt-0.5 text-[#a6580d]" />
@@ -415,7 +415,7 @@ function RoleBriefing({ profile, projects, canReview, canGenerate }: { profile: 
     preparation: { title: "Preparation checklist", items: [{ label: "Source information", value: "Complete district and mineral inputs", to: "/projects" }, { label: "Report components", value: "Save chapters, plates and annexures", to: "/projects" }, { label: "Quality check", value: "Use preview before requesting review", to: "/reports" }] },
   };
   const briefing = message[profile];
-  return <article className="border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900"><PanelTitle icon={Settings} title={briefing.title} subtitle="Controlled operational guidance for this workspace" /><div className="divide-y divide-slate-200 dark:divide-slate-700">{briefing.items.map((item) => <Link key={item.label} to={item.to} className="flex items-center justify-between gap-3 px-5 py-4 transition hover:bg-slate-50 dark:hover:bg-slate-800/60"><span><span className="block text-sm font-extrabold text-[#102f55] dark:text-white">{item.label}</span><span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">{item.value}</span></span><ArrowRight size={16} className="shrink-0 text-[#123c6e] dark:text-blue-300" /></Link>)}</div></article>;
+  return <article className="dashboard-panel border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900"><PanelTitle icon={Settings} title={briefing.title} subtitle="Controlled operational guidance for this workspace" /><div className="divide-y divide-slate-200 dark:divide-slate-700">{briefing.items.map((item) => <Link key={item.label} to={item.to} className="flex items-center justify-between gap-3 px-5 py-4 transition hover:bg-slate-50 dark:hover:bg-slate-800/60"><span><span className="block text-sm font-extrabold text-[#102f55] dark:text-white">{item.label}</span><span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">{item.value}</span></span><ArrowRight size={16} className="shrink-0 text-[#123c6e] dark:text-blue-300" /></Link>)}</div></article>;
 }
 
 function EmptyState({ text, error }: { text: string; error?: boolean }) {
