@@ -250,6 +250,9 @@ html[lang="pa"] body { font-family: "Noto Sans Gurmukhi", "Nirmala UI", "Noto Sa
 .notice-marquee:hover {
   animation-play-state: paused;
 }
+@media (prefers-reduced-motion: reduce) {
+  .notice-marquee { animation: none; }
+}
 
 @layer utilities {
   .dark .bg-white:not([class*="dark:"]) { background-color: rgb(15 23 42); }

@@ -72,10 +72,39 @@ export default function HomePage() {
   const configuredNotices = announcements.filter((item) => item.active && item.title?.trim());
   const notices = configuredNotices.length ? configuredNotices : fallbackNotices;
   const visibleNotices = showAllNotices ? notices : notices.slice(0, 3);
+  const tickerNotices = notices.slice(0, 4);
 
   return (
     <div className="public-portal min-h-screen bg-[#f4f6f8] text-slate-800 dark:bg-slate-950 dark:text-slate-100">
       <PublicSiteHeader />
+
+      <section aria-label="Latest portal notices" className="sticky top-[58px] z-30 border-b border-[#d7dee6] bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <div className="flex min-h-11 w-full items-stretch">
+          <a href="#notices" className="flex shrink-0 items-center gap-2 bg-[#e49b17] px-3 text-[11px] font-extrabold uppercase tracking-wide text-[#102f55] sm:px-5">
+            <Bell size={15} aria-hidden="true" />
+            <span className="hidden sm:inline">Latest Notices</span>
+            <span className="sm:hidden">New</span>
+          </a>
+          <div className="min-w-0 flex-1 overflow-hidden" role="region" aria-label="Scrolling latest notices">
+            <div className="notice-marquee flex h-full w-max items-center whitespace-nowrap text-xs font-semibold text-slate-700 dark:text-slate-200">
+              {[0, 1].map((copyIndex) => (
+                <div key={copyIndex} aria-hidden={copyIndex === 1 ? "true" : undefined} className="flex shrink-0 items-center pr-10">
+                  {tickerNotices.map((notice, index) => (
+                    <a key={`${copyIndex}-${notice.title}-${index}`} href="#notices" className="inline-flex items-center gap-3 px-5 py-3 hover:text-[#123c6e] hover:underline dark:hover:text-amber-300">
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#e49b17]" />
+                      <span>{notice.title}</span>
+                      <span className="text-[10px] font-bold uppercase text-slate-400">{notice.date || "New"}</span>
+                    </a>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+          <a href="#notices" className="hidden shrink-0 items-center gap-1 border-l border-slate-200 px-4 text-[11px] font-extrabold text-[#123c6e] hover:bg-slate-50 md:flex dark:border-slate-700 dark:text-blue-300 dark:hover:bg-slate-800">
+            View all <ChevronRight size={13} />
+          </a>
+        </div>
+      </section>
 
       <main id="main-content">
         <section id="home" className="relative isolate overflow-hidden bg-[#e7edf2] dark:bg-slate-900">
@@ -131,12 +160,12 @@ export default function HomePage() {
             <aside id="notices" aria-labelledby="notices-heading" className="border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,47,85,.1)] dark:border-slate-700 dark:bg-slate-900">
               <div className="flex items-center gap-2 bg-[#5e849c] px-5 py-4 text-white">
                 <Bell size={18} />
-                <h2 id="notices-heading" className="text-lg font-extrabold">What&apos;s New</h2>
+                <h2 id="notices-heading" className="text-lg font-extrabold">Latest Notices</h2>
               </div>
               <ul className="divide-y divide-slate-200 dark:divide-slate-700">
                 {visibleNotices.map((notice, index) => (
                   <li key={`${notice.title}-${index}`} className="flex gap-3 px-5 py-4">
-                    <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#e49b17]" />
+                    {index === 0 && !showAllNotices ? <span className="portal-alert-badge mt-0.5 h-fit">NEW</span> : <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#e49b17]" />}
                     <span className="min-w-0">
                       <span className="block text-sm font-semibold leading-5 text-slate-700 dark:text-slate-200">{notice.title}</span>
                       <span className="mt-1.5 block text-[11px] font-semibold text-slate-400">{notice.date || "New"} · {notice.category || "Information"}</span>
