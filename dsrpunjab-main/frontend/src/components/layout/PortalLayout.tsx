@@ -36,9 +36,9 @@ export default function PortalLayout() {
         onCollapsedChange={setCollapsed}
       />
 
-      <div className={collapsed ? "lg:pl-20" : "lg:pl-72"}>
+      <div className={`min-w-0 ${collapsed ? "lg:pl-20" : "lg:pl-72"}`}>
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <main id="main-content" className="mx-auto w-full max-w-[1600px] p-4 text-slate-900 transition-colors dark:text-slate-100 md:p-6 lg:p-8">
+        <main id="main-content" className="w-full p-4 text-slate-900 transition-colors dark:text-slate-100 md:p-6 lg:p-8">
           <Outlet />
         </main>
       </div>

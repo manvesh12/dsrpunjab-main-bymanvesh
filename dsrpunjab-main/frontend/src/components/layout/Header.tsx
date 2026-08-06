@@ -65,7 +65,12 @@ export default function Header({ onMenuClick }: HeaderProps) {
   return (
     <header className="gov-header sticky top-0 z-20 border-b-[3px] border-[#e49b17] bg-white shadow-sm dark:bg-[#0b1c2e]">
       <div className="gov-utility-bar">
-        <div className="flex items-center gap-2"><Landmark size={13} /><span>Government of Punjab</span><span className="opacity-50">|</span><span>Department of Mines &amp; Geology</span></div>
+        <div className="flex min-w-0 items-center gap-2">
+          <Landmark size={13} className="shrink-0" />
+          <span className="shrink-0">Government of Punjab</span>
+          <span className="hidden opacity-50 md:inline">|</span>
+          <span className="hidden truncate md:inline">Department of Mines &amp; Geology</span>
+        </div>
         <WebsiteLanguageSelector />
       </div>
       <div className="flex min-h-[82px] items-center gap-3 px-4 md:px-6">
