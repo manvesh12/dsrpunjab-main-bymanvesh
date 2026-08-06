@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Bot, ChevronDown, LoaderCircle, MessageCircleQuestion, Send, Sparkles, Trash2, X } from "lucide-react";
+import { useLocation } from "react-router-dom";
 import { findAnswer, quickQuestions } from "./knowledgeBase";
 import type { Language } from "./knowledgeBase";
 
@@ -39,6 +40,7 @@ function welcomeMessage(language: Language): Message {
 }
 
 export default function SiteAssistant() {
+  const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
   const [language, setLanguage] = useState<Language | null>(null);
   const [input, setInput] = useState("");
@@ -49,6 +51,7 @@ export default function SiteAssistant() {
   const nextMessageId = useRef(2);
   const replyTimer = useRef<number | null>(null);
   const activeLanguage: Language = language ?? "en";
+  const hiddenOnAuthPage = pathname === "/login" || pathname === "/forgot-password";
 
   useEffect(() => {
     if (open) endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -93,6 +96,8 @@ export default function SiteAssistant() {
     setMessages([]);
     setInput("");
   }
+
+  if (hiddenOnAuthPage) return null;
 
   return (
     <div className="fixed bottom-4 right-4 z-[90] sm:bottom-6 sm:right-6">

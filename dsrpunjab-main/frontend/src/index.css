@@ -7,6 +7,7 @@
   .module-btn-primary { @apply inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-blue-500 dark:hover:bg-blue-600; }
 }
 
+html { scroll-behavior: smooth; }
 body { @apply m-0 bg-[#f3f4f6] dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased min-h-screen transition-colors duration-300; font-family: "Noto Sans", "Segoe UI", Arial, sans-serif; }
 button, input, select, textarea { font: inherit; }
 
@@ -89,14 +90,27 @@ html[lang="pa"] body { font-family: "Noto Sans Gurmukhi", "Nirmala UI", "Noto Sa
 /* Government information portal layout — content-led, deliberately non-marketing. */
 .govt-container { width: min(100% - 2rem, 1280px); margin-inline: auto; }
 .govt-topbar { border-top: 3px solid #e49b17; background: #0b315d; color: #fff; }
-.govt-nav { display: inline-flex; align-items: center; border-right: 1px solid rgb(255 255 255 / .16); padding-inline: 1.1rem; font-size: .76rem; font-weight: 700; color: rgb(255 255 255 / .9); }
-.govt-nav:first-child { border-left: 1px solid rgb(255 255 255 / .16); }
-.govt-nav:hover, .govt-nav.is-active { background: rgb(255 255 255 / .14); color: #fff; }
+.govt-nav { display: inline-flex; min-height: 58px; align-items: center; justify-content: center; border-right: 1px solid #1183ad; padding-inline: clamp(.8rem, 1.65vw, 2rem); font-size: .76rem; font-weight: 500; text-transform: uppercase; white-space: nowrap; color: #fff; transition: background-color .15s ease; }
+.public-desktop-nav > .govt-nav:first-child { border-left: 1px solid #1183ad; }
+.govt-nav:hover { background: #063f61; color: #fff; }
+.govt-nav.is-active { background: #2a1710; color: #fff; }
+.public-nav-dropdown { position: relative; display: flex; align-items: stretch; }
+.public-dropdown-menu { position: absolute; top: 100%; left: 0; z-index: 60; width: 17rem; border-radius: 0 0 .55rem .55rem; background: #004f78; color: #fff; padding-block: .45rem; box-shadow: 0 12px 26px rgb(8 35 58 / .28); }
+.public-dropdown-link { display: flex; align-items: center; gap: .8rem; padding: .68rem 1.15rem; color: #fff; transition: background-color .15s ease; }
+.public-dropdown-link:hover, .public-dropdown-link:focus-visible { background: #063f61; color: #fff; }
+.public-dropdown-link strong { display: block; font-size: .96rem; font-weight: 400; line-height: 1.35rem; }
+.public-dropdown-link small { display: none; }
+.public-dropdown-link > svg { flex: 0 0 auto; color: #fff; }
 .govt-button-primary, .govt-button-secondary { display: inline-flex; align-items: center; gap: .35rem; border: 1px solid #123c6e; padding: .65rem 1rem; font-size: .78rem; font-weight: 800; transition: background-color .15s ease; }
 .govt-button-primary { background: #123c6e; color: #fff; }
 .govt-button-primary:hover { background: #0b315d; }
 .govt-button-secondary { background: #fff; color: #123c6e; }
 .govt-button-secondary:hover { background: #edf3f8; }
+.portal-alert-link { display: flex; min-height: 3.35rem; align-items: center; gap: .65rem; border-right: 1px solid rgb(255 255 255 / .15); padding: .8rem 1rem; font-size: .75rem; font-weight: 700; color: rgb(255 255 255 / .88); transition: background-color .15s ease, color .15s ease; }
+.portal-alert-link:first-child { border-left: 1px solid rgb(255 255 255 / .15); }
+.portal-alert-link:hover { background: rgb(255 255 255 / .1); color: #fff; }
+.portal-alert-link > svg:last-child { margin-left: auto; opacity: .65; }
+.portal-alert-badge { display: inline-flex; min-width: 2rem; align-items: center; justify-content: center; border-radius: 2px; background: #d51f1f; padding: .22rem .38rem; font-size: .62rem; font-weight: 900; color: #fff; }
 .govt-notice-row { display: flex; align-items: center; gap: 1rem; padding-block: .85rem; transition: background-color .15s ease; }
 .govt-notice-row:hover { background: #f7fafc; }
 .notice-date { width: 4.25rem; flex: 0 0 auto; border-right: 1px solid #d7dee6; padding-right: .85rem; text-align: center; font-size: .68rem; font-weight: 800; color: #a45d08; }
@@ -108,11 +122,22 @@ html[lang="pa"] body { font-family: "Noto Sans Gurmukhi", "Nirmala UI", "Noto Sa
 .govt-service-icon { display: flex; height: 2.7rem; width: 2.7rem; flex: 0 0 auto; align-items: center; justify-content: center; border: 1px solid #b9c9d9; background: #eaf0f7; color: #123c6e; }
 .district-cell { display: flex; align-items: center; gap: .45rem; border-right: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; padding: .72rem .75rem; font-size: .72rem; font-weight: 600; color: #475569; }
 .dark .govt-button-secondary { border-color: #60a5fa; background: #0f172a; color: #bfdbfe; }
+.dark .public-dropdown-menu { background: #004f78; color: #fff; }
+.dark .public-dropdown-link:hover, .dark .public-dropdown-link:focus-visible { background: #063f61; color: #fff; }
 .dark .govt-notice-row:hover, .dark .important-link:hover, .dark .govt-service-row:hover { background: #1e293b; }
 .dark .important-link { border-color: #334155; color: #cbd5e1; }
 .dark .govt-service-row, .dark .district-cell { border-color: #334155; }
 .dark .govt-service-icon { border-color: #475569; background: #1e293b; color: #93c5fd; }
 .dark .district-cell { color: #cbd5e1; }
+.how-step-image-wrap { position: relative; width: clamp(190px, 18vw, 240px); height: clamp(190px, 18vw, 240px); margin-inline: auto; border: 11px solid #fff; border-radius: 999px; background: #fff; }
+.how-step-image { width: 100%; height: 100%; border: 1px solid #aebfca; border-radius: 999px; object-fit: cover; }
+.how-step-number { position: absolute; top: .35rem; right: -1.25rem; display: flex; width: 4.5rem; height: 4.5rem; align-items: center; justify-content: center; border-radius: 999px; background: #f10c08; color: #fff; font-size: 2rem; font-weight: 400; line-height: 1; }
+.public-portal :is(section, aside)[id], .login-portal :is(section, aside)[id] { scroll-margin-top: 4.5rem; }
+.public-portal :focus-visible, .login-portal :focus-visible { outline: 3px solid rgb(228 155 23 / .58); outline-offset: 2px; }
+@media (max-width: 767px) {
+  .portal-alert-link:nth-child(odd) { border-left: 1px solid rgb(255 255 255 / .15); }
+  .portal-alert-link { border-bottom: 1px solid rgb(255 255 255 / .15); }
+}
 @media (max-width: 640px) { .govt-container { width: min(100% - 1.25rem, 1280px); } .govt-notice-row { gap: .65rem; } .notice-date { width: 3.35rem; padding-right: .55rem; } }
 
 /* Login */
