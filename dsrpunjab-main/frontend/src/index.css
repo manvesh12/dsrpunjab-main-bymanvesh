@@ -251,8 +251,12 @@ html[lang="pa"] body { font-family: "Noto Sans Gurmukhi", "Nirmala UI", "Noto Sa
 .reference-notice-link:hover { background: rgb(255 255 255 / .08); color: #fff; }
 .reference-notice-link > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .reference-new-badge { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; border-radius: 4px; background: #c60e16; padding: .26rem .55rem; color: #fff; font-size: .68rem; font-weight: 500; line-height: 1; text-decoration: none; box-shadow: inset 0 -1px rgb(0 0 0 / .15); }
+.reference-latest-window { max-height: 258px; overflow: hidden; }
+.reference-latest-track { animation: reference-latest-float 26s linear infinite; will-change: transform; }
+.reference-latest-track:hover { animation-play-state: paused; }
+.reference-latest-group { margin: 0; padding: 0; }
 @media (prefers-reduced-motion: reduce) {
-  .reference-notice-track { animation: none; }
+  .reference-notice-track, .reference-latest-track { animation: none; }
 }
 @media (max-width: 767px) {
   .reference-notice-group { grid-template-columns: 1fr; }
@@ -338,4 +342,9 @@ html[lang="pa"] body { font-family: "Noto Sans Gurmukhi", "Nirmala UI", "Noto Sa
 @keyframes reference-notice-slide {
   0%, 42% { transform: translateX(0); }
   50%, 100% { transform: translateX(-50%); }
+}
+
+@keyframes reference-latest-float {
+  0%, 8% { transform: translateY(0); }
+  92%, 100% { transform: translateY(-50%); }
 }

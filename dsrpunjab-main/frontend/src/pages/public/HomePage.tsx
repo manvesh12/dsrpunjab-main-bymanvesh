@@ -33,6 +33,10 @@ type Announcement = {
 const fallbackNotices: Announcement[] = [
   { title: "District Survey Report portal is available for authorised departmental users.", category: "Portal update", date: "Current" },
   { title: "Rupnagar district workspace is enabled for structured DSR preparation and review.", category: "District update", date: "Current" },
+  { title: "Chapter-wise DSR preparation and supporting document upload are available online.", category: "Online service", date: "New" },
+  { title: "Technical observations and approval actions are recorded in the portal workflow.", category: "Workflow update", date: "New" },
+  { title: "Approved report records are available according to assigned user permissions.", category: "Report update", date: "Current" },
+  { title: "Use the report preview before submitting a District Survey Report for review.", category: "User guidance", date: "Advisory" },
   { title: "Users should keep their assigned login credentials confidential.", category: "Security advisory", date: "Advisory" },
   { title: "For access or workflow assistance, contact the portal helpdesk.", category: "Helpdesk", date: "Support" },
 ];
@@ -70,9 +74,10 @@ export default function HomePage() {
   }
 
   const configuredNotices = announcements.filter((item) => item.active && item.title?.trim());
-  const notices = configuredNotices.length ? configuredNotices : fallbackNotices;
-  const visibleNotices = showAllNotices ? notices : notices.slice(0, 3);
-  const tickerNotices = notices.slice(0, 3);
+  const configuredTitles = new Set(configuredNotices.map((item) => item.title.trim().toLowerCase()));
+  const notices = [...configuredNotices, ...fallbackNotices.filter((item) => !configuredTitles.has(item.title.toLowerCase()))];
+  const latestNotices = showAllNotices ? notices : notices.slice(0, 6);
+  const tickerGroups = [notices.slice(0, 3), notices.slice(3, 6)];
 
   return (
     <div className="public-portal min-h-screen bg-[#f4f6f8] text-slate-800 dark:bg-slate-950 dark:text-slate-100">
@@ -102,11 +107,11 @@ export default function HomePage() {
 
         <section aria-label="Important portal notifications" className="reference-notice-strip">
           <div className="reference-notice-track">
-            {[0, 1].map((copyIndex) => (
-              <div key={copyIndex} aria-hidden={copyIndex === 1 ? "true" : undefined} className="reference-notice-group">
-                {tickerNotices.map((notice, index) => (
-                  <a key={`${copyIndex}-${notice.title}-${index}`} href="#notices" className="reference-notice-link">
-                    {index < 2 && <span className="reference-new-badge">NEW</span>}
+            {tickerGroups.map((group, groupIndex) => (
+              <div key={groupIndex} className="reference-notice-group">
+                {group.map((notice, index) => (
+                  <a key={`${groupIndex}-${notice.title}-${index}`} href="#notices" className="reference-notice-link">
+                    {(groupIndex === 0 && index < 2) || (groupIndex === 1 && index === 0) ? <span className="reference-new-badge">NEW</span> : null}
                     <span>{notice.title}</span>
                   </a>
                 ))}
@@ -149,17 +154,23 @@ export default function HomePage() {
                 <Bell size={18} />
                 <h2 id="notices-heading" className="flex-1 text-center text-lg font-extrabold">What&apos;s New</h2>
               </div>
-              <ul className="divide-y divide-slate-200 dark:divide-slate-700">
-                {visibleNotices.map((notice, index) => (
-                  <li key={`${notice.title}-${index}`} className="flex gap-3 px-5 py-4">
-                    {index === 0 && !showAllNotices ? <span className="reference-new-badge mt-0.5">NEW</span> : <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#e49b17]" />}
-                    <span className="min-w-0">
-                      <span className="block text-sm font-semibold leading-5 text-slate-700 dark:text-slate-200">{notice.title}</span>
-                      <span className="mt-1.5 block text-[11px] font-semibold text-slate-400">{notice.date || "New"} · {notice.category || "Information"}</span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <div className={showAllNotices ? "" : "reference-latest-window"}>
+                <div className={showAllNotices ? "" : "reference-latest-track"}>
+                  {(showAllNotices ? [0] : [0, 1]).map((copyIndex) => (
+                    <ul key={copyIndex} aria-hidden={copyIndex === 1 ? "true" : undefined} className="reference-latest-group divide-y divide-slate-200 dark:divide-slate-700">
+                      {latestNotices.map((notice, index) => (
+                        <li key={`${copyIndex}-${notice.title}-${index}`} className="flex min-h-[86px] gap-3 px-5 py-4">
+                          {index < 2 ? <span className="reference-new-badge mt-0.5">NEW</span> : <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#e49b17]" />}
+                          <span className="min-w-0">
+                            <span className="block text-sm font-semibold leading-5 text-slate-700 dark:text-slate-200">{notice.title}</span>
+                            <span className="mt-1.5 block text-[11px] font-semibold text-slate-400">{notice.date || "New"} · {notice.category || "Information"}</span>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ))}
+                </div>
+              </div>
               {notices.length > 3 && (
                 <button type="button" onClick={() => setShowAllNotices((show) => !show)} className="flex w-full items-center justify-center gap-1.5 border-t border-slate-200 px-4 py-3 text-xs font-extrabold text-[#123c6e] hover:bg-slate-50 dark:border-slate-700 dark:text-blue-300 dark:hover:bg-slate-800">
                   {showAllNotices ? "Show latest notices" : "View all notices"} <ChevronRight size={14} className={showAllNotices ? "rotate-90" : ""} />
