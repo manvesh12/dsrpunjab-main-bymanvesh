@@ -51,10 +51,10 @@ const services = [
 ];
 
 const workflowSteps = [
-  { number: "1", title: "Initiate", label: "Create District\nProject", image: "/assets/sand_mining_scenery.png", position: "56% center" },
-  { number: "2", title: "Prepare", label: "Prepare Report\nContent", image: "/assets/punjab-reference-map.png", position: "58% center" },
-  { number: "3", title: "Review", label: "Review and\nResolve", image: "/assets/esa-trees.png", position: "center" },
-  { number: "4", title: "Approve", label: "Approve\nFinal DSR", image: "/assets/dsr-logo.png", position: "center" },
+  { number: "1", title: "Initiate", label: "Create District\nProject", image: "/assets/workflow/create-district-project.webp" },
+  { number: "2", title: "Prepare", label: "Prepare Report\nContent", image: "/assets/workflow/prepare-report-content.webp" },
+  { number: "3", title: "Review", label: "Review and\nResolve", image: "/assets/workflow/review-and-resolve.webp" },
+  { number: "4", title: "Approve", label: "Approve\nFinal DSR", image: "/assets/workflow/approve-final-dsr.webp" },
 ];
 
 export default function HomePage() {
@@ -191,7 +191,7 @@ export default function HomePage() {
               {workflowSteps.map((step) => (
                 <li id={`workflow-${step.title.toLowerCase()}`} key={step.number} className="scroll-mt-20 text-center">
                   <div className="how-step-image-wrap">
-                    <img src={step.image} alt={`${step.title} DSR workflow`} className="how-step-image" style={{ objectPosition: step.position }} />
+                    <img src={step.image} alt={`${step.label.replace("\n", " ")} workflow step`} className="how-step-image" />
                     <span className="how-step-number">{step.number}</span>
                   </div>
                   <h3 className="mt-7 whitespace-pre-line text-2xl font-normal leading-tight">{step.label}</h3>
