@@ -169,6 +169,8 @@ async function main() {
 
   const jalandhar = districts.find((district) => district.code === "JAL");
   if (!jalandhar) throw new Error("Jalandhar district was not created.");
+  const rupnagar = districts.find((district) => district.code === "RPN");
+  if (!rupnagar) throw new Error("Rupnagar district was not created.");
 
   await prisma.user.createMany({
     data: [
@@ -211,6 +213,46 @@ async function main() {
         stateId: state.id,
         active: true,
       },
+      {
+        username: "dmo.rupnagar",
+        email: "dmo.rupnagar@punjab.gov.in",
+        password,
+        fullName: "District Mining Officer Rupnagar",
+        role: "DMO",
+        stateId: state.id,
+        districtId: rupnagar.id,
+        active: true,
+      },
+      {
+        username: "coe.rupnagar",
+        email: "coe.rupnagar@punjab.gov.in",
+        password,
+        fullName: "COE SEnSRS Rupnagar",
+        role: "COE_SENSRS",
+        stateId: state.id,
+        districtId: rupnagar.id,
+        active: true,
+      },
+      {
+        username: "reviewer.rupnagar",
+        email: "reviewer.rupnagar@punjab.gov.in",
+        password,
+        fullName: "Government Reviewer Rupnagar",
+        role: "REVIEWER",
+        stateId: state.id,
+        districtId: rupnagar.id,
+        active: true,
+      },
+      {
+        username: "head.office.rupnagar",
+        email: "head.office.rupnagar@punjab.gov.in",
+        password,
+        fullName: "Head Office Authority Rupnagar",
+        role: "HEAD_OFFICE",
+        stateId: state.id,
+        districtId: rupnagar.id,
+        active: true,
+      },
     ],
   });
 
@@ -246,7 +288,7 @@ async function main() {
   });
 
   console.log(
-    `Seed complete: 5 users and ${Object.keys(rolePermissions).length} roles; ${districts.length} districts created.`
+    `Seed complete: 9 users and ${Object.keys(rolePermissions).length} roles; ${districts.length} districts created.`
   );
 }
 

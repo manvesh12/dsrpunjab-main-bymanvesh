@@ -6,7 +6,9 @@ import {
   EyeOff,
   FileCheck2,
   Headphones,
+  KeyRound,
   Lock,
+  MapPin,
   ShieldCheck,
   User,
   UsersRound,
@@ -18,11 +20,23 @@ import PublicSiteFooter from "../../components/public/PublicSiteFooter";
 import PublicSiteHeader from "../../components/public/PublicSiteHeader";
 import { useAuth } from "../../security/auth.context";
 
+type RupnagarAuthorityRole = "DMO" | "COE_SENSRS" | "REVIEWER" | "HEAD_OFFICE";
+
+const RUPNAGAR_AUTHORITY_ACCOUNTS: Array<{ role: RupnagarAuthorityRole; label: string; id: string }> = [
+  { role: "DMO", label: "District Mining Officer", id: "dmo.rupnagar" },
+  { role: "COE_SENSRS", label: "COE SEnSRS", id: "coe.rupnagar" },
+  { role: "REVIEWER", label: "Government Reviewer", id: "reviewer.rupnagar" },
+  { role: "HEAD_OFFICE", label: "Head Office Authority", id: "head.office.rupnagar" },
+];
+
+const DEMO_AUTHORITY_PASSWORD = "Gov@2026!Secure";
+
 export default function LoginPage() {
   const [activeTab, setActiveTab] = useState<"staff" | "authority">("staff");
   const [staffId, setStaffId] = useState("");
   const [password, setPassword] = useState("");
   const [authorityId, setAuthorityId] = useState("");
+  const [authorityRole, setAuthorityRole] = useState<RupnagarAuthorityRole>("DMO");
   const [pin, setPin] = useState("");
   const [showCredential, setShowCredential] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -40,8 +54,28 @@ export default function LoginPage() {
 
   const selectCategory = (category: "staff" | "authority") => {
     setActiveTab(category);
+    if (category === "authority" && !authorityId) setAuthorityId(RUPNAGAR_AUTHORITY_ACCOUNTS[0].id);
     setError(null);
     setShowCredential(false);
+  };
+
+  const selectAuthorityRole = (role: RupnagarAuthorityRole) => {
+    setAuthorityRole(role);
+    setAuthorityId(RUPNAGAR_AUTHORITY_ACCOUNTS.find((account) => account.role === role)!.id);
+    setError(null);
+  };
+
+  const selectAuthorityAccount = (account: (typeof RUPNAGAR_AUTHORITY_ACCOUNTS)[number]) => {
+    setAuthorityRole(account.role);
+    setAuthorityId(account.id);
+    setError(null);
+  };
+
+  const loadDemoAuthorityCredentials = () => {
+    setAuthorityId(RUPNAGAR_AUTHORITY_ACCOUNTS.find((account) => account.role === authorityRole)!.id);
+    setPin(DEMO_AUTHORITY_PASSWORD);
+    setError(null);
+    toast.success("Rupnagar demo credentials loaded.");
   };
 
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -115,8 +149,49 @@ export default function LoginPage() {
             </div>
 
             <form onSubmit={handleLogin} className="space-y-5 p-6 sm:p-8">
+              {!isStaff && (
+                <div className="space-y-4 border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-900 dark:bg-emerald-950/20">
+                  <div className="flex items-center justify-between gap-3 border-b border-emerald-200 pb-3 dark:border-emerald-900">
+                    <div className="flex items-center gap-2 text-sm font-extrabold text-[#103b67] dark:text-emerald-200">
+                      <MapPin size={17} className="text-emerald-700 dark:text-emerald-400" /> Rupnagar District, Punjab
+                    </div>
+                    <span className="bg-emerald-700 px-2 py-1 text-[10px] font-extrabold tracking-wider text-white">RPN</span>
+                  </div>
+
+                  <div>
+                    <label htmlFor="authority-role" className="login-label">Authority role</label>
+                    <select
+                      id="authority-role"
+                      value={authorityRole}
+                      onChange={(event) => selectAuthorityRole(event.target.value as RupnagarAuthorityRole)}
+                      className="login-input mt-2 px-3 font-semibold"
+                    >
+                      {RUPNAGAR_AUTHORITY_ACCOUNTS.map((account) => (
+                        <option key={account.role} value={account.role}>{account.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <p className="login-label">Available Rupnagar IDs</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {RUPNAGAR_AUTHORITY_ACCOUNTS.map((account) => (
+                        <button
+                          key={account.id}
+                          type="button"
+                          onClick={() => selectAuthorityAccount(account)}
+                          className={`border px-2.5 py-1.5 font-mono text-[11px] font-bold transition ${authorityId === account.id ? "border-emerald-700 bg-emerald-700 text-white" : "border-slate-300 bg-white text-slate-600 hover:border-emerald-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"}`}
+                        >
+                          {account.id}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div>
-                <label htmlFor="login-id" className="login-label">{isStaff ? "Username or official email" : "Authority ID"}</label>
+                <label htmlFor="login-id" className="login-label">{isStaff ? "Username or official email" : "Official Authority ID / NIC ID"}</label>
                 <div className="relative mt-2">
                   <User size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
@@ -128,14 +203,14 @@ export default function LoginPage() {
                     value={isStaff ? staffId : authorityId}
                     onChange={(event) => isStaff ? setStaffId(event.target.value) : setAuthorityId(event.target.value)}
                     className="login-input pl-10 pr-4"
-                    placeholder={isStaff ? "Enter assigned username" : "Enter assigned authority ID"}
+                    placeholder={isStaff ? "Enter assigned username" : "e.g. dmo.rupnagar"}
                   />
                 </div>
               </div>
 
               <div>
                 <div className="flex items-center justify-between gap-3">
-                  <label htmlFor="login-password" className="login-label">{isStaff ? "Password" : "Security PIN"}</label>
+                  <label htmlFor="login-password" className="login-label">{isStaff ? "Password" : "Password / Security PIN"}</label>
                   <Link to="/forgot-password" className="text-xs font-extrabold text-[#123c6e] hover:underline dark:text-blue-300">Forgot {isStaff ? "password" : "PIN"}?</Link>
                 </div>
                 <div className="relative mt-2">
@@ -153,6 +228,17 @@ export default function LoginPage() {
                   <button type="button" onClick={() => setShowCredential((show) => !show)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-[#123c6e]" aria-label={showCredential ? "Hide credential" : "Show credential"}>{showCredential ? <EyeOff size={18} /> : <Eye size={18} />}</button>
                 </div>
               </div>
+
+              {!isStaff && (
+                <div className="flex items-center justify-between gap-3 border border-dashed border-blue-300 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-950/20">
+                  <div className="min-w-0 text-xs text-slate-600 dark:text-slate-300">
+                    <p className="flex items-center gap-1.5 font-extrabold text-[#123c6e] dark:text-blue-300"><KeyRound size={14} /> Demo access</p>
+                    <p className="mt-1 truncate font-mono">{RUPNAGAR_AUTHORITY_ACCOUNTS.find((account) => account.role === authorityRole)!.id}</p>
+                    <p className="font-mono">{DEMO_AUTHORITY_PASSWORD}</p>
+                  </div>
+                  <button type="button" onClick={loadDemoAuthorityCredentials} className="shrink-0 bg-[#123c6e] px-3 py-2 text-[11px] font-extrabold text-white hover:bg-[#0b315d]">Use credentials</button>
+                </div>
+              )}
 
               {error && <div role="alert" className="border-l-4 border-red-600 bg-red-50 px-4 py-3 text-xs font-semibold leading-5 text-red-800 dark:bg-red-950/30 dark:text-red-300">{error}</div>}
 
