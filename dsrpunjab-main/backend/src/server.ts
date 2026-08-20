@@ -1,9 +1,12 @@
 import { createApp } from "./app.js";
+import { ensureRupnagarAuthorityAccounts } from "./bootstrap/rupnagar-authorities.js";
 import { logger } from "./common/logging/logger.js";
 import { environment } from "./config/environment.js";
 import { disconnectDatabase } from "./database/database.lifecycle.js";
 import { closeQueues } from "./jobs/queues.js";
 import { progressStreamService } from "./notifications/progress-stream.service.js";
+
+await ensureRupnagarAuthorityAccounts();
 
 const server = createApp().listen(environment.apiPort, () => {
   logger.info("server_started", { port: environment.apiPort });
